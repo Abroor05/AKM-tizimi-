@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { api, authApi, getToken, setToken, STORAGE_TO_API } from '../utils/api.js';
+import { api, authApi, getToken, setToken, getCachedUser, setCachedUser, STORAGE_TO_API } from '../utils/api.js';
 import { generateId } from '../utils/helpers.js';
 import { STORAGE_KEYS, ROLE_PERMISSIONS, DEFAULT_SETTINGS } from '../data/constants.js';
 
@@ -60,9 +60,18 @@ export function AppProvider({ children }) {
     } catch { /* keep defaults */ }
   }, []);
 
-  // --- Initialize: check token and restore session, or check bootstrap ---
+  // --- Initialize: restore session from localStorage, verify token ---
   useEffect(() => {
+    // 1. Immediately restore cached user for instant UI (no flash)
+    const cachedUser = getCachedUser();
     const token = getToken();
+
+    if (cachedUser && token) {
+      // Show cached user immediately while verifying
+      setCurrentUser(cachedUser);
+    }
+
+    // 2. Verify token with backend
     if (token) {
       authApi.me()
         .then(async ({ user }) => {
@@ -70,47 +79,32 @@ export function AppProvider({ children }) {
             setInitializedState(true);
             return;
           }
+          // Token valid — update with fresh user data
           setCurrentUser(user);
+          setCachedUser(user);
           await loadAllData();
           setInitializedState(true);
         })
-        .catch(async () => {
+        .catch(() => {
           if (getToken() !== token) {
             setInitializedState(true);
             return;
           }
+          // Token expired/invalid — clear and show login
           setToken(null);
-          // Token invalid — check if bootstrap is needed, otherwise auto-login
-          try {
-            const check = await authApi.bootstrapCheck();
-            if (check.needsBootstrap) {
-              setNeedsBootstrap(true);
-            } else {
-              const { token: newToken, user } = await authApi.login('admin', 'admin123');
-              setToken(newToken);
-              setCurrentUser(user);
-              await loadAllData();
-            }
-          } catch { /* server down — show login */ }
-          setInitializedState(true);
+          setCachedUser(null);
+          setCurrentUser(null);
+          // Check if bootstrap is needed
+          authApi.bootstrapCheck()
+            .then((check) => { setNeedsBootstrap(check.needsBootstrap); })
+            .catch(() => {})
+            .finally(() => setInitializedState(true));
         });
     } else {
-      // No token — check if bootstrap is needed, otherwise auto-login
+      // No token — check if bootstrap is needed, otherwise show login
       authApi.bootstrapCheck()
-        .then(async (check) => {
-          if (check.needsBootstrap) {
-            setNeedsBootstrap(true);
-          } else {
-            // Auto-login with default credentials (bypass login page)
-            try {
-              const { token, user } = await authApi.login('admin', 'admin123');
-              setToken(token);
-              setCurrentUser(user);
-              await loadAllData();
-            } catch {
-              // Auto-login failed — show login page
-            }
-          }
+        .then((check) => {
+          setNeedsBootstrap(check.needsBootstrap);
           setInitializedState(true);
         })
         .catch(() => {
@@ -119,11 +113,27 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  // --- Poll for new notifications every 15s (so admin sees report notifications without refresh) ---
+  useEffect(() => {
+    if (!currentUser) return;
+    const pollNotifications = async () => {
+      try {
+        const fresh = await api.get('notifications');
+        setCollections(prev => ({ ...prev, [STORAGE_KEYS.NOTIFICATIONS]: fresh }));
+      } catch (err) {
+        // silent — backend might be briefly unavailable
+      }
+    };
+    const interval = setInterval(pollNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
   // --- Bootstrap: create first admin ---
   const bootstrap = useCallback(async (data) => {
     try {
       const { token, user } = await authApi.bootstrap(data);
       setToken(token);
+      setCachedUser(user);
       setCurrentUser(user);
       await loadAllData();
       setNeedsBootstrap(false);
@@ -147,6 +157,7 @@ export function AppProvider({ children }) {
     try {
       const { token, user } = await authApi.login(username, password);
       setToken(token);
+      setCachedUser(user);
       setCurrentUser(user);
       await loadAllData();
       return { success: true, user };
@@ -158,6 +169,7 @@ export function AppProvider({ children }) {
   const logout = useCallback(async () => {
     await authApi.logout();
     setToken(null);
+    setCachedUser(null);
     setCurrentUser(null);
     setCollections({});
     collectionsRef.current = {};
@@ -240,8 +252,8 @@ export function AppProvider({ children }) {
     }
   }, [updateCollection, addAuditLog]);
 
-  // --- State-based getCollection (replaces localStorage) ---
-  const getCollection = useCallback((key) => collectionsRef.current[key] || [], []);
+  // --- State-based getCollection (reactive — triggers re-render when data changes) ---
+  const getCollection = useCallback((key) => collections[key] || [], [collections]);
   const saveCollection = useCallback((key, data) => updateCollection(key, data), [updateCollection]);
 
   // --- USERS ---
@@ -264,9 +276,10 @@ export function AppProvider({ children }) {
       updateCollection(STORAGE_KEYS.USERS, (users) =>
         (users || []).map(u => u.id === id ? updated : u)
       );
-      // If updating self, refresh current user
+      // If updating self, refresh current user + cached user
       if (currentUser && currentUser.id === id) {
         setCurrentUser(updated);
+        setCachedUser(updated);
       }
       return updated;
     } catch (err) {
@@ -294,6 +307,36 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  // --- Helper: create notification (API + optimistic state update) ---
+  const createNotification = useCallback(async (notif) => {
+    const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const newNotif = {
+      type: notif.type || 'info',
+      title: notif.title || '',
+      message: notif.message || '',
+      targetRole: notif.targetRole || null,
+      targetUserId: notif.targetUserId || null,
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toTimeString().slice(0, 5),
+      read: false,
+    };
+    // Optimistic update — insert with temp ID
+    updateCollection(STORAGE_KEYS.NOTIFICATIONS, (all) => [{ ...newNotif, id: tempId }, ...(all || [])]);
+    // API call — replace temp with real on success
+    try {
+      const created = await api.create('notifications', newNotif);
+      updateCollection(STORAGE_KEYS.NOTIFICATIONS, (all) =>
+        (all || []).map(n => n.id === tempId ? created : n)
+      );
+    } catch (err) {
+      console.error('Create notification failed:', err);
+      // Remove the temp notification on failure
+      updateCollection(STORAGE_KEYS.NOTIFICATIONS, (all) =>
+        (all || []).filter(n => n.id !== tempId)
+      );
+    }
+  }, [updateCollection]);
+
   // --- REPORTS ---
   const getReports = useCallback(() => getCollection(STORAGE_KEYS.REPORTS), [getCollection]);
 
@@ -307,12 +350,19 @@ export function AppProvider({ children }) {
         libraryId: currentUser?.libraryId,
       });
       updateCollection(STORAGE_KEYS.REPORTS, (reports) => [newReport, ...(reports || [])]);
+      // Notify admins about new report
+      await createNotification({
+        type: 'report',
+        title: 'Yangi hisobot yaratildi',
+        message: `"${newReport.title || 'Nomsiz'}" hisoboti ${currentUser?.fullName || ''} tomonidan yaratildi`,
+        targetRole: 'super_admin',
+      });
       return newReport;
     } catch (err) {
       console.error('Create report failed:', err);
       throw err;
     }
-  }, [currentUser, updateCollection]);
+  }, [currentUser, updateCollection, createNotification]);
 
   const submitReport = useCallback(async (id) => {
     try {
@@ -320,12 +370,19 @@ export function AppProvider({ children }) {
       updateCollection(STORAGE_KEYS.REPORTS, (reports) =>
         (reports || []).map(r => r.id === id ? updated : r)
       );
+      // Notify admins about submitted report
+      await createNotification({
+        type: 'report',
+        title: 'Hisobot yuborildi',
+        message: `"${updated.title || 'Nomsuz'}" hisoboti ko'rib chiqish uchun yuborildi`,
+        targetRole: 'super_admin',
+      });
       return updated;
     } catch (err) {
       console.error('Submit report failed:', err);
       throw err;
     }
-  }, [updateCollection]);
+  }, [updateCollection, createNotification]);
 
   const reviewReport = useCallback(async (id, action, comment = '') => {
     try {
@@ -333,12 +390,21 @@ export function AppProvider({ children }) {
       updateCollection(STORAGE_KEYS.REPORTS, (reports) =>
         (reports || []).map(r => r.id === id ? updated : r)
       );
+      // Notify report creator about review result
+      if (updated.userId) {
+        await createNotification({
+          type: action === 'approve' ? 'success' : 'warning',
+          title: action === 'approve' ? 'Hisobot tasdiqlandi' : 'Hisobot rad etildi',
+          message: `"${updated.title || 'Nomsuz'}" hisobingiz ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}${comment ? ': ' + comment : ''}`,
+          targetUserId: updated.userId,
+        });
+      }
       return updated;
     } catch (err) {
       console.error('Review report failed:', err);
       throw err;
     }
-  }, [updateCollection]);
+  }, [updateCollection, createNotification]);
 
   // --- TASKS ---
   const getTasks = useCallback(() => getCollection(STORAGE_KEYS.TASKS), [getCollection]);
@@ -347,12 +413,21 @@ export function AppProvider({ children }) {
     try {
       const newTask = await api.create('tasks', task);
       updateCollection(STORAGE_KEYS.TASKS, (tasks) => [newTask, ...(tasks || [])]);
+      // Notify assigned user
+      if (newTask.assignedTo) {
+        await createNotification({
+          type: 'task',
+          title: 'Yangi topshiriq',
+          message: `"${newTask.title}" topshirig'i sizga biriktirildi`,
+          targetUserId: newTask.assignedTo,
+        });
+      }
       return newTask;
     } catch (err) {
       console.error('Create task failed:', err);
       throw err;
     }
-  }, [updateCollection]);
+  }, [updateCollection, createNotification]);
 
   const updateTaskStatus = useCallback(async (id, status) => {
     try {
@@ -360,17 +435,31 @@ export function AppProvider({ children }) {
       updateCollection(STORAGE_KEYS.TASKS, (tasks) =>
         (tasks || []).map(t => t.id === id ? updated : t)
       );
+      // Notify task creator about completion
+      if (status === 'completed' && updated.assignedBy) {
+        await createNotification({
+          type: 'success',
+          title: 'Topshiriq bajarildi',
+          message: `"${updated.title}" topshirig'i bajarildi`,
+          targetUserId: updated.assignedBy,
+        });
+      }
       return updated;
     } catch (err) {
       console.error('Update task status failed:', err);
       throw err;
     }
-  }, [updateCollection]);
+  }, [updateCollection, createNotification]);
 
-  // --- NOTIFICATIONS ---
+  // --- NOTIFICATIONS (client-side filter: only show notifications targeted at current user) ---
   const getNotifications = useCallback(() => {
     if (!currentUser) return [];
-    return getCollection(STORAGE_KEYS.NOTIFICATIONS);
+    const all = getCollection(STORAGE_KEYS.NOTIFICATIONS);
+    return all.filter(n =>
+      (!n.targetUserId && !n.targetRole) ||          // broadcast to everyone
+      n.targetUserId === currentUser.id ||            // targeted at this user
+      n.targetRole === currentUser.role               // targeted at this role
+    );
   }, [currentUser, getCollection]);
 
   const getUnreadCount = useCallback(() => {
@@ -421,6 +510,7 @@ export function AppProvider({ children }) {
     try {
       await api.raw('/reset', { method: 'POST' });
       setToken(null);
+      setCachedUser(null);
       setCurrentUser(null);
       window.location.reload();
     } catch (err) {
@@ -472,6 +562,7 @@ export function AppProvider({ children }) {
     getUnreadCount,
     markNotificationRead,
     markAllRead,
+    createNotification,
 
     // Settings
     getSettings,

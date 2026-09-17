@@ -5,6 +5,7 @@
 // Use deployed backend URL if available, otherwise fall back to Vite proxy (/api)
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'kbt_token';
+const USER_KEY = 'kbt_user';
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -13,6 +14,18 @@ export function getToken() {
 export function setToken(token) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getCachedUser() {
+  try {
+    const data = localStorage.getItem(USER_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch { return null; }
+}
+
+export function setCachedUser(user) {
+  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  else localStorage.removeItem(USER_KEY);
 }
 
 // --- Core fetch wrapper ---
