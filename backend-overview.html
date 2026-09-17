@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KBT Backend - API Hujjati</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f8fafc; color: #1e293b; line-height: 1.6; }
+.container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+header { background: linear-gradient(135deg, #1e40af, #4338ca); color: white; border-radius: 16px; padding: 32px; margin-bottom: 24px; }
+header h1 { font-size: 28px; margin-bottom: 8px; }
+header p { opacity: 0.9; font-size: 14px; }
+.badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.badge { background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+section h2 { font-size: 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+section h2 .icon { font-size: 24px; }
+.file-tree { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 20px; font-family: 'Fira Code', 'Consolas', monospace; font-size: 13px; line-height: 1.8; overflow-x: auto; }
+.file-tree .dir { color: #60a5fa; font-weight: bold; }
+.file-tree .file { color: #e2e8f0; }
+.file-tree .comment { color: #64748b; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 12px; background: #f1f5f9; color: #475569; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+tr:hover td { background: #f8fafc; }
+.method { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: monospace; min-width: 50px; text-align: center; }
+.method.GET { background: #dcfce7; color: #166534; }
+.method.POST { background: #dbeafe; color: #1e40af; }
+.method.PUT { background: #fef3c7; color: #92400e; }
+.method.PATCH { background: #fae8ff; color: #86198f; }
+.method.DELETE { background: #fee2e2; color: #991b1b; }
+pre { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 16px; overflow-x: auto; font-family: 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.6; }
+pre .kw { color: #c084fc; }
+pre .str { color: #86efac; }
+pre .cmt { color: #64748b; }
+pre .fn { color: #60a5fa; }
+pre .num { color: #fbbf24; }
+.endpoint { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-family: 'Fira Code', monospace; font-size: 13px; }
+.endpoint .path { color: #1e293b; font-weight: 500; }
+.endpoint .desc { color: #64748b; font-size: 12px; margin-left: auto; }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat { background: #f1f5f9; border-radius: 8px; padding: 16px; text-align: center; }
+.stat .num { font-size: 24px; font-weight: 700; color: #1e40af; }
+.stat .label { font-size: 12px; color: #64748b; margin-top: 4px; }
+.schema-table { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.schema-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+.schema-card h4 { font-size: 13px; color: #1e40af; margin-bottom: 8px; font-family: monospace; }
+.schema-card .field { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; font-family: monospace; }
+.schema-card .field .name { color: #475569; }
+.schema-card .field .type { color: #64748b; }
+.schema-card .field .pk { color: #dc2626; font-weight: bold; }
+.nav { position: sticky; top: 0; background: white; border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; gap: 16px; flex-wrap: wrap; z-index: 10; }
+.nav a { text-decoration: none; color: #475569; font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 6px; transition: all 0.2s; }
+.nav a:hover { background: #f1f5f9; color: #1e40af; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; padding: 12px 16px; font-size: 13px; color: #1e40af; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>KBT Backend API</h1>
+  <p>Kutubxona Boshqaruv Tizimi — Backend server hujjati</p>
+  <div class="badges">
+    <span class="badge">Node.js + Express</span>
+    <span class="badge">SQLite (better-sqlite3)</span>
+    <span class="badge">JWT Auth</span>
+    <span class="badge">bcryptjs</span>
+    <span class="badge">Port 5000</span>
+  </div>
+</header>
+
+<div class="nav">
+  <a href="#structure">Struktura</a>
+  <a href="#endpoints">API Endpointlar</a>
+  <a href="#schema">Ma'lumotlar bazasi</a>
+  <a href="#auth">Auth</a>
+  <a href="#crud">CRUD</a>
+  <a href="#special">Maxsus route'lar</a>
+</div>
+
+<section id="structure">
+  <h2><span class="icon">📂</span> Backend fayl strukturasi</h2>
+  <div class="file-tree">
+<span class="dir">server/</span>
+├── <span class="file">package.json</span>          <span class="comment"># Express, better-sqlite3, bcryptjs, jsonwebtoken, cors</span>
+├── <span class="dir">node_modules/</span>
+└── <span class="dir">src/</span>
+    ├── <span class="file">index.js</span>              <span class="comment"># Express app entry — CORS, middleware, routes</span>
+    ├── <span class="dir">db/</span>
+    │   └── <span class="file">database.js</span>       <span class="comment"># SQLite connection, 15 ta jadval, helper funksiyalar</span>
+    ├── <span class="dir">middleware/</span>
+    │   └── <span class="file">auth.js</span>           <span class="comment"># JWT token, authMiddleware, requireRole</span>
+    └── <span class="dir">routes/</span>
+        ├── <span class="file">auth.js</span>           <span class="comment"># login, bootstrap, me, logout, register</span>
+        ├── <span class="file">crud.js</span>           <span class="comment"># Generic CRUD factory — 9 ta entity</span>
+        └── <span class="file">special.js</span>        <span class="comment"># users, reports, tasks, notifications, settings, audit, dashboard</span>
+  </div>
+</div>
+  <div class="stats">
+    <div class="stat"><div class="num">6</div><div class="label">Fayl</div></div>
+    <div class="stat"><div class="num">15</div><div class="label">Jadval</div></div>
+    <div class="stat"><div class="num">30+</div><div class="label">API endpoint</div></div>
+    <div class="stat"><div class="num">9</div><div class="label">CRUD entity</div></div>
+    <div class="stat"><div class="num">5</div><div class="label">Auth endpoint</div></div>
+  </div>
+</section>
+
+<section id="endpoints">
+  <h2><span class="icon">🔌</span> API Endpointlar</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Path</th><th>Tavsif</th></tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="3" style="font-weight:700; background:#eff6ff; color:#1e40af;">AUTH</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/health</td><td>Server holatini tekshirish</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/auth/bootstrap-check</td><td>Bo'sh baza tekshiruvi</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/auth/bootstrap</td><td>Birinchi admin yaratish</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/auth/login</td><td>Tizimga kirish (JWT token)</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/auth/me</td><td>Joriy foydalanuvchi</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/auth/logout</td><td>Tizimdan chiqish</td></tr>
+      <tr><td colspan="3" style="font-weight:700; background:#eff6ff; color:#1e40af;">CRUD (9 ta entity uchun bir xil pattern)</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/{entity}</td><td>Ro'yxat olish</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/{entity}/:id</td><td>Bittasini olish</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/{entity}</td><td>Yaratish</td></tr>
+      <tr><td><span class="method PUT">PUT</span></td><td>/api/{entity}/:id</td><td>To'liq yangilash</td></tr>
+      <tr><td><span class="method PATCH">PATCH</span></td><td>/api/{entity}/:id</td><td>Qisman yangilash</td></tr>
+      <tr><td><span class="method DELETE">DELETE</span></td><td>/api/{entity}/:id</td><td>O'chirish</td></tr>
+      <tr><td colspan="3" style="font-weight:700; background:#eff6ff; color:#1e40af;">CRUD ENTITY'LAR</td></tr>
+      <tr><td colspan="2" style="font-family:monospace; font-size:12px;">libraries, books, readers, activities, events, inventory, documents, appeals, kpi-data</td><td>9 ta entity</td></tr>
+      <tr><td colspan="3" style="font-weight:700; background:#eff6ff; color:#1e40af;">MAXSUS ENDPOINTLAR</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/users</td><td>Foydalanuvchilar (parolsiz)</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/users</td><td>Yangi user (bcrypt hash)</td></tr>
+      <tr><td><span class="method PUT">PUT</span></td><td>/api/users/:id</td><td>User yangilash</td></tr>
+      <tr><td><span class="method DELETE">DELETE</span></td><td>/api/users/:id</td><td>User o'chirish</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/users/:id/reset-password</td><td>Parol tiklash</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/reports/:id/submit</td><td>Hisobot yuborish</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/reports/:id/review</td><td>Tasdiqlash/Rad etish</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/tasks/:id/status</td><td>Holat o'zgartirish</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/notifications/:id/read</td><td>O'qildi belgilash</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/notifications/read-all</td><td>Hammasini o'qildi</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/settings</td><td>Tizim sozlamalari</td></tr>
+      <tr><td><span class="method PUT">PUT</span></td><td>/api/settings</td><td>Sozlamalarni yangilash</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/audit-log</td><td>Audit jurnali</td></tr>
+      <tr><td><span class="method GET">GET</span></td><td>/api/dashboard/stats</td><td>Dashboard statistikasi</td></tr>
+      <tr><td><span class="method POST">POST</span></td><td>/api/reset</td><td>Bazani tozalash</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="schema">
+  <h2><span class="icon">🗄️</span> Ma'lumotlar bazasi (SQLite)</h2>
+  <div class="note">15 ta jadval, WAL rejim, foreign keys yoqilgan. Fayl: <code>server/src/data/kbt.db</code></div>
+  <div class="schema-table">
+    <div class="schema-card"><h4>users</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">username</span><span class="type">TEXT UNIQUE</span></div>
+      <div class="field"><span class="name">password_hash</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">full_name</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">role</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">phone, email</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">viloyat/tuman/library_id</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">active</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">created_at, last_login</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>libraries</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">name</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">type, status</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">viloyat/tuman_id</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">address, phone, email</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">staff_count</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">founding_year</span><span class="type">INTEGER</span></div>
+    </div>
+    <div class="schema-card"><h4>books</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">title</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">author, category</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">isbn, publisher</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">year, pages</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">copies_total/available</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">library_id, language</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">status</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>readers</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">full_name</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">card_number, phone</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">address</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">birth_year</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">library_id, status</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">borrowed_count</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">registered_at, last_visit</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>reports</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">type, title</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">library/user/viloyat/tuman_id</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">status, period</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">submitted/reviewed_at</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">reviewed_by, review_comment</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">data</span><span class="type">TEXT (JSON)</span></div>
+      <div class="field"><span class="name">description</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>tasks</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">title, description</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">assigned_by/to</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">library_id</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">priority, status</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">due_date, created_at</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">completed_at</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>events</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">title, type</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">library/viloyat/tuman_id</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">date, time, location</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">participants</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">description, organizer</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">status</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>inventory</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">name, type</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">library_id</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">quantity</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">unit_price</span><span class="type">INTEGER</span></div>
+      <div class="field"><span class="name">status, serial_number</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">purchase_date</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>documents</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">title, type</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">library_id, uploaded_by</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">date, file_format, size</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">description</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>appeals</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">full_name, phone, email</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">library_id, subject</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">message, status</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">date, resolved_at</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">resolved_by, resolution</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>notifications</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">type, title, message</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">target_role, target_user_id</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">date, time</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">read</span><span class="type">INTEGER (0/1)</span></div>
+    </div>
+    <div class="schema-card"><h4>kpi_data</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">library_id, category</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">metric</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">target, actual</span><span class="type">REAL</span></div>
+      <div class="field"><span class="name">unit, period</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>audit_log</h4>
+      <div class="field"><span class="name">id <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">user_id, action</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">module, details</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">ip_address</span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">timestamp</span><span class="type">TEXT</span></div>
+    </div>
+    <div class="schema-card"><h4>settings</h4>
+      <div class="field"><span class="name">key <span class="pk">PK</span></span><span class="type">TEXT</span></div>
+      <div class="field"><span class="name">value</span><span class="type">TEXT (JSON)</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="auth">
+  <h2><span class="icon">🔐</span> Auth Middleware (auth.js)</h2>
+  <p style="margin-bottom:12px; font-size:13px; color:#64748b;">JWT token generatsiya, verify, role-based access control</p>
+  <pre><span class="cmt">// JWT konfiguratsiya</span>
+<span class="kw">const</span> JWT_SECRET = <span class="str">'kbt-secret-key-2024'</span>;
+<span class="kw">const</span> JWT_EXPIRES_IN = <span class="str">'24h'</span>;
+
+<span class="cmt">// Token generatsiya</span>
+<span class="kw">export function</span> <span class="fn">generateToken</span>(user) {
+  <span class="kw">return</span> jwt.<span class="fn">sign</span>(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+}
+
+<span class="cmt">// Middleware — har bir so'rovda token tekshiradi</span>
+<span class="kw">export function</span> <span class="fn">authMiddleware</span>(req, res, next) {
+  <span class="kw">const</span> header = req.headers.authorization;
+  <span class="kw">if</span> (!header || !header.startsWith(<span class="str">'Bearer '</span>)) {
+    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">401</span>).<span class="fn">json</span>({ error: <span class="str">'Token talab qilinadi'</span> });
+  }
+  <span class="kw">const</span> token = header.<span class="fn">slice</span>(<span class="num">7</span>);
+  <span class="kw">const</span> decoded = jwt.<span class="fn">verify</span>(token, JWT_SECRET);
+  <span class="kw">const</span> user = <span class="fn">getById</span>(<span class="str">'users'</span>, decoded.id);
+  req.user = user;  <span class="cmt">// foydalanuvchi so'rovga biriktiriladi</span>
+  next();
+}
+
+<span class="cmt">// Rol asosida himoya</span>
+<span class="kw">export function</span> <span class="fn">requireRole</span>(...roles) {
+  <span class="kw">return</span> (req, res, next) => {
+    <span class="kw">if</span> (!roles.<span class="fn">includes</span>(req.user.role)) {
+      <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">403</span>).<span class="fn">json</span>({ error: <span class="str">'Ruxsat berilmagan'</span> });
+    }
+    next();
+  };
+}</pre>
+</section>
+
+<section id="crud">
+  <h2><span class="icon">🔄</span> Generic CRUD Factory (crud.js)</h2>
+  <p style="margin-bottom:12px; font-size:13px; color:#64748b;">9 ta entity uchun bir xil CRUD route'lari avtomatik yaratiladi</p>
+  <pre><span class="cmt">// Entity konfiguratsiya — API path -> DB jadval</span>
+<span class="kw">const</span> ENTITY_CONFIG = {
+  <span class="str">'libraries'</span>: <span class="str">'libraries'</span>,
+  <span class="str">'books'</span>: <span class="str">'books'</span>,
+  <span class="str">'readers'</span>: <span class="str">'readers'</span>,
+  <span class="str">'activities'</span>: <span class="str">'activities'</span>,
+  <span class="str">'events'</span>: <span class="str">'events'</span>,
+  <span class="str">'inventory'</span>: <span class="str">'inventory'</span>,
+  <span class="str">'documents'</span>: <span class="str">'documents'</span>,
+  <span class="str">'appeals'</span>: <span class="str">'appeals'</span>,
+  <span class="str">'kpi-data'</span>: <span class="str">'kpi_data'</span>,
+};
+
+<span class="cmt">// Har bir entity uchun avtomatik route yaratish</span>
+<span class="kw">export function</span> <span class="fn">createCrudRouter</span>(apiPath, tableName) {
+  <span class="kw">const</span> router = Router();
+
+  router.<span class="fn">get</span>(<span class="str">'/'</span>, authMiddleware, (req, res) => {        <span class="cmt">// GET — ro'yxat</span>
+    res.<span class="fn">json</span>(<span class="fn">getAll</span>(tableName));
+  });
+
+  router.<span class="fn">get</span>(<span class="str">'/:id'</span>, authMiddleware, (req, res) => {     <span class="cmt">// GET — bittasi</span>
+    res.<span class="fn">json</span>(<span class="fn">getById</span>(tableName, req.params.id));
+  });
+
+  router.<span class="fn">post</span>(<span class="str">'/'</span>, authMiddleware, (req, res) => {        <span class="cmt">// POST — yaratish</span>
+    <span class="kw">const</span> id = <span class="fn">generateId</span>(prefix);
+    <span class="fn">insertRow</span>(tableName, { ...req.body, id });
+    res.<span class="fn">status</span>(<span class="num">201</span>).<span class="fn">json</span>(<span class="fn">getById</span>(tableName, id));
+  });
+
+  router.<span class="fn">put</span>(<span class="str">'/:id'</span>, authMiddleware, (req, res) => {      <span class="cmt">// PUT — yangilash</span>
+    res.<span class="fn">json</span>(<span class="fn">updateRow</span>(tableName, req.params.id, req.body));
+  });
+
+  router.<span class="fn">delete</span>(<span class="str">'/:id'</span>, authMiddleware, (req, res) => {   <span class="cmt">// DELETE — o'chirish</span>
+    <span class="fn">deleteRow</span>(tableName, req.params.id);
+    res.<span class="fn">json</span>({ success: <span class="kw">true</span> });
+  });
+
+  <span class="kw">return</span> router;
+}
+
+<span class="cmt">// 9 ta entity uchun route'larni app'ga biriktirish</span>
+<span class="kw">export function</span> <span class="fn">mountCrudRoutes</span>(app) {
+  <span class="kw">for</span> (<span class="kw">const</span> [apiPath, tableName] <span class="kw">of</span> Object.<span class="fn">entries</span>(ENTITY_CONFIG)) {
+    app.<span class="fn">use</span>(<span class="str">`/api/${apiPath}`</span>, <span class="fn">createCrudRouter</span>(apiPath, tableName));
+  }
+}</pre>
+</section>
+
+<section id="special">
+  <h2><span class="icon">⚙️</span> Maxsus Route'lar (special.js)</h2>
+  <table>
+    <thead><tr><th>Route</th><th>Maxsus funksiya</th></tr></thead>
+    <tbody>
+      <tr><td><strong>users</strong></td><td>bcrypt parol hash, password_hash ni javobdan olib tashlash, reset-password</td></tr>
+      <tr><td><strong>reports</strong></td><td>submit (status → submitted), review (approve/reject), data JSON parse</td></tr>
+      <tr><td><strong>tasks</strong></td><td>status yangilash, completed_at avtomatik</td></tr>
+      <tr><td><strong>notifications</strong></td><td>user-specific filtrlash, mark read, read-all</td></tr>
+      <tr><td><strong>settings</strong></td><td>key-value saqlash (JSON)</td></tr>
+      <tr><td><strong>audit-log</strong></td><td>har bir amal uchun avtomatik yozuv</td></tr>
+      <tr><td><strong>dashboard/stats</strong></td><td>15+ agregat statistika (COUNT, GROUP BY)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2><span class="icon">🚀</span> Ishga tushirish</h2>
+  <pre><span class="cmt"># 1. Backend serverni ishga tushirish (port 5000)</span>
+<span class="kw">cd</span> server
+npm install        <span class="cmt"># birinchi marta</span>
+node src/index.js  <span class="cmt"># yoki: npm run dev (--watch bilan)</span>
+
+<span class="cmt"># 2. Frontend (port 3000, /api -> localhost:5000 proxy)</span>
+<span class="kw">cd</span> ..
+npm run dev
+
+<span class="cmt"># 3. Test</span>
+curl http://localhost:5000/api/health
+<span class="cmt"># => {"status":"ok","timestamp":"..."}</span></pre>
+</section>
+
+</div>
+</body>
+</html>
