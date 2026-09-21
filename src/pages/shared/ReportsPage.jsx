@@ -147,12 +147,30 @@ export default function ReportsPage() {
           <div className="border-t pt-4">
             <p className="text-sm font-medium text-gray-700 mb-3">Faoliyat ko'rsatkichlari</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <Input label="Tashriflar" type="number" value={form.visitors} onChange={e => setForm({ ...form, visitors: parseInt(e.target.value) || 0 })} />
-              <Input label="Yangi kitobxonlar" type="number" value={form.newReaders} onChange={e => setForm({ ...form, newReaders: parseInt(e.target.value) || 0 })} />
-              <Input label="Berilgan kitoblar" type="number" value={form.booksGiven} onChange={e => setForm({ ...form, booksGiven: parseInt(e.target.value) || 0 })} />
-              <Input label="Qaytarilgan kitoblar" type="number" value={form.booksReturned} onChange={e => setForm({ ...form, booksReturned: parseInt(e.target.value) || 0 })} />
-              <Input label="Tadbirlar" type="number" value={form.events} onChange={e => setForm({ ...form, events: parseInt(e.target.value) || 0 })} />
-              <Input label="Daromad (so'm)" type="number" value={form.revenue} onChange={e => setForm({ ...form, revenue: parseInt(e.target.value) || 0 })} />
+              <Input label="Tashriflar" type="number" value={form.visitors} onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, visitors: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              }} />
+              <Input label="Yangi kitobxonlar" type="number" value={form.newReaders} onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, newReaders: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              }} />
+              <Input label="Berilgan kitoblar" type="number" value={form.booksGiven} onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, booksGiven: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              }} />
+              <Input label="Qaytarilgan kitoblar" type="number" value={form.booksReturned} onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, booksReturned: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              }} />
+              <Input label="Tadbirlar" type="number" value={form.events} onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, events: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              }} />
+              <Input label="Daromad (so'm)" type="number" value={form.revenue} onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, revenue: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              }} />
             </div>
           </div>
         </div>

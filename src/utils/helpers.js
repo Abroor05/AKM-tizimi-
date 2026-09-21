@@ -87,6 +87,14 @@ export function truncateText(text, maxLength = 100) {
   return text.slice(0, maxLength) + '...';
 }
 
+export function formatUzPhone(value) {
+  const digits = (value || '').replace(/\D/g, '');
+  if (!digits) return '+998';
+  const withoutPrefix = digits.replace(/^998/, '');
+  const trimmed = withoutPrefix.slice(0, 9);
+  return trimmed ? `+998${trimmed}` : '+998';
+}
+
 export function debounce(fn, delay = 300) {
   let timer;
   return function (...args) {

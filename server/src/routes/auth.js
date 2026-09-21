@@ -26,10 +26,18 @@ router.post('/bootstrap', (req, res) => {
     return res.status(400).json({ error: 'username, password va fullName talab qilinadi' });
   }
 
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (normalizedEmail) {
+    const duplicateEmail = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(normalizedEmail);
+    if (duplicateEmail) {
+      return res.status(409).json({ error: 'Bu email allaqachon ishlatilgan' });
+    }
+  }
+
   const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const passwordHash = bcrypt.hashSync(password, 10);
   db.prepare(`INSERT INTO users (id, username, password_hash, full_name, role, phone, email, active, created_at, last_login) VALUES (?, ?, ?, ?, 'super_admin', ?, ?, 1, ?, NULL)`)
-    .run(id, username.trim(), passwordHash, fullName, phone || null, email || null, new Date().toISOString().split('T')[0]);
+    .run(id, username.trim(), passwordHash, fullName, phone || null, normalizedEmail || null, new Date().toISOString().split('T')[0]);
 
   const user = getById('users', id);
   const token = generateToken(user);
@@ -113,10 +121,17 @@ router.post('/register', authMiddleware, (req, res) => {
   if (exists) {
     return res.status(409).json({ error: 'Bu login allaqachon mavjud' });
   }
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (normalizedEmail) {
+    const duplicateEmail = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(normalizedEmail);
+    if (duplicateEmail) {
+      return res.status(409).json({ error: 'Bu email allaqachon ishlatilgan' });
+    }
+  }
   const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const passwordHash = bcrypt.hashSync(password, 10);
   db.prepare(`INSERT INTO users (id, username, password_hash, full_name, role, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
-    .run(id, username.trim(), passwordHash, fullName, role, phone || null, email || null, viloyatId || null, tumanId || null, libraryId || null, new Date().toISOString().split('T')[0], null);
+    .run(id, username.trim(), passwordHash, fullName, role, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, libraryId || null, new Date().toISOString().split('T')[0], null);
 
   const user = getById('users', id);
   res.status(201).json(user);

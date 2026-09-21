@@ -6,6 +6,7 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'kbt_token';
 const USER_KEY = 'kbt_user';
+const LAST_ROUTE_KEY = 'kbt_last_route';
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -28,6 +29,24 @@ export function setCachedUser(user) {
   else localStorage.removeItem(USER_KEY);
 }
 
+export function getLastRoute() {
+  try {
+    const route = localStorage.getItem(LAST_ROUTE_KEY);
+    return route && route.startsWith('/') ? route : '/dashboard';
+  } catch {
+    return '/dashboard';
+  }
+}
+
+export function setLastRoute(route) {
+  if (!route || !route.startsWith('/')) return;
+  try {
+    localStorage.setItem(LAST_ROUTE_KEY, route);
+  } catch {
+    // ignore storage failures
+  }
+}
+
 // --- Core fetch wrapper ---
 async function apiFetch(path, options = {}) {
   const token = getToken();
@@ -45,9 +64,9 @@ async function apiFetch(path, options = {}) {
   // Handle 401 - token expired or invalid
   if (res.status === 401) {
     setToken(null);
-    // Only redirect if not on login page
+    const redirect = encodeURIComponent(window.location.pathname || '/dashboard');
     if (!window.location.pathname.includes('/login')) {
-      window.location.href = '/login';
+      window.location.href = `/login?redirect=${redirect}`;
     }
     throw new Error('Avtorizatsiya talab qilinadi');
   }

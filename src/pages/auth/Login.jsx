@@ -1,14 +1,18 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.jsx';
 import Logo from '../../components/ui/Logo.jsx';
 import Input from '../../components/ui/Input.jsx';
 import Button from '../../components/ui/Button.jsx';
 import ICONS from '../../components/icons.jsx';
+import { formatUzPhone } from '../../utils/helpers.js';
+import { getLastRoute } from '../../utils/api.js';
 
 export default function Login() {
   const { login, initialized, needsBootstrap, bootstrap, resetAllData } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectPath = new URLSearchParams(location.search).get('redirect') || getLastRoute();
 
   // Login state
   const [username, setUsername] = useState('');
@@ -22,7 +26,7 @@ export default function Login() {
   const [bsUsername, setBsUsername] = useState('');
   const [bsPassword, setBsPassword] = useState('');
   const [bsConfirm, setBsConfirm] = useState('');
-  const [bsPhone, setBsPhone] = useState('');
+  const [bsPhone, setBsPhone] = useState('+998');
   const [bsEmail, setBsEmail] = useState('');
   const [bsShowPassword, setBsShowPassword] = useState(false);
 
@@ -36,7 +40,7 @@ export default function Login() {
     try {
       const result = await login(username, password);
       if (result.success) {
-        navigate('/dashboard');
+        navigate(redirectPath.startsWith('/') ? redirectPath : '/dashboard', { replace: true });
       } else {
         setError(result.message || 'Login xatosi');
       }
@@ -74,7 +78,7 @@ export default function Login() {
         email: bsEmail.trim() || undefined,
       });
       if (result.success) {
-        navigate('/dashboard');
+        navigate(redirectPath.startsWith('/') ? redirectPath : '/dashboard', { replace: true });
       } else {
         setError(result.message || 'Sozlama xatosi');
       }
@@ -151,7 +155,7 @@ export default function Login() {
                 label="Telefon"
                 type="text"
                 value={bsPhone}
-                onChange={(e) => setBsPhone(e.target.value)}
+                onChange={(e) => setBsPhone(formatUzPhone(e.target.value))}
                 placeholder="+998 90 123 45 67"
                 disabled={loading}
               />

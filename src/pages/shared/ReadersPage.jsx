@@ -10,7 +10,7 @@ import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, READER_STATUS, READER_STATUS_LABELS, READER_STATUS_COLORS, ROLES } from '../../data/constants.js';
-import { formatDate } from '../../utils/helpers.js';
+import { formatDate, formatUzPhone } from '../../utils/helpers.js';
 
 export default function ReadersPage() {
   const { currentUser, getCollection, createEntity, updateEntity, deleteEntity, isRole, hasPermission } = useApp();
@@ -18,7 +18,7 @@ export default function ReadersPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm] = useState({ fullName: '', phone: '', address: '', birthYear: 2000, libraryId: '' });
+  const [form, setForm] = useState({ fullName: '', phone: '+998', address: '', birthDate: '', libraryId: '' });
 
   const allReaders = useMemo(() => getCollection(STORAGE_KEYS.READERS), [getCollection]);
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
@@ -44,7 +44,17 @@ export default function ReadersPage() {
 
   const handleSave = () => {
     if (!form.fullName || !form.libraryId) return;
-    const saveForm = { ...form, cardNumber: editItem?.cardNumber || `AXTB-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`, status: READER_STATUS.ACTIVE, registeredAt: editItem?.registeredAt || new Date().toISOString().split('T')[0], borrowedCount: editItem?.borrowedCount || 0 };
+    const birthYear = form.birthDate ? new Date(form.birthDate).getFullYear() : 2000;
+    const saveForm = {
+      ...form,
+      phone: formatUzPhone(form.phone),
+      birthYear,
+      birthDate: form.birthDate || '',
+      cardNumber: editItem?.cardNumber || `AXTB-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
+      status: READER_STATUS.ACTIVE,
+      registeredAt: editItem?.registeredAt || new Date().toISOString().split('T')[0],
+      borrowedCount: editItem?.borrowedCount || 0,
+    };
     if (editItem) {
       updateEntity(STORAGE_KEYS.READERS, editItem.id, saveForm);
     } else {
@@ -52,13 +62,13 @@ export default function ReadersPage() {
     }
     setShowModal(false);
     setEditItem(null);
-    setForm({ fullName: '', phone: '', address: '', birthYear: 2000, libraryId: scopedLibIds[0] || '' });
+    setForm({ fullName: '', phone: '+998', address: '', birthDate: '', libraryId: scopedLibIds[0] || '' });
   };
 
   return (
     <div>
       <PageHeader title="Kitobxonlar" subtitle="Kutubxona kitobxonlari ro'yxati" icon={ICONS.readers}
-        action={canManage ? <Button onClick={() => { setEditItem(null); setForm({ fullName: '', phone: '', address: '', birthYear: 2000, libraryId: scopedLibIds[0] || '' }); setShowModal(true); }}><ICONS.plus /> Yangi kitobxon</Button> : null} />
+        action={canManage ? <Button onClick={() => { setEditItem(null); setForm({ fullName: '', phone: '+998', address: '', birthDate: '', libraryId: scopedLibIds[0] || '' }); setShowModal(true); }}><ICONS.plus /> Yangi kitobxon</Button> : null} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Card className="text-center"><p className="text-2xl font-bold text-blue-600">{readers.length}</p><p className="text-xs text-gray-500">Jami</p></Card>
@@ -109,7 +119,7 @@ export default function ReadersPage() {
                     <td className="px-4 py-3"><Badge color={READER_STATUS_COLORS[r.status]}>{READER_STATUS_LABELS[r.status]}</Badge></td>
                     {canManage && (
                       <td className="px-4 py-3"><div className="flex items-center gap-1">
-                        <button onClick={() => { setEditItem(r); setForm(r); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><ICONS.edit className="text-sm" /></button>
+                        <button onClick={() => { setEditItem(r); setForm({ ...r, phone: r.phone || '+998', birthDate: r.birthDate || (r.birthYear ? `${r.birthYear}-01-01` : '') }); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><ICONS.edit className="text-sm" /></button>
                         <button onClick={() => { if (confirm('O\'chirilsinmi?')) deleteEntity(STORAGE_KEYS.READERS, r.id); }} className="p-1.5 rounded hover:bg-red-50 text-red-600"><ICONS.trash className="text-sm" /></button>
                       </div></td>
                     )}
@@ -125,9 +135,9 @@ export default function ReadersPage() {
         footer={<><Button variant="secondary" onClick={() => setShowModal(false)}>Bekor</Button><Button onClick={handleSave}><ICONS.save /> Saqlash</Button></>}>
         <div className="space-y-4">
           <Input label="F.I.O" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} required />
-          <Input label="Telefon" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          <Input label="Telefon" value={form.phone} onChange={e => setForm({ ...form, phone: formatUzPhone(e.target.value) })} />
           <Input label="Manzil" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
-          <Input label="Tug'ilgan yil" type="number" value={form.birthYear} onChange={e => setForm({ ...form, birthYear: parseInt(e.target.value) || 2000 })} />
+          <Input label="Tug'ilgan sana" type="date" value={form.birthDate} onChange={e => setForm({ ...form, birthDate: e.target.value })} />
           <Select label="Kutubxona" value={form.libraryId} onChange={e => setForm({ ...form, libraryId: e.target.value })} options={scopedLibraries.map(l => ({ value: l.id, label: l.name }))} required />
         </div>
       </Modal>

@@ -28,6 +28,29 @@ function addAuditLog(userId, action, module, details, req) {
 // ============================================================
 const usersRouter = Router();
 
+function canManageUserScope(currentUser, targetUser = null, targetRole = null, targetViloyatId = null, targetTumanId = null) {
+  if (!currentUser) return false;
+
+  if (currentUser.role === 'super_admin') return true;
+
+  const role = targetRole || targetUser?.role || null;
+  const allowedRoles = ['kutubxona_xodimi'];
+
+  if (currentUser.role === 'viloyat_admin') {
+    if (!allowedRoles.includes(role)) return false;
+    return targetViloyatId === currentUser.viloyatId || targetUser?.viloyatId === currentUser.viloyatId;
+  }
+
+  if (currentUser.role === 'tuman_admin') {
+    if (!allowedRoles.includes(role)) return false;
+    const sameViloyat = (targetViloyatId || targetUser?.viloyatId) === currentUser.viloyatId;
+    const sameTuman = (targetTumanId || targetUser?.tumanId) === currentUser.tumanId;
+    return sameViloyat && sameTuman;
+  }
+
+  return false;
+}
+
 usersRouter.get('/', authMiddleware, (req, res) => {
   const users = getAll('users');
   // Strip password_hash from response
@@ -49,6 +72,31 @@ usersRouter.post('/', authMiddleware, (req, res) => {
   if (!username || !password || !fullName || !role) {
     return res.status(400).json({ error: 'Majburiy maydonlar to\'ldirilmadi' });
   }
+
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (normalizedEmail) {
+    const duplicateEmail = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(normalizedEmail);
+    if (duplicateEmail) {
+      return res.status(409).json({ error: 'Bu email allaqachon ishlatilgan' });
+    }
+  }
+
+  if (req.user.role !== 'super_admin' && req.user.role !== 'viloyat_admin' && req.user.role !== 'tuman_admin') {
+    return res.status(403).json({ error: 'Siz foydalanuvchi yaratish uchun ruxsatga ega emassiz' });
+  }
+
+  if (req.user.role !== 'super_admin') {
+    if (role !== 'kutubxona_xodimi') {
+      return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini yaratishi mumkin' });
+    }
+    if ((viloyatId || req.user.viloyatId) !== req.user.viloyatId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni kiritishingiz mumkin' });
+    }
+    if (req.user.role === 'tuman_admin' && (tumanId || req.user.tumanId) !== req.user.tumanId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni kiritishingiz mumkin' });
+    }
+  }
+
   const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username.trim());
   if (exists) return res.status(409).json({ error: 'Bu login allaqachon mavjud' });
 
@@ -56,7 +104,7 @@ usersRouter.post('/', authMiddleware, (req, res) => {
   const passwordHash = bcrypt.hashSync(password, 10);
   const todayStr = new Date().toISOString().split('T')[0];
   db.prepare(`INSERT INTO users (id, username, password_hash, full_name, role, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
-    .run(id, username.trim(), passwordHash, fullName, role, phone || null, email || null, viloyatId || null, tumanId || null, libraryId || null, todayStr, null);
+    .run(id, username.trim(), passwordHash, fullName, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, libraryId || null, todayStr, null);
 
   addAuditLog(req.user.id, 'create', 'users', `Yangi foydalanuvchi: ${username}`, req);
   const user = getById('users', id);
@@ -67,7 +115,30 @@ usersRouter.post('/', authMiddleware, (req, res) => {
 usersRouter.put('/:id', authMiddleware, (req, res) => {
   const existing = getById('users', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+
+  const incomingEmail = ((req.body.email || existing.email || '') + '').trim().toLowerCase();
+  if (incomingEmail) {
+    const duplicateEmail = db.prepare('SELECT id FROM users WHERE LOWER(email) = ? AND id != ?').get(incomingEmail, req.params.id);
+    if (duplicateEmail) {
+      return res.status(409).json({ error: 'Bu email allaqachon ishlatilgan' });
+    }
+  }
+
+  if (req.user.role !== 'super_admin') {
+    const targetRole = req.body.role || existing.role;
+    if (targetRole !== 'kutubxona_xodimi') {
+      return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
+    }
+    if ((req.body.viloyatId || existing.viloyatId) !== req.user.viloyatId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni yangilay olasiz' });
+    }
+    if (req.user.role === 'tuman_admin' && (req.body.tumanId || existing.tumanId) !== req.user.tumanId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni yangilay olasiz' });
+    }
+  }
+
   const updates = { ...req.body };
+  if (updates.email) updates.email = updates.email.trim().toLowerCase();
   // Never update password_hash via PUT
   delete updates.password_hash;
   delete updates.password;
@@ -80,7 +151,22 @@ usersRouter.put('/:id', authMiddleware, (req, res) => {
 usersRouter.patch('/:id', authMiddleware, (req, res) => {
   const existing = getById('users', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+
+  if (req.user.role !== 'super_admin') {
+    const targetRole = req.body.role || existing.role;
+    if (targetRole !== 'kutubxona_xodimi') {
+      return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
+    }
+    if ((req.body.viloyatId || existing.viloyatId) !== req.user.viloyatId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni yangilay olasiz' });
+    }
+    if (req.user.role === 'tuman_admin' && (req.body.tumanId || existing.tumanId) !== req.user.tumanId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni yangilay olasiz' });
+    }
+  }
+
   const updates = { ...req.body };
+  if (updates.email) updates.email = updates.email.trim().toLowerCase();
   delete updates.password_hash;
   delete updates.password;
   const updated = updateRow('users', req.params.id, updates);
@@ -89,6 +175,21 @@ usersRouter.patch('/:id', authMiddleware, (req, res) => {
 });
 
 usersRouter.delete('/:id', authMiddleware, (req, res) => {
+  const existing = getById('users', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+
+  if (req.user.role !== 'super_admin') {
+    if (existing.role !== 'kutubxona_xodimi') {
+      return res.status(403).json({ error: 'Faqat super admin boshqa adminlarni o\'chirishi mumkin' });
+    }
+    if (existing.viloyatId !== req.user.viloyatId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni o\'chira olasiz' });
+    }
+    if (req.user.role === 'tuman_admin' && existing.tumanId !== req.user.tumanId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni o\'chira olasiz' });
+    }
+  }
+
   const success = deleteRow('users', req.params.id);
   if (!success) return res.status(404).json({ error: 'Topilmadi' });
   addAuditLog(req.user.id, 'delete', 'users', `Foydalanuvchi o'chirildi: ${req.params.id}`, req);

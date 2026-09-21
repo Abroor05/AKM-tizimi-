@@ -97,7 +97,10 @@ export default function EventsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Sarlavha" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required className="sm:col-span-2" />
           <Select label="Turi" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} required />
-          <Input label="Ishtirokchilar soni" type="number" value={form.participants} onChange={e => setForm({ ...form, participants: parseInt(e.target.value) || 0 })} />
+          <Input label="Ishtirokchilar soni" type="number" value={form.participants} onChange={e => {
+            const raw = e.target.value;
+            setForm({ ...form, participants: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+          }} />
           <Input label="Sana" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
           <Input label="Vaqt" type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
           <Input label="Joy" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className="sm:col-span-2" />

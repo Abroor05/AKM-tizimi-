@@ -38,7 +38,7 @@ export default function Dashboard() {
 
   // Filter data based on user's scope
   const scopedLibraries = useMemo(() => {
-    if (isSuperAdmin || isViloyatAdmin) return libraries;
+    if (isSuperAdmin) return libraries;
     if (isViloyatAdmin) return libraries.filter(l => l.viloyatId === currentUser.viloyatId);
     if (isTumanAdmin || isXodim) return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId);
     return libraries;
@@ -57,7 +57,7 @@ export default function Dashboard() {
   }, [books, scopedLibraries, isSuperAdmin]);
 
   const scopedReports = useMemo(() => {
-    if (isSuperAdmin || isViloyatAdmin) return reports;
+    if (isSuperAdmin) return reports;
     if (isViloyatAdmin) return reports.filter(r => r.viloyatId === currentUser.viloyatId);
     if (isTumanAdmin || isXodim) return reports.filter(r => r.viloyatId === currentUser.viloyatId && r.tumanId === currentUser.tumanId);
     return reports;

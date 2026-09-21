@@ -40,15 +40,24 @@ export default function SettingsPage() {
             <Input label="Tashkilot" value={form.organization} onChange={e => setForm({ ...form, organization: e.target.value })} />
             <Select label="Til" value={form.language} onChange={e => setForm({ ...form, language: e.target.value })}
               options={[{ value: 'uz', label: "O'zbekcha" }, { value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }]} />
-            <Input label="Sahifa hajmi" type="number" value={form.itemsPerPage} onChange={e => setForm({ ...form, itemsPerPage: parseInt(e.target.value) || 20 })} />
+            <Input label="Sahifa hajmi" type="number" value={form.itemsPerPage} onChange={e => {
+              const raw = e.target.value;
+              setForm({ ...form, itemsPerPage: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 20 });
+            }} />
           </div>
         </Card>
 
         {/* Security settings */}
         <Card title="Xavfsizlik sozlamalari">
           <div className="space-y-4">
-            <Input label="Sessiya muddati (daqiqa)" type="number" value={form.sessionTimeout} onChange={e => setForm({ ...form, sessionTimeout: parseInt(e.target.value) || 60 })} />
-            <Input label="Min. parol uzunligi" type="number" value={form.passwordMinLength} onChange={e => setForm({ ...form, passwordMinLength: parseInt(e.target.value) || 6 })} />
+            <Input label="Sessiya muddati (daqiqa)" type="number" value={form.sessionTimeout} onChange={e => {
+              const raw = e.target.value;
+              setForm({ ...form, sessionTimeout: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 60 });
+            }} />
+            <Input label="Min. parol uzunligi" type="number" value={form.passwordMinLength} onChange={e => {
+              const raw = e.target.value;
+              setForm({ ...form, passwordMinLength: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 6 });
+            }} />
             <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
               <div>
                 <p className="text-sm font-medium text-gray-700">Bildirishnomalar</p>

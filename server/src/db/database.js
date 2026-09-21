@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS libraries (
   viloyat_id TEXT,
   tuman_id TEXT,
   address TEXT,
+  latitude REAL,
+  longitude REAL,
   phone TEXT,
   email TEXT,
   staff_count INTEGER DEFAULT 0,
@@ -239,6 +241,14 @@ CREATE TABLE IF NOT EXISTS settings (
 
 // --- Execute schema ---
 db.exec(SCHEMA);
+
+const libraryCols = db.prepare('PRAGMA table_info(libraries)').all().map(c => c.name);
+if (!libraryCols.includes('latitude')) {
+  db.exec('ALTER TABLE libraries ADD COLUMN latitude REAL');
+}
+if (!libraryCols.includes('longitude')) {
+  db.exec('ALTER TABLE libraries ADD COLUMN longitude REAL');
+}
 
 // ============================================================
 // HELPER: Row <-> Object conversion

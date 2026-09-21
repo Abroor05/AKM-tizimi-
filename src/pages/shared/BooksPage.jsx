@@ -149,12 +149,26 @@ export default function BooksPage() {
           <Select label="Kategoriya" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} options={Object.entries(BOOK_CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }))} required />
           <Input label="ISBN" value={form.isbn} onChange={e => setForm({ ...form, isbn: e.target.value })} />
           <Input label="Nashriyot" value={form.publisher} onChange={e => setForm({ ...form, publisher: e.target.value })} />
-          <Input label="Yil" type="number" value={form.year} onChange={e => setForm({ ...form, year: parseInt(e.target.value) || new Date().getFullYear() })} />
-          <Input label="Jami nusxalar" type="number" value={form.copiesTotal} onChange={e => setForm({ ...form, copiesTotal: parseInt(e.target.value) || 1, copiesAvailable: Math.min(form.copiesAvailable, parseInt(e.target.value) || 1) })} />
-          <Input label="Mavjud nusxalar" type="number" value={form.copiesAvailable} onChange={e => setForm({ ...form, copiesAvailable: parseInt(e.target.value) || 0 })} />
+          <Input label="Yil" type="number" value={form.year} onChange={e => {
+            const raw = e.target.value;
+            setForm({ ...form, year: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : new Date().getFullYear() });
+          }} />
+          <Input label="Jami nusxalar" type="number" value={form.copiesTotal} onChange={e => {
+            const raw = e.target.value;
+            const total = raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 1;
+            const available = total === '' ? '' : Math.min(form.copiesAvailable || 0, total);
+            setForm({ ...form, copiesTotal: total, copiesAvailable: available });
+          }} />
+          <Input label="Mavjud nusxalar" type="number" value={form.copiesAvailable} onChange={e => {
+            const raw = e.target.value;
+            setForm({ ...form, copiesAvailable: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+          }} />
           <Select label="Kutubxona" value={form.libraryId} onChange={e => setForm({ ...form, libraryId: e.target.value })} options={scopedLibraries.map(l => ({ value: l.id, label: l.name }))} required />
           <Input label="Til" value={form.language} onChange={e => setForm({ ...form, language: e.target.value })} />
-          <Input label="Sahifalar" type="number" value={form.pages} onChange={e => setForm({ ...form, pages: parseInt(e.target.value) || 0 })} />
+          <Input label="Sahifalar" type="number" value={form.pages} onChange={e => {
+            const raw = e.target.value;
+            setForm({ ...form, pages: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+          }} />
         </div>
       </Modal>
     </div>

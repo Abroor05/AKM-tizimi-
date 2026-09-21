@@ -126,8 +126,14 @@ export default function InventoryPage() {
           <Input label="Nomi" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
           <Select label="Turi" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={Object.entries(INVENTORY_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Miqdori" type="number" value={form.quantity} onChange={e => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })} />
-            <Input label="Birlik narxi (so'm)" type="number" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: parseInt(e.target.value) || 0 })} />
+            <Input label="Miqdori" type="number" value={form.quantity} onChange={e => {
+              const raw = e.target.value;
+              setForm({ ...form, quantity: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 1 });
+            }} />
+            <Input label="Birlik narxi (so'm)" type="number" value={form.unitPrice} onChange={e => {
+              const raw = e.target.value;
+              setForm({ ...form, unitPrice: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+            }} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Select label="Holat" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} options={Object.entries(INVENTORY_STATUS_LABELS).map(([k, v]) => ({ value: k, label: v }))} />

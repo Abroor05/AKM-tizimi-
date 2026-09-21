@@ -1,7 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
+import { getLastRoute, setLastRoute } from './utils/api.js';
 
 import Login from './pages/auth/Login.jsx';
 import Dashboard from './pages/shared/Dashboard.jsx';
@@ -51,6 +53,13 @@ const MODULES = [
 
 function AppRoutes() {
   const { currentUser } = useApp();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname && location.pathname !== '/login') {
+      setLastRoute(location.pathname);
+    }
+  }, [location.pathname]);
 
   if (!currentUser) {
     return (
@@ -63,7 +72,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={<Navigate to={getLastRoute()} replace />} />
       <Route
         path="/dashboard"
         element={
@@ -87,7 +96,7 @@ function AppRoutes() {
           }
         />
       ))}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to={getLastRoute()} replace />} />
     </Routes>
   );
 }
