@@ -19,7 +19,7 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm] = useState({ fullName: '', username: '', password: 'user123', role: ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: '', tumanId: '', libraryId: '', active: true });
+  const [form, setForm] = useState({ fullName: '', username: '', password: '', role: ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: '', tumanId: '', libraryId: '', active: true });
 
   const allUsers = useMemo(() => getUsers(), [getUsers]);
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
@@ -46,7 +46,7 @@ export default function UsersPage() {
   const selectedViloyat = VILOYATLAR.find(v => v.id === form.viloyatId);
 
   const handleSave = () => {
-    if (!form.fullName || !form.username || !form.password || !form.role) return;
+    if (!form.fullName || !form.username || !form.role) return;
 
     const cleanedEmail = (form.email || '').trim().toLowerCase();
     if (cleanedEmail && allUsers.some(u => u.email && u.email.toLowerCase() === cleanedEmail && u.id !== editItem?.id)) {
@@ -56,13 +56,17 @@ export default function UsersPage() {
 
     const canAssignAdminRole = isRole(ROLES.SUPER_ADMIN);
     const safeForm = (() => {
+      const generatedForm = {
+        ...form,
+        password: (form.password || '').trim(),
+      };
       if (isRole(ROLES.TUMAN_ADMIN)) {
-        return { ...form, role: ROLES.KUTUBXONA_XODIMI, viloyatId: currentUser.viloyatId, tumanId: currentUser.tumanId };
+        return { ...generatedForm, role: ROLES.KUTUBXONA_XODIMI, viloyatId: currentUser.viloyatId, tumanId: currentUser.tumanId };
       }
       if (isRole(ROLES.VILOYAT_ADMIN)) {
-        return { ...form, role: ROLES.KUTUBXONA_XODIMI, viloyatId: currentUser.viloyatId };
+        return { ...generatedForm, role: ROLES.KUTUBXONA_XODIMI, viloyatId: currentUser.viloyatId };
       }
-      return form;
+      return generatedForm;
     })();
 
     if (!canAssignAdminRole && [ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN].includes(safeForm.role)) {
@@ -97,12 +101,12 @@ export default function UsersPage() {
     }
     setShowModal(false);
     setEditItem(null);
-    setForm({ fullName: '', username: '', password: 'user123', role: ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: '', active: true });
+    setForm({ fullName: '', username: '', password: '', role: ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: '', active: true });
   };
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ fullName: '', username: '', password: 'user123', role: isRole(ROLES.SUPER_ADMIN) || isRole(ROLES.VILOYAT_ADMIN) || isRole(ROLES.TUMAN_ADMIN) ? ROLES.KUTUBXONA_XODIMI : ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: '', active: true });
+    setForm({ fullName: '', username: '', password: '', role: isRole(ROLES.SUPER_ADMIN) || isRole(ROLES.VILOYAT_ADMIN) || isRole(ROLES.TUMAN_ADMIN) ? ROLES.KUTUBXONA_XODIMI : ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: '', active: true });
     setShowModal(true);
   };
 
@@ -178,7 +182,7 @@ export default function UsersPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setEditItem(u); setForm({ ...u, password: '' }); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Tahrirlash"><ICONS.edit className="text-sm" /></button>
-                          <button onClick={() => { const np = prompt('Yangi parolni kiriting:', 'user123'); if (np) resetPassword(u.id, np); }} className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Parolni tiklash"><ICONS.key className="text-sm" /></button>
+                          <button onClick={() => { const np = prompt('Yangi parolni kiriting:'); if (np) resetPassword(u.id, np); }} className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Parolni tiklash"><ICONS.key className="text-sm" /></button>
                           {u.id !== currentUser?.id && (
                             <button onClick={() => { if (confirm('Foydalanuvchi o\'chirilsinmi?')) deleteUser(u.id); }} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="O'chirish"><ICONS.trash className="text-sm" /></button>
                           )}
@@ -198,7 +202,7 @@ export default function UsersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="F.I.O" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} required />
           <Input label="Login" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required disabled={!!editItem} />
-          <Input label={editItem ? "Parol (o'zgartirmaslik uchun bo'sh qoldiring)" : "Parol"} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required={!editItem} />
+          <Input label={editItem ? "Parol (o'zgartirmaslik uchun bo'sh qoldiring)" : "Parol"} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
           <Select label="Rol" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} options={roleOptions} required disabled={!isRole(ROLES.SUPER_ADMIN)} />
           <Input label="Telefon" value={form.phone} onChange={e => setForm({ ...form, phone: formatUzPhone(e.target.value) })} />
           <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value.trim().toLowerCase() })} />

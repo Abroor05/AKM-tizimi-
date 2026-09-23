@@ -69,7 +69,8 @@ usersRouter.get('/:id', authMiddleware, (req, res) => {
 
 usersRouter.post('/', authMiddleware, (req, res) => {
   const { username, password, fullName, role, phone, email, viloyatId, tumanId, libraryId } = req.body;
-  if (!username || !password || !fullName || !role) {
+  const passwordValue = (password || '').trim();
+  if (!username || !fullName || !role) {
     return res.status(400).json({ error: 'Majburiy maydonlar to\'ldirilmadi' });
   }
 
@@ -101,10 +102,10 @@ usersRouter.post('/', authMiddleware, (req, res) => {
   if (exists) return res.status(409).json({ error: 'Bu login allaqachon mavjud' });
 
   const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  const passwordHash = bcrypt.hashSync(password, 10);
+  const passwordHash = bcrypt.hashSync(passwordValue || '', 10);
   const todayStr = new Date().toISOString().split('T')[0];
-  db.prepare(`INSERT INTO users (id, username, password_hash, full_name, role, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
-    .run(id, username.trim(), passwordHash, fullName, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, libraryId || null, todayStr, null);
+  db.prepare(`INSERT INTO users (id, username, password_hash, full_name, role, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, username.trim(), passwordHash, fullName, role, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, libraryId || null, 1, todayStr, null);
 
   addAuditLog(req.user.id, 'create', 'users', `Yangi foydalanuvchi: ${username}`, req);
   const user = getById('users', id);

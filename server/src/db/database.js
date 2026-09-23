@@ -81,11 +81,13 @@ CREATE TABLE IF NOT EXISTS readers (
   phone TEXT,
   address TEXT,
   birth_year INTEGER,
+  birth_date TEXT,
   library_id TEXT,
   status TEXT DEFAULT 'active',
   registered_at TEXT,
   borrowed_count INTEGER DEFAULT 0,
-  last_visit TEXT
+  last_visit TEXT,
+  created_at TEXT
 );
 
 -- ACTIVITIES
@@ -248,6 +250,14 @@ if (!libraryCols.includes('latitude')) {
 }
 if (!libraryCols.includes('longitude')) {
   db.exec('ALTER TABLE libraries ADD COLUMN longitude REAL');
+}
+
+const readerCols = db.prepare('PRAGMA table_info(readers)').all().map(c => c.name);
+if (!readerCols.includes('birth_date')) {
+  db.exec('ALTER TABLE readers ADD COLUMN birth_date TEXT');
+}
+if (!readerCols.includes('created_at')) {
+  db.exec('ALTER TABLE readers ADD COLUMN created_at TEXT');
 }
 
 // ============================================================

@@ -208,7 +208,7 @@ export function AppProvider({ children }) {
     updateCollection(storageKey, (items) => [newItem, ...(items || [])]);
     // API call
     if (apiEndpoint) {
-      api.create(apiEndpoint, entity).catch(err => {
+      api.create(apiEndpoint, newItem).catch(err => {
         console.error('Create failed:', err);
       });
     }
