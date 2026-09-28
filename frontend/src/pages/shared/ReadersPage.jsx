@@ -95,12 +95,13 @@ export default function ReadersPage() {
 
   const openCreateModal = () => {
     setEditItem(null);
+    const defaultLibraryId = isXodim ? (currentUser?.libraryId || scopedLibraryId || formLibraries[0]?.id || '') : (formLibraries[0]?.id || '');
     setForm({
       fullName: '',
       phone: '+998',
       address: '',
       birthDate: '',
-      libraryId: isXodim ? scopedLibraryId : (formLibraries[0]?.id || ''),
+      libraryId: defaultLibraryId,
     });
     setShowModal(true);
   };
@@ -116,10 +117,12 @@ export default function ReadersPage() {
   };
 
   const handleSave = () => {
-    if (!form.fullName || !form.libraryId) return;
+    const fallbackLibraryId = isXodim ? (currentUser?.libraryId || scopedLibraryId || formLibraries[0]?.id || '') : (form.libraryId || formLibraries[0]?.id || '');
+    if (!form.fullName || !fallbackLibraryId) return;
     const birthYear = form.birthDate ? new Date(form.birthDate).getFullYear() : form.birthYear || 2000;
     const saveForm = {
       ...form,
+      libraryId: form.libraryId || fallbackLibraryId,
       birthYear,
       birthDate: form.birthDate || '',
       cardNumber: form.cardNumber || `KBT-${String(Date.now()).slice(-6)}`,

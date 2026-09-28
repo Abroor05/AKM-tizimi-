@@ -1,0 +1,10 @@
+const Database = require('better-sqlite3');
+const db = new Database('./src/data/kbt.db');
+console.log('USERS');
+console.log(JSON.stringify(db.prepare("SELECT id,username,full_name,role,library_id,viloyat_id,tuman_id,active FROM users").all(), null, 2));
+console.log('LIBRARIES');
+console.log(JSON.stringify(db.prepare("SELECT id,name,viloyat_id,tuman_id FROM libraries").all().slice(0, 10), null, 2));
+console.log('READERS');
+console.log(JSON.stringify(db.prepare("SELECT COUNT(*) as c FROM readers").get()));
+console.log('BOOKS');
+console.log(JSON.stringify(db.prepare("SELECT COUNT(*) as c FROM books").get()));

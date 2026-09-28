@@ -8,11 +8,11 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const DB_PATH = join(__dirname, '..', 'data', 'kbt.db');
+const DB_PATH = join(__dirname, '..', '..', '..', 'database', 'kbt.db');
 
-// Ensure data directory exists
+// Ensure database directory exists
 import { mkdirSync } from 'fs';
-mkdirSync(join(__dirname, '..', 'data'), { recursive: true });
+mkdirSync(join(__dirname, '..', '..', '..', 'database'), { recursive: true });
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
@@ -244,6 +244,24 @@ CREATE TABLE IF NOT EXISTS settings (
 // --- Execute schema ---
 db.exec(SCHEMA);
 
+const usersWithMissingLibrary = db.prepare("SELECT * FROM users WHERE role = 'kutubxona_xodimi' AND (library_id IS NULL OR library_id = '')").all();
+for (const user of usersWithMissingLibrary) {
+  let library = db.prepare(
+    'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, id ASC LIMIT 1'
+  ).get(user.viloyat_id, user.tuman_id);
+
+  if (!library) {
+    const libraryId = `lib_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const label = user.tuman_id ? `Kutubxona (${user.tuman_id})` : 'Asosiy kutubxona';
+    db.prepare(
+      'INSERT INTO libraries (id, name, type, viloyat_id, tuman_id, address, phone, email, staff_count, founding_year, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)'
+    ).run(libraryId, label, 'district', user.viloyat_id, user.tuman_id, '', '', '', new Date().getFullYear(), 'active', new Date().toISOString());
+    library = { id: libraryId };
+  }
+
+  db.prepare('UPDATE users SET library_id = ? WHERE id = ?').run(library.id, user.id);
+}
+
 const libraryCols = db.prepare('PRAGMA table_info(libraries)').all().map(c => c.name);
 if (!libraryCols.includes('latitude')) {
   db.exec('ALTER TABLE libraries ADD COLUMN latitude REAL');
@@ -312,17 +330,46 @@ export function objectToRow(table, obj) {
 // GENERIC QUERY HELPERS
 // ============================================================
 
+export function resolveUserLibraryId(user) {
+  if (!user || user.role !== 'kutubxona_xodimi') return user;
+  if (user.libraryId || user.library_id) return user;
+
+  const viloyatId = user.viloyatId || user.viloyat_id;
+  const tumanId = user.tumanId || user.tuman_id;
+  if (!viloyatId || !tumanId) return user;
+
+  let library = db.prepare(
+    'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, id ASC LIMIT 1'
+  ).get(viloyatId, tumanId);
+
+  if (!library) {
+    const libraryId = `lib_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const label = tumanId ? `Kutubxona (${tumanId})` : 'Asosiy kutubxona';
+    db.prepare(
+      'INSERT INTO libraries (id, name, type, viloyat_id, tuman_id, address, phone, email, staff_count, founding_year, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)'
+    ).run(libraryId, label, 'district', viloyatId, tumanId, '', '', '', new Date().getFullYear(), 'active', new Date().toISOString());
+    library = { id: libraryId };
+  }
+
+  db.prepare('UPDATE users SET library_id = ? WHERE id = ?').run(library.id, user.id);
+  return { ...user, libraryId: library.id, library_id: library.id };
+}
+
 export function getAll(table, where = '', params = []) {
   const sql = where
     ? `SELECT * FROM ${table} WHERE ${where}`
     : `SELECT * FROM ${table}`;
   const rows = db.prepare(sql).all(...params);
-  return rows.map(r => rowToObject(table, r));
+  return rows.map(r => {
+    const obj = rowToObject(table, r);
+    return table === 'users' ? resolveUserLibraryId(obj) : obj;
+  });
 }
 
 export function getById(table, id) {
   const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id);
-  return rowToObject(table, row);
+  const obj = rowToObject(table, row);
+  return table === 'users' ? resolveUserLibraryId(obj) : obj;
 }
 
 export function insertRow(table, obj) {

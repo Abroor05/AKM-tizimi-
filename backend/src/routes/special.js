@@ -10,6 +10,32 @@ function generateId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }, currentUser = null) {
+  if (role !== 'kutubxona_xodimi') return libraryId || null;
+
+  const chosen = libraryId || currentUser?.libraryId || currentUser?.library_id || null;
+  if (chosen) return chosen;
+
+  const finalViloyatId = viloyatId || currentUser?.viloyatId || currentUser?.viloyat_id || null;
+  const finalTumanId = tumanId || currentUser?.tumanId || currentUser?.tuman_id || null;
+  if (!finalViloyatId || !finalTumanId) return null;
+
+  let library = db.prepare(
+    'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, name ASC LIMIT 1'
+  ).get(finalViloyatId, finalTumanId);
+
+  if (!library) {
+    const newLibraryId = `lib_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const label = finalTumanId ? `Kutubxona (${finalTumanId})` : 'Asosiy kutubxona';
+    db.prepare(
+      'INSERT INTO libraries (id, name, type, viloyat_id, tuman_id, address, phone, email, staff_count, founding_year, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)'
+    ).run(newLibraryId, label, 'district', finalViloyatId, finalTumanId, '', '', '', new Date().getFullYear(), 'active', new Date().toISOString());
+    library = { id: newLibraryId };
+  }
+
+  return library?.id || null;
+}
+
 function addAuditLog(userId, action, module, details, req) {
   const logId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   insertRow('audit_log', {
@@ -101,11 +127,12 @@ usersRouter.post('/', authMiddleware, (req, res) => {
   const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username.trim());
   if (exists) return res.status(409).json({ error: 'Bu login allaqachon mavjud' });
 
+  const effectiveLibraryId = resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }, req.user);
   const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const passwordHash = bcrypt.hashSync(passwordValue || '', 10);
   const todayStr = new Date().toISOString().split('T')[0];
   db.prepare(`INSERT INTO users (id, username, password_hash, full_name, role, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(id, username.trim(), passwordHash, fullName, role, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, libraryId || null, 1, todayStr, null);
+    .run(id, username.trim(), passwordHash, fullName, role, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, effectiveLibraryId || null, 1, todayStr, null);
 
   addAuditLog(req.user.id, 'create', 'users', `Yangi foydalanuvchi: ${username}`, req);
   const user = getById('users', id);
@@ -140,6 +167,14 @@ usersRouter.put('/:id', authMiddleware, (req, res) => {
 
   const updates = { ...req.body };
   if (updates.email) updates.email = updates.email.trim().toLowerCase();
+  if (updates.role === 'kutubxona_xodimi' && !updates.libraryId && !updates.library_id) {
+    updates.libraryId = resolveLibraryIdForRole({
+      role: updates.role,
+      libraryId: updates.libraryId,
+      viloyatId: updates.viloyatId || existing.viloyatId,
+      tumanId: updates.tumanId || existing.tumanId,
+    }, req.user);
+  }
   // Never update password_hash via PUT
   delete updates.password_hash;
   delete updates.password;
@@ -168,6 +203,14 @@ usersRouter.patch('/:id', authMiddleware, (req, res) => {
 
   const updates = { ...req.body };
   if (updates.email) updates.email = updates.email.trim().toLowerCase();
+  if (updates.role === 'kutubxona_xodimi' && !updates.libraryId && !updates.library_id) {
+    updates.libraryId = resolveLibraryIdForRole({
+      role: updates.role,
+      libraryId: updates.libraryId,
+      viloyatId: updates.viloyatId || existing.viloyatId,
+      tumanId: updates.tumanId || existing.tumanId,
+    }, req.user);
+  }
   delete updates.password_hash;
   delete updates.password;
   const updated = updateRow('users', req.params.id, updates);

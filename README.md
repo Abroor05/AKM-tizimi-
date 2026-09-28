@@ -1,16 +1,61 @@
-# React + Vite
+# Hisobot — Kutubxona Boshqaruv Tizimi (KBT)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Loyiha uch qismdan iborat:
 
-Currently, two official plugins are available:
+```
+Hisobot/
+├── frontend/     ← React + Vite frontend
+├── backend/      ← Express.js + SQLite backend API
+├── database/     ← SQLite ma'lumotlar bazasi fayllari
+└── package.json  ← Root boshqaruv skriptlari
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Ishga tushirish
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 1. Backend (API server)
 
-## Expanding the Oxlint configuration
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Server: `http://localhost:5000`
+
+### 2. Frontend (React app)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+App: `http://localhost:3000`
+
+---
+
+## Root skriptlar
+
+```bash
+# Faqat frontendni ishga tushirish
+npm run dev
+
+# Faqat backendni ishga tushirish
+npm run dev:backend
+
+# Barcha paketlarni o'rnatish
+npm run install:all
+
+# Production build (frontend)
+npm run build
+```
+
+---
+
+## Texnologiyalar
+
+**Frontend:** React 19, Vite 8, TailwindCSS 4, React Query, React Router  
+**Backend:** Node.js, Express.js, better-sqlite3, JWT, bcryptjs  
+**Database:** SQLite (`database/kbt.db`)

@@ -8,6 +8,18 @@ import { generateToken, authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
+function resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }) {
+  if (role !== 'kutubxona_xodimi') return libraryId || null;
+  if (libraryId) return libraryId;
+  if (!viloyatId || !tumanId) return null;
+
+  const library = db.prepare(
+    'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, id ASC LIMIT 1'
+  ).get(viloyatId, tumanId);
+
+  return library?.id || null;
+}
+
 // GET /api/auth/bootstrap-check - check if initial setup is needed
 router.get('/bootstrap-check', (_req, res) => {
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
@@ -128,10 +140,11 @@ router.post('/register', authMiddleware, (req, res) => {
       return res.status(409).json({ error: 'Bu email allaqachon ishlatilgan' });
     }
   }
+  const effectiveLibraryId = resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId });
   const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const passwordHash = bcrypt.hashSync(password, 10);
   db.prepare(`INSERT INTO users (id, username, password_hash, full_name, role, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
-    .run(id, username.trim(), passwordHash, fullName, role, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, libraryId || null, new Date().toISOString().split('T')[0], null);
+    .run(id, username.trim(), passwordHash, fullName, role, phone || null, normalizedEmail || null, viloyatId || null, tumanId || null, effectiveLibraryId || null, new Date().toISOString().split('T')[0], null);
 
   const user = getById('users', id);
   res.status(201).json(user);

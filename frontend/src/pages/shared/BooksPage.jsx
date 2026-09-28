@@ -51,7 +51,9 @@ export default function BooksPage() {
 
   const handleSave = () => {
     if (!form.title || !form.author || !form.category) return;
-    const saveForm = { ...form, status: BOOK_STATUS.AVAILABLE };
+    const fallbackLibraryId = isRole(ROLES.KUTUBXONA_XODIMI) ? (currentUser?.libraryId || scopedLibIds[0] || '') : (form.libraryId || scopedLibIds[0] || '');
+    const saveForm = { ...form, libraryId: form.libraryId || fallbackLibraryId, status: BOOK_STATUS.AVAILABLE };
+    if (!saveForm.libraryId) return;
     if (editItem) {
       updateEntity(STORAGE_KEYS.BOOKS, editItem.id, saveForm);
     } else {
@@ -64,7 +66,8 @@ export default function BooksPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ title: '', author: '', category: '', isbn: '', publisher: '', year: new Date().getFullYear(), copiesTotal: 1, copiesAvailable: 1, libraryId: scopedLibIds[0] || '', language: "O'zbekcha", pages: 100 });
+    const defaultLibraryId = isRole(ROLES.KUTUBXONA_XODIMI) ? (currentUser?.libraryId || scopedLibIds[0] || '') : (scopedLibIds[0] || '');
+    setForm({ title: '', author: '', category: '', isbn: '', publisher: '', year: new Date().getFullYear(), copiesTotal: 1, copiesAvailable: 1, libraryId: defaultLibraryId, language: "O'zbekcha", pages: 100 });
     setShowModal(true);
   };
 

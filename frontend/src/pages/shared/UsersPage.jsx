@@ -89,15 +89,18 @@ export default function UsersPage() {
       return;
     }
 
+    const libraryAssignment = safeForm.libraryId || (isDistrictScopedUser ? currentUser?.libraryId || scopedLibraries[0]?.id || '' : '');
+    const finalForm = { ...safeForm, libraryId: libraryAssignment };
+
     if (editItem) {
-      const { password, ...updates } = safeForm;
+      const { password, ...updates } = finalForm;
       updateUser(editItem.id, updates);
     } else {
-      if (allUsers.some(u => u.username === safeForm.username)) {
+      if (allUsers.some(u => u.username === finalForm.username)) {
         alert('Bu login allaqachon mavjud!');
         return;
       }
-      createUser(safeForm);
+      createUser(finalForm);
     }
     setShowModal(false);
     setEditItem(null);
@@ -106,7 +109,8 @@ export default function UsersPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ fullName: '', username: '', password: '', role: isRole(ROLES.SUPER_ADMIN) || isRole(ROLES.VILOYAT_ADMIN) || isRole(ROLES.TUMAN_ADMIN) ? ROLES.KUTUBXONA_XODIMI : ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: '', active: true });
+    const defaultLibraryId = isDistrictScopedUser ? (currentUser?.libraryId || scopedLibraries[0]?.id || '') : '';
+    setForm({ fullName: '', username: '', password: '', role: isRole(ROLES.SUPER_ADMIN) || isRole(ROLES.VILOYAT_ADMIN) || isRole(ROLES.TUMAN_ADMIN) ? ROLES.KUTUBXONA_XODIMI : ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: defaultLibraryId, active: true });
     setShowModal(true);
   };
 
