@@ -28,7 +28,7 @@ export default function ReportsPage() {
 
   // Scope reports based on role
   const reports = useMemo(() => {
-    if (isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN)) return allReports;
+    if (isRole(ROLES.SUPER_ADMIN)) return allReports;
     if (isRole(ROLES.VILOYAT_ADMIN)) return allReports.filter(r => r.viloyatId === currentUser.viloyatId);
     return allReports.filter(r => r.viloyatId === currentUser.viloyatId && r.tumanId === currentUser.tumanId);
   }, [allReports, currentUser, isRole]);
@@ -196,14 +196,14 @@ export default function ReportsPage() {
               </div>
             </div>
             {detailItem.description && <p className="text-sm text-gray-600">{detailItem.description}</p>}
-            {detailItem.data && (
+            {(detailItem.visitors !== undefined || detailItem.newReaders !== undefined || detailItem.booksGiven !== undefined) && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {detailItem.data.visitors !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Tashriflar</p><p className="text-lg font-bold text-gray-800">{detailItem.data.visitors}</p></div>}
-                {detailItem.data.newReaders !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Yangi kitobxonlar</p><p className="text-lg font-bold text-gray-800">{detailItem.data.newReaders}</p></div>}
-                {detailItem.data.booksGiven !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Berilgan kitoblar</p><p className="text-lg font-bold text-gray-800">{detailItem.data.booksGiven}</p></div>}
-                {detailItem.data.booksReturned !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Qaytarilgan</p><p className="text-lg font-bold text-gray-800">{detailItem.data.booksReturned}</p></div>}
-                {detailItem.data.events !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Tadbirlar</p><p className="text-lg font-bold text-gray-800">{detailItem.data.events}</p></div>}
-                {detailItem.data.revenue !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Daromad</p><p className="text-lg font-bold text-gray-800">{formatMoney(detailItem.data.revenue)}</p></div>}
+                {detailItem.visitors !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Tashriflar</p><p className="text-lg font-bold text-gray-800">{detailItem.visitors}</p></div>}
+                {detailItem.newReaders !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Yangi kitobxonlar</p><p className="text-lg font-bold text-gray-800">{detailItem.newReaders}</p></div>}
+                {detailItem.booksGiven !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Berilgan kitoblar</p><p className="text-lg font-bold text-gray-800">{detailItem.booksGiven}</p></div>}
+                {detailItem.booksReturned !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Qaytarilgan</p><p className="text-lg font-bold text-gray-800">{detailItem.booksReturned}</p></div>}
+                {detailItem.events !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Tadbirlar</p><p className="text-lg font-bold text-gray-800">{detailItem.events}</p></div>}
+                {detailItem.revenue !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Daromad</p><p className="text-lg font-bold text-gray-800">{formatMoney(detailItem.revenue)}</p></div>}
               </div>
             )}
             {reviewMode && (

@@ -71,10 +71,20 @@ async function apiFetch(path, options = {}) {
     throw new Error('Avtorizatsiya talab qilinadi');
   }
 
-  const data = await res.json();
+  const responseText = await res.text();
+  let data = null;
+  try {
+    data = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    // The proxy may return an empty or non-JSON error response.
+  }
 
   if (!res.ok) {
-    throw new Error(data.error || data.message || 'Server xatosi');
+    throw new Error(data?.error || data?.message || `Server xatosi (${res.status})`);
+  }
+
+  if (data === null) {
+    throw new Error('Serverdan yaroqsiz javob olindi');
   }
 
   return data;

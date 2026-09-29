@@ -9,15 +9,8 @@ import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import ICONS from '../../components/icons.jsx';
-import { STORAGE_KEYS, APPEAL_STATUS, APPEAL_STATUS_LABELS, ROLES } from '../../data/constants.js';
+import { STORAGE_KEYS, APPEAL_STATUS, APPEAL_STATUS_LABELS, APPEAL_STATUS_COLORS, ROLES } from '../../data/constants.js';
 import { formatDate } from '../../utils/helpers.js';
-
-const APPEAL_STATUS_COLORS = {
-  [APPEAL_STATUS.NEW]: 'blue',
-  [APPEAL_STATUS.IN_PROGRESS]: 'amber',
-  [APPEAL_STATUS.RESOLVED]: 'green',
-  [APPEAL_STATUS.CLOSED]: 'gray',
-};
 
 export default function AppealsPage() {
   const { currentUser, getCollection, createEntity, updateEntity, isRole, hasPermission } = useApp();
@@ -32,7 +25,7 @@ export default function AppealsPage() {
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
 
   const scopedLibIds = useMemo(() => {
-    if (isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN)) return libraries.map(l => l.id);
+    if (isRole(ROLES.SUPER_ADMIN)) return libraries.map(l => l.id);
     if (isRole(ROLES.VILOYAT_ADMIN)) return libraries.filter(l => l.viloyatId === currentUser.viloyatId).map(l => l.id);
     return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId).map(l => l.id);
   }, [libraries, currentUser, isRole]);

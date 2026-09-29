@@ -203,32 +203,60 @@ export function AppProvider({ children }) {
   // --- Generic CRUD factory (optimistic + API) ---
   const createEntity = useCallback((storageKey, entity, userId = null, action = null, module = null) => {
     const apiEndpoint = STORAGE_TO_API[storageKey];
-    const newItem = { ...entity, id: entity.id || generateId('ent'), createdAt: entity.createdAt || new Date().toISOString() };
-    // Optimistic update
+    const tempId = entity.id || generateId('ent');
+    const newItem = { ...entity, id: tempId, createdAt: entity.createdAt || new Date().toISOString() };
+    // Optimistic update — insert immediately for fast UI
     updateCollection(storageKey, (items) => [newItem, ...(items || [])]);
-    // API call
+    // API call — replace temp item with server-confirmed item on success
     if (apiEndpoint) {
-      api.create(apiEndpoint, newItem).catch(err => {
-        console.error('Create failed:', err);
-      });
+      api.create(apiEndpoint, newItem)
+        .then(serverItem => {
+          // Replace optimistic item with real server response (may have different id/fields)
+          updateCollection(storageKey, (items) =>
+            (items || []).map(item => item.id === tempId ? serverItem : item)
+          );
+        })
+        .catch(err => {
+          console.error('Create failed:', err);
+          // Rollback: remove the optimistic item on failure
+          updateCollection(storageKey, (items) =>
+            (items || []).filter(item => item.id !== tempId)
+          );
+        });
     }
     if (userId && action) {
-      addAuditLog(userId, action, module || 'unknown', `${action}: ${newItem.id}`);
+      addAuditLog(userId, action, module || 'unknown', `${action}: ${tempId}`);
     }
     return newItem;
   }, [updateCollection, addAuditLog]);
 
   const updateEntity = useCallback((storageKey, id, updates, userId = null, action = null, module = null) => {
     const apiEndpoint = STORAGE_TO_API[storageKey];
+    // Save original for potential rollback
+    const originalItems = collectionsRef.current[storageKey] || [];
+    const original = originalItems.find(i => i.id === id);
     // Optimistic update
     updateCollection(storageKey, (items) =>
       (items || []).map(item => item.id === id ? { ...item, ...updates } : item)
     );
     // API call
     if (apiEndpoint) {
-      api.update(apiEndpoint, id, updates).catch(err => {
-        console.error('Update failed:', err);
-      });
+      api.update(apiEndpoint, id, updates)
+        .then(serverItem => {
+          // Sync with server response
+          updateCollection(storageKey, (items) =>
+            (items || []).map(item => item.id === id ? serverItem : item)
+          );
+        })
+        .catch(err => {
+          console.error('Update failed:', err);
+          // Rollback on failure
+          if (original) {
+            updateCollection(storageKey, (items) =>
+              (items || []).map(item => item.id === id ? original : item)
+            );
+          }
+        });
     }
     if (userId && action) {
       addAuditLog(userId, action, module || 'unknown', `${action}: ${id}`);
@@ -239,12 +267,19 @@ export function AppProvider({ children }) {
 
   const deleteEntity = useCallback((storageKey, id, userId = null, action = null, module = null) => {
     const apiEndpoint = STORAGE_TO_API[storageKey];
+    // Save original for potential rollback
+    const originalItems = collectionsRef.current[storageKey] || [];
+    const original = originalItems.find(i => i.id === id);
     // Optimistic update
     updateCollection(storageKey, (items) => (items || []).filter(item => item.id !== id));
     // API call
     if (apiEndpoint) {
       api.remove(apiEndpoint, id).catch(err => {
         console.error('Delete failed:', err);
+        // Rollback: restore the deleted item
+        if (original) {
+          updateCollection(storageKey, (items) => [...(items || []), original]);
+        }
       });
     }
     if (userId && action) {

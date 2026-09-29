@@ -30,7 +30,7 @@ export default function BooksPage() {
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
 
   const scopedLibraries = useMemo(() => {
-    if (isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN)) return libraries;
+    if (isRole(ROLES.SUPER_ADMIN)) return libraries;
     if (isRole(ROLES.VILOYAT_ADMIN)) return libraries.filter(l => l.viloyatId === currentUser.viloyatId);
     return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId);
   }, [libraries, currentUser, isRole]);

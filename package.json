@@ -4,10 +4,10 @@
   "description": "Kutubxona Boshqaruv Tizimi - Monorepo",
   "private": true,
   "scripts": {
-    "dev": "npm run dev --prefix frontend",
-    "dev:backend": "npm run dev --prefix backend",
-    "dev:all": "start npm run dev:backend & npm run dev",
-    "build": "npm run build --prefix frontend",
+    "dev": "npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:all": "npx concurrently \"npm run dev:backend\" \"npm run dev\"",
+    "build": "npm --prefix frontend run build",
     "install:all": "npm install --prefix frontend & npm install --prefix backend",
     "install:frontend": "npm install --prefix frontend",
     "install:backend": "npm install --prefix backend"

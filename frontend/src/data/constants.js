@@ -433,6 +433,38 @@ export const APPEAL_STATUS_LABELS = {
   [APPEAL_STATUS.CLOSED]: 'Yopilgan',
 };
 
+export const APPEAL_STATUS_COLORS = {
+  [APPEAL_STATUS.NEW]: 'blue',
+  [APPEAL_STATUS.IN_PROGRESS]: 'amber',
+  [APPEAL_STATUS.RESOLVED]: 'green',
+  [APPEAL_STATUS.CLOSED]: 'gray',
+};
+
+// --- ACTIVITY TYPES ---
+export const ACTIVITY_TYPES = {
+  KITOB_BERISH: 'kitob_berish',
+  KITOB_QABUL: 'kitob_qabul',
+  YANGI_KITOBXON: 'yangi_kitobxon',
+  KITOB_ZAXIRA: 'kitob_zaxira',
+  MASLAHAT_BERISH: 'maslahat_berish',
+};
+
+export const ACTIVITY_TYPE_LABELS = {
+  kitob_berish: 'Kitob berish',
+  kitob_qabul: 'Kitob qabul',
+  yangi_kitobxon: 'Yangi kitobxon',
+  kitob_zaxira: 'Kitob zaxira',
+  maslahat_berish: 'Maslahat berish',
+};
+
+export const ACTIVITY_TYPE_COLORS = {
+  kitob_berish: 'blue',
+  kitob_qabul: 'green',
+  yangi_kitobxon: 'purple',
+  kitob_zaxira: 'amber',
+  maslahat_berish: 'teal',
+};
+
 // --- NOTIFICATION TYPES ---
 export const NOTIFICATION_TYPES = {
   INFO: 'info',

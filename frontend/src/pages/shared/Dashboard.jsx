@@ -6,7 +6,7 @@ import Card from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import ICONS from '../../components/icons.jsx';
-import { ROLES, ROLE_LABELS, REPORT_STATUS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS, TASK_STATUS, TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '../../data/constants.js';
+import { ROLES, ROLE_LABELS, STORAGE_KEYS, REPORT_STATUS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS, TASK_STATUS, TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '../../data/constants.js';
 import { getViloyatName, getTumanName, VILOYATLAR } from '../../data/regions.js';
 import { formatNumber, formatMoney, getRelativeTime } from '../../utils/helpers.js';
 import {
@@ -27,14 +27,14 @@ export default function Dashboard() {
   const isXodim = role === ROLES.KUTUBXONA_XODIMI;
 
   // Get data
-  const libraries = useMemo(() => getCollection('kbt_libraries'), [getCollection]);
-  const books = useMemo(() => getCollection('kbt_books'), [getCollection]);
-  const readers = useMemo(() => getCollection('kbt_readers'), [getCollection]);
-  const activities = useMemo(() => getCollection('kbt_activities'), [getCollection]);
+  const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
+  const books = useMemo(() => getCollection(STORAGE_KEYS.BOOKS), [getCollection]);
+  const readers = useMemo(() => getCollection(STORAGE_KEYS.READERS), [getCollection]);
+  const activities = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
   const reports = useMemo(() => getReports(), [getReports]);
   const tasks = useMemo(() => getTasks(), [getTasks]);
-  const events = useMemo(() => getCollection('kbt_events'), [getCollection]);
-  const appeals = useMemo(() => getCollection('kbt_appeals'), [getCollection]);
+  const events = useMemo(() => getCollection(STORAGE_KEYS.EVENTS), [getCollection]);
+  const appeals = useMemo(() => getCollection(STORAGE_KEYS.APPEALS), [getCollection]);
 
   // Filter data based on user's scope
   const scopedLibraries = useMemo(() => {
@@ -45,16 +45,24 @@ export default function Dashboard() {
   }, [libraries, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodim]);
 
   const scopedReaders = useMemo(() => {
-    if (isSuperAdmin || isViloyatAdmin) return readers;
+    if (isSuperAdmin) return readers;
+    if (isViloyatAdmin) return readers.filter(r => {
+      const lib = scopedLibraries.find(l => l.id === r.libraryId);
+      return !!lib;
+    });
     const libIds = scopedLibraries.map(l => l.id);
     return readers.filter(r => libIds.includes(r.libraryId));
-  }, [readers, scopedLibraries, isSuperAdmin]);
+  }, [readers, scopedLibraries, isSuperAdmin, isViloyatAdmin]);
 
   const scopedBooks = useMemo(() => {
-    if (isSuperAdmin || isViloyatAdmin) return books;
+    if (isSuperAdmin) return books;
+    if (isViloyatAdmin) return books.filter(b => {
+      const lib = scopedLibraries.find(l => l.id === b.libraryId);
+      return !!lib;
+    });
     const libIds = scopedLibraries.map(l => l.id);
     return books.filter(b => libIds.includes(b.libraryId));
-  }, [books, scopedLibraries, isSuperAdmin]);
+  }, [books, scopedLibraries, isSuperAdmin, isViloyatAdmin]);
 
   const scopedReports = useMemo(() => {
     if (isSuperAdmin) return reports;

@@ -20,7 +20,7 @@ export default function AnalyticsPage() {
   const reports = useMemo(() => getCollection(STORAGE_KEYS.REPORTS), [getCollection]);
 
   const scopedLibIds = useMemo(() => {
-    if (isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN)) return libraries.map(l => l.id);
+    if (isRole(ROLES.SUPER_ADMIN)) return libraries.map(l => l.id);
     if (isRole(ROLES.VILOYAT_ADMIN)) return libraries.filter(l => l.viloyatId === currentUser.viloyatId).map(l => l.id);
     return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId).map(l => l.id);
   }, [libraries, currentUser, isRole]);

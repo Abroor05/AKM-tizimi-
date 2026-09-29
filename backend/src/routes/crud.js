@@ -38,6 +38,7 @@ const ID_PREFIXES = {
 export function createCrudRouter(apiPath, tableName) {
   const router = Router();
   const prefix = ID_PREFIXES[apiPath] || 'ent';
+  const tableColumns = new Set(db.prepare(`PRAGMA table_info(${tableName})`).all().map(column => column.name));
 
   // GET /api/{entity} - list all
   router.get('/', authMiddleware, (req, res) => {
@@ -56,7 +57,10 @@ export function createCrudRouter(apiPath, tableName) {
   router.post('/', authMiddleware, (req, res) => {
     const body = req.body;
     const id = body.id || generateId(prefix);
-    const obj = { ...body, id, created_at: body.createdAt || new Date().toISOString() };
+    const obj = { ...body, id };
+    if (tableColumns.has('created_at')) {
+      obj.created_at = body.createdAt || new Date().toISOString();
+    }
     // Remove camelCase duplicates that will be converted
     delete obj.createdAt;
     const row = objectToRow(tableName, obj);
