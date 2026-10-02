@@ -51,15 +51,33 @@ const MODULES = [
   { path: 'settings', comp: SettingsPage, perm: 'manage_settings' },
 ];
 
+const VALID_ROUTES = new Set(['/dashboard', ...MODULES.map(({ path }) => `/${path}`)]);
+
 function AppRoutes() {
-  const { currentUser } = useApp();
+  const { currentUser, initialized } = useApp();
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname && location.pathname !== '/login') {
+    if (VALID_ROUTES.has(location.pathname)) {
       setLastRoute(location.pathname);
     }
   }, [location.pathname]);
+
+  const safeLastRoute = (() => {
+    const route = getLastRoute();
+    return VALID_ROUTES.has(route) ? route : '/dashboard';
+  })();
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4" />
+          <p className="text-gray-500">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return (
@@ -72,7 +90,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={<Navigate to={getLastRoute()} replace />} />
+      <Route path="/login" element={<Navigate to={safeLastRoute} replace />} />
       <Route
         path="/dashboard"
         element={
@@ -96,7 +114,7 @@ function AppRoutes() {
           }
         />
       ))}
-      <Route path="*" element={<Navigate to={getLastRoute()} replace />} />
+      <Route path="*" element={<Navigate to={safeLastRoute} replace />} />
     </Routes>
   );
 }

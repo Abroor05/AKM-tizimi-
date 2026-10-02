@@ -35,7 +35,24 @@ if ($port3000) {
 Write-Host "Backend ishga tushmoqda (port 5000)..." -ForegroundColor Green
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$root\backend'; node --watch src/index.js" -WindowStyle Normal
 
-Start-Sleep -Seconds 2
+$backendReady = $false
+for ($attempt = 0; $attempt -lt 30; $attempt++) {
+    try {
+        $health = Invoke-RestMethod -Uri "http://localhost:5000/api/health" -TimeoutSec 1
+        if ($health.status -eq "ok") {
+            $backendReady = $true
+            break
+        }
+    }
+    catch {
+        Start-Sleep -Seconds 1
+    }
+}
+
+if (-not $backendReady) {
+    Write-Host "Backend javob bermadi. Frontend ishga tushirilmadi." -ForegroundColor Red
+    exit 1
+}
 
 # Frontend ishga tushirish (yangi terminalda)
 Write-Host "Frontend ishga tushmoqda (port 3000)..." -ForegroundColor Green

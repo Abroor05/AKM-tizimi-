@@ -62,55 +62,49 @@ export function AppProvider({ children }) {
 
   // --- Initialize: restore session from localStorage, verify token ---
   useEffect(() => {
-    // 1. Immediately restore cached user for instant UI (no flash)
-    const cachedUser = getCachedUser();
-    const token = getToken();
+    const initializeAuth = async () => {
+      const cachedUser = getCachedUser();
+      const token = getToken();
 
-    if (cachedUser && token) {
-      // Show cached user immediately while verifying
-      setCurrentUser(cachedUser);
-    }
+      if (cachedUser && cachedUser.id && token) {
+        setCurrentUser(cachedUser);
+      } else if (cachedUser || token) {
+        setToken(null);
+        setCachedUser(null);
+        setCurrentUser(null);
+      }
 
-    // 2. Verify token with backend
-    if (token) {
-      authApi.me()
-        .then(async ({ user }) => {
-          if (getToken() !== token) {
-            setInitializedState(true);
-            return;
+      try {
+        if (token) {
+          const { user } = await authApi.me();
+          if (getToken() === token) {
+            setCurrentUser(user);
+            setCachedUser(user);
+            await loadAllData();
           }
-          // Token valid — update with fresh user data
-          setCurrentUser(user);
-          setCachedUser(user);
-          await loadAllData();
-          setInitializedState(true);
-        })
-        .catch(() => {
-          if (getToken() !== token) {
-            setInitializedState(true);
-            return;
-          }
-          // Token expired/invalid — clear and show login
+        } else {
+          const check = await authApi.bootstrapCheck();
+          setNeedsBootstrap(check.needsBootstrap);
+        }
+      } catch {
+        if (getToken()) {
           setToken(null);
           setCachedUser(null);
           setCurrentUser(null);
-          // Check if bootstrap is needed
-          authApi.bootstrapCheck()
-            .then((check) => { setNeedsBootstrap(check.needsBootstrap); })
-            .catch(() => {})
-            .finally(() => setInitializedState(true));
-        });
-    } else {
-      // No token — check if bootstrap is needed, otherwise show login
-      authApi.bootstrapCheck()
-        .then((check) => {
+        }
+
+        try {
+          const check = await authApi.bootstrapCheck();
           setNeedsBootstrap(check.needsBootstrap);
-          setInitializedState(true);
-        })
-        .catch(() => {
-          setInitializedState(true);
-        });
-    }
+        } catch {
+          // Keep login screen visible even if bootstrap check is temporarily unavailable.
+        }
+      } finally {
+        setInitializedState(true);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   // --- Poll for new notifications every 15s (so admin sees report notifications without refresh) ---
