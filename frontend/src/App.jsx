@@ -27,6 +27,12 @@ import RolesPage from './pages/shared/RolesPage.jsx';
 import AuditPage from './pages/shared/AuditPage.jsx';
 import SecurityPage from './pages/shared/SecurityPage.jsx';
 import SettingsPage from './pages/shared/SettingsPage.jsx';
+import ProfilePage from './pages/shared/ProfilePage.jsx';
+
+// Xodimlar boshligi — dedicated pages
+import XBDashboard from './pages/xodimlar-boshligi/XBDashboard.jsx';
+import XBDailyActivity from './pages/xodimlar-boshligi/XBDailyActivity.jsx';
+import { ROLES } from './data/constants.js';
 
 const MODULES = [
   { path: 'libraries', comp: LibrariesPage, perm: 'view_libraries' },
@@ -49,6 +55,7 @@ const MODULES = [
   { path: 'audit', comp: AuditPage, perm: 'view_audit' },
   { path: 'security', comp: SecurityPage, perm: 'manage_security' },
   { path: 'settings', comp: SettingsPage, perm: 'manage_settings' },
+  { path: 'profile', comp: ProfilePage, perm: 'view_profile' },
 ];
 
 const VALID_ROUTES = new Set(['/dashboard', ...MODULES.map(({ path }) => `/${path}`)]);
@@ -96,12 +103,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredPermission="view_dashboard">
             <Layout>
-              <Dashboard />
+              {/* Xodimlar boshligi gets their own dedicated dashboard */}
+              {currentUser?.role === ROLES.XODIMLAR_BOSHLIGI
+                ? <XBDashboard />
+                : <Dashboard />
+              }
             </Layout>
           </ProtectedRoute>
         }
       />
-      {MODULES.map(m => (
+      {/* Xodimlar boshligi dedicated daily-activity with staff reporting */}
+      <Route
+        path="/daily-activity"
+        element={
+          <ProtectedRoute requiredPermission="view_activities">
+            <Layout>
+              {currentUser?.role === ROLES.XODIMLAR_BOSHLIGI
+                ? <XBDailyActivity />
+                : <DailyActivityPage />
+              }
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      {MODULES.filter(m => m.path !== 'daily-activity').map(m => (
         <Route
           key={m.path}
           path={`/${m.path}`}

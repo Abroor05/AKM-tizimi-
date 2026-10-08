@@ -24,6 +24,7 @@ export default function Dashboard() {
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
   const isViloyatAdmin = role === ROLES.VILOYAT_ADMIN;
   const isTumanAdmin = role === ROLES.TUMAN_ADMIN;
+  const isXodimBoshligi = role === ROLES.XODIMLAR_BOSHLIGI;
   const isXodim = role === ROLES.KUTUBXONA_XODIMI;
 
   // Get data
@@ -40,9 +41,10 @@ export default function Dashboard() {
   const scopedLibraries = useMemo(() => {
     if (isSuperAdmin) return libraries;
     if (isViloyatAdmin) return libraries.filter(l => l.viloyatId === currentUser.viloyatId);
-    if (isTumanAdmin || isXodim) return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId);
+    if (isTumanAdmin) return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId);
+    if (isXodimBoshligi || isXodim) return libraries.filter(l => l.id === currentUser.libraryId);
     return libraries;
-  }, [libraries, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodim]);
+  }, [libraries, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
   const scopedReaders = useMemo(() => {
     if (isSuperAdmin) return readers;
@@ -67,20 +69,22 @@ export default function Dashboard() {
   const scopedReports = useMemo(() => {
     if (isSuperAdmin) return reports;
     if (isViloyatAdmin) return reports.filter(r => r.viloyatId === currentUser.viloyatId);
-    if (isTumanAdmin || isXodim) return reports.filter(r => r.viloyatId === currentUser.viloyatId && r.tumanId === currentUser.tumanId);
+    if (isTumanAdmin) return reports.filter(r => r.viloyatId === currentUser.viloyatId && r.tumanId === currentUser.tumanId);
+    if (isXodimBoshligi || isXodim) return reports.filter(r => r.libraryId === currentUser.libraryId || r.createdBy === currentUser.id);
     return reports;
-  }, [reports, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodim]);
+  }, [reports, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
   const scopedTasks = useMemo(() => {
     if (isSuperAdmin || isViloyatAdmin) return tasks;
-    if (isXodim) return tasks.filter(t => t.assignedTo === currentUser.id);
     if (isTumanAdmin) return tasks.filter(t => t.assignedBy === currentUser.id || t.assignedTo === currentUser.id);
-    if (isViloyatAdmin) return tasks.filter(t => {
-      const lib = libraries.find(l => l.id === t.libraryId);
-      return lib?.viloyatId === currentUser.viloyatId;
-    });
+    if (isXodimBoshligi) return tasks.filter(t =>
+      t.assignedBy === currentUser.id ||
+      t.assignedTo === currentUser.id ||
+      t.libraryId === currentUser.libraryId
+    );
+    if (isXodim) return tasks.filter(t => t.assignedTo === currentUser.id);
     return tasks;
-  }, [tasks, currentUser, isSuperAdmin, isViloyatAdmin, isXodim, isTumanAdmin, isViloyatAdmin, libraries]);
+  }, [tasks, currentUser, isSuperAdmin, isViloyatAdmin, isXodimBoshligi, isXodim, isTumanAdmin]);
 
   // Calculate stats
   const pendingReports = scopedReports.filter(r => r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW);

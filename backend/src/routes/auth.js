@@ -9,7 +9,8 @@ import { generateToken, authMiddleware } from '../middleware/auth.js';
 const router = Router();
 
 function resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }) {
-  if (role !== 'kutubxona_xodimi') return libraryId || null;
+  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
+  if (!libraryRoles.includes(role)) return libraryId || null;
   if (libraryId) return libraryId;
   if (!viloyatId || !tumanId) return null;
 

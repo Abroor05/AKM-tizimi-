@@ -11,7 +11,8 @@ function generateId(prefix) {
 }
 
 function resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }, currentUser = null) {
-  if (role !== 'kutubxona_xodimi') return libraryId || null;
+  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
+  if (!libraryRoles.includes(role)) return libraryId || null;
 
   const chosen = libraryId || currentUser?.libraryId || currentUser?.library_id || null;
   if (chosen) return chosen;
@@ -60,7 +61,7 @@ function canManageUserScope(currentUser, targetUser = null, targetRole = null, t
   if (currentUser.role === 'super_admin') return true;
 
   const role = targetRole || targetUser?.role || null;
-  const allowedRoles = ['kutubxona_xodimi'];
+  const allowedRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
 
   if (currentUser.role === 'viloyat_admin') {
     if (!allowedRoles.includes(role)) return false;
@@ -113,7 +114,7 @@ usersRouter.post('/', authMiddleware, (req, res) => {
   }
 
   if (req.user.role !== 'super_admin') {
-    if (role !== 'kutubxona_xodimi') {
+    if (role !== 'kutubxona_xodimi' && role !== 'xodimlar_boshligi') {
       return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini yaratishi mumkin' });
     }
     if ((viloyatId || req.user.viloyatId) !== req.user.viloyatId) {
@@ -154,7 +155,7 @@ usersRouter.put('/:id', authMiddleware, (req, res) => {
 
   if (req.user.role !== 'super_admin') {
     const targetRole = req.body.role || existing.role;
-    if (targetRole !== 'kutubxona_xodimi') {
+    if (targetRole !== 'kutubxona_xodimi' && targetRole !== 'xodimlar_boshligi') {
       return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
     }
     if ((req.body.viloyatId || existing.viloyatId) !== req.user.viloyatId) {
@@ -167,7 +168,7 @@ usersRouter.put('/:id', authMiddleware, (req, res) => {
 
   const updates = { ...req.body };
   if (updates.email) updates.email = updates.email.trim().toLowerCase();
-  if (updates.role === 'kutubxona_xodimi' && !updates.libraryId && !updates.library_id) {
+  if ((updates.role === 'kutubxona_xodimi' || updates.role === 'xodimlar_boshligi') && !updates.libraryId && !updates.library_id) {
     updates.libraryId = resolveLibraryIdForRole({
       role: updates.role,
       libraryId: updates.libraryId,
@@ -190,7 +191,7 @@ usersRouter.patch('/:id', authMiddleware, (req, res) => {
 
   if (req.user.role !== 'super_admin') {
     const targetRole = req.body.role || existing.role;
-    if (targetRole !== 'kutubxona_xodimi') {
+    if (targetRole !== 'kutubxona_xodimi' && targetRole !== 'xodimlar_boshligi') {
       return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
     }
     if ((req.body.viloyatId || existing.viloyatId) !== req.user.viloyatId) {
@@ -203,7 +204,7 @@ usersRouter.patch('/:id', authMiddleware, (req, res) => {
 
   const updates = { ...req.body };
   if (updates.email) updates.email = updates.email.trim().toLowerCase();
-  if (updates.role === 'kutubxona_xodimi' && !updates.libraryId && !updates.library_id) {
+  if ((updates.role === 'kutubxona_xodimi' || updates.role === 'xodimlar_boshligi') && !updates.libraryId && !updates.library_id) {
     updates.libraryId = resolveLibraryIdForRole({
       role: updates.role,
       libraryId: updates.libraryId,
@@ -223,7 +224,7 @@ usersRouter.delete('/:id', authMiddleware, (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Topilmadi' });
 
   if (req.user.role !== 'super_admin') {
-    if (existing.role !== 'kutubxona_xodimi') {
+    if (existing.role !== 'kutubxona_xodimi' && existing.role !== 'xodimlar_boshligi') {
       return res.status(403).json({ error: 'Faqat super admin boshqa adminlarni o\'chirishi mumkin' });
     }
     if (existing.viloyatId !== req.user.viloyatId) {

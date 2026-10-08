@@ -96,8 +96,7 @@ CREATE TABLE IF NOT EXISTS activities (
   type TEXT NOT NULL,
   library_id TEXT,
   user_id TEXT,
-  reader_id TEXT,
-  book_id TEXT,
+  data TEXT,
   description TEXT,
   date TEXT,
   time TEXT,
@@ -244,7 +243,7 @@ CREATE TABLE IF NOT EXISTS settings (
 // --- Execute schema ---
 db.exec(SCHEMA);
 
-const usersWithMissingLibrary = db.prepare("SELECT * FROM users WHERE role = 'kutubxona_xodimi' AND (library_id IS NULL OR library_id = '')").all();
+const usersWithMissingLibrary = db.prepare("SELECT * FROM users WHERE role IN ('kutubxona_xodimi', 'xodimlar_boshligi') AND (library_id IS NULL OR library_id = '')").all();
 for (const user of usersWithMissingLibrary) {
   let library = db.prepare(
     'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, id ASC LIMIT 1'
@@ -276,6 +275,15 @@ if (!readerCols.includes('birth_date')) {
 }
 if (!readerCols.includes('created_at')) {
   db.exec('ALTER TABLE readers ADD COLUMN created_at TEXT');
+}
+
+// Activities: data ustuni qo'shish (bitta kunlik hisobot JSON sifatida)
+const activityCols = db.prepare('PRAGMA table_info(activities)').all().map(c => c.name);
+if (!activityCols.includes('count')) {
+  db.exec('ALTER TABLE activities ADD COLUMN count INTEGER');
+}
+if (!activityCols.includes('data')) {
+  db.exec('ALTER TABLE activities ADD COLUMN data TEXT');
 }
 
 // ============================================================
@@ -331,7 +339,8 @@ export function objectToRow(table, obj) {
 // ============================================================
 
 export function resolveUserLibraryId(user) {
-  if (!user || user.role !== 'kutubxona_xodimi') return user;
+  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
+  if (!user || !libraryRoles.includes(user.role)) return user;
   if (user.libraryId || user.library_id) return user;
 
   const viloyatId = user.viloyatId || user.viloyat_id;

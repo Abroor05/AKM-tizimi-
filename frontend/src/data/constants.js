@@ -7,6 +7,7 @@ export const ROLES = {
   SUPER_ADMIN: 'super_admin',
   VILOYAT_ADMIN: 'viloyat_admin',
   TUMAN_ADMIN: 'tuman_admin',
+  XODIMLAR_BOSHLIGI: 'xodimlar_boshligi',
   KUTUBXONA_XODIMI: 'kutubxona_xodimi',
 };
 
@@ -14,6 +15,7 @@ export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: 'Super Admin',
   [ROLES.VILOYAT_ADMIN]: 'Viloyat Admini',
   [ROLES.TUMAN_ADMIN]: 'Tuman/Shahar Admini',
+  [ROLES.XODIMLAR_BOSHLIGI]: 'Xodimlar Boshligi',
   [ROLES.KUTUBXONA_XODIMI]: 'Kutubxona Xodimi',
 };
 
@@ -21,6 +23,7 @@ export const ROLE_COLORS = {
   [ROLES.SUPER_ADMIN]: 'red',
   [ROLES.VILOYAT_ADMIN]: 'purple',
   [ROLES.TUMAN_ADMIN]: 'blue',
+  [ROLES.XODIMLAR_BOSHLIGI]: 'teal',
   [ROLES.KUTUBXONA_XODIMI]: 'green',
 };
 
@@ -42,6 +45,7 @@ export const AVATAR_BG_CLASSES = {
   red: 'bg-red-100 text-red-600',
   purple: 'bg-purple-100 text-purple-600',
   blue: 'bg-blue-100 text-blue-600',
+  teal: 'bg-teal-100 text-teal-600',
   green: 'bg-green-100 text-green-600',
   amber: 'bg-amber-100 text-amber-600',
   indigo: 'bg-indigo-100 text-indigo-600',
@@ -51,6 +55,7 @@ export const BADGE_BG_CLASSES = {
   red: 'bg-red-100 text-red-700',
   purple: 'bg-purple-100 text-purple-700',
   blue: 'bg-blue-100 text-blue-700',
+  teal: 'bg-teal-100 text-teal-700',
   green: 'bg-green-100 text-green-700',
   amber: 'bg-amber-100 text-amber-700',
   indigo: 'bg-indigo-100 text-indigo-700',
@@ -151,6 +156,9 @@ export const PERMISSIONS = {
 
   // Settings
   MANAGE_SETTINGS: 'manage_settings',
+
+  // Profile (all roles)
+  VIEW_PROFILE: 'view_profile',
 };
 
 // --- ROLE-PERMISSION MATRIX ---
@@ -182,6 +190,33 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_STATISTICS,
     PERMISSIONS.VIEW_MAP,
     PERMISSIONS.VIEW_USERS,
+    PERMISSIONS.VIEW_PROFILE,
+  ],
+
+  [ROLES.XODIMLAR_BOSHLIGI]: [
+    PERMISSIONS.VIEW_DASHBOARD,
+    PERMISSIONS.VIEW_OWN_LIBRARY,
+    PERMISSIONS.VIEW_LIBRARIES,
+    PERMISSIONS.CREATE_ACTIVITY,
+    PERMISSIONS.VIEW_ACTIVITIES,
+    PERMISSIONS.APPROVE_ACTIVITY,
+    PERMISSIONS.CREATE_REPORT,
+    PERMISSIONS.VIEW_REPORTS,
+    PERMISSIONS.CREATE_TASK,
+    PERMISSIONS.VIEW_TASKS,
+    PERMISSIONS.ASSIGN_TASK,
+    PERMISSIONS.COMPLETE_TASK,
+    PERMISSIONS.MANAGE_EVENTS,
+    PERMISSIONS.VIEW_EVENTS,
+    PERMISSIONS.MANAGE_INVENTORY,
+    PERMISSIONS.VIEW_INVENTORY,
+    PERMISSIONS.MANAGE_DOCUMENTS,
+    PERMISSIONS.VIEW_DOCUMENTS,
+    PERMISSIONS.VIEW_APPEALS,
+    PERMISSIONS.VIEW_NOTIFICATIONS,
+    PERMISSIONS.VIEW_STATISTICS,
+    PERMISSIONS.VIEW_USERS,
+    PERMISSIONS.VIEW_PROFILE,
   ],
 
   [ROLES.KUTUBXONA_XODIMI]: [
@@ -198,6 +233,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_APPEALS,
     PERMISSIONS.VIEW_NOTIFICATIONS,
     PERMISSIONS.VIEW_STATISTICS,
+    PERMISSIONS.VIEW_PROFILE,
   ],
 };
 
@@ -219,11 +255,12 @@ export const MENU_ITEMS = [
   { id: 'statistics', label: 'Statistika', icon: 'statistics', permission: PERMISSIONS.VIEW_STATISTICS },
   { id: 'analytics', label: 'BI Analytics', icon: 'analytics', permission: PERMISSIONS.VIEW_ANALYTICS },
   { id: 'map', label: 'Xarita', icon: 'map', permission: PERMISSIONS.VIEW_MAP },
-  { id: 'users', label: 'Foydalanuvchilar', icon: 'users', permission: PERMISSIONS.VIEW_USERS },
+  { id: 'users', label: 'Xodimlar', icon: 'users', permission: PERMISSIONS.VIEW_USERS },
   { id: 'roles', label: 'Rollar va Permissionlar', icon: 'roles', permission: PERMISSIONS.MANAGE_ROLES },
   { id: 'audit', label: 'Audit Log', icon: 'audit', permission: PERMISSIONS.VIEW_AUDIT },
   { id: 'security', label: 'Xavfsizlik', icon: 'security', permission: PERMISSIONS.MANAGE_SECURITY },
   { id: 'settings', label: 'Tizim sozlamalari', icon: 'settings', permission: PERMISSIONS.MANAGE_SETTINGS },
+  { id: 'profile', label: 'Profil va Sozlamalar', icon: 'user', permission: PERMISSIONS.VIEW_PROFILE },
 ];
 
 // --- REPORT TYPES ---
@@ -434,27 +471,30 @@ export const APPEAL_STATUS_COLORS = {
 
 // --- ACTIVITY TYPES ---
 export const ACTIVITY_TYPES = {
-  KITOB_BERISH: 'kitob_berish',
-  KITOB_QABUL: 'kitob_qabul',
-  YANGI_KITOBXON: 'yangi_kitobxon',
-  KITOB_ZAXIRA: 'kitob_zaxira',
-  MASLAHAT_BERISH: 'maslahat_berish',
+  KITOB_SKANERLASH: 'kitob_skanerlash',
+  KITOB_PDF: 'kitob_pdf',
+  TEXNIK_XIZMAT: 'texnik_xizmat',
+  JIHOZLASH: 'jihozlash',
+  TUZATISH: 'tuzatish',
+  BOSHQA: 'boshqa',
 };
 
 export const ACTIVITY_TYPE_LABELS = {
-  kitob_berish: 'Kitob berish',
-  kitob_qabul: 'Kitob qabul',
-  yangi_kitobxon: 'Yangi kitobxon',
-  kitob_zaxira: 'Kitob zaxira',
-  maslahat_berish: 'Maslahat berish',
+  kitob_skanerlash: 'Kitob skanerlash',
+  kitob_pdf:        'Kitob PDF qilish',
+  texnik_xizmat:    'Texnik xizmat',
+  jihozlash:        'Jihozlash / Kabellar',
+  tuzatish:         "Ta'mirlash / Tuzatish",
+  boshqa:           'Boshqa',
 };
 
 export const ACTIVITY_TYPE_COLORS = {
-  kitob_berish: 'blue',
-  kitob_qabul: 'green',
-  yangi_kitobxon: 'purple',
-  kitob_zaxira: 'amber',
-  maslahat_berish: 'teal',
+  kitob_skanerlash: 'blue',
+  kitob_pdf:        'indigo',
+  texnik_xizmat:    'amber',
+  jihozlash:        'teal',
+  tuzatish:         'red',
+  boshqa:           'gray',
 };
 
 // --- NOTIFICATION TYPES ---

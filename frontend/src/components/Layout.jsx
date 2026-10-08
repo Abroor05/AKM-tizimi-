@@ -223,7 +223,14 @@ export default function Layout({ children }) {
                     <p className="text-xs text-gray-500">{currentUser?.email}</p>
                     <Badge color={roleColor} className="mt-2">{ROLE_LABELS[currentUser?.role]}</Badge>
                   </div>
-                  <div className="p-2">
+                  <div className="p-2 space-y-0.5">
+                    <button
+                      onClick={() => { navigate('/profile'); setUserMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <ICONS.user className="text-sm text-gray-400" />
+                      Profil va Sozlamalar
+                    </button>
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
