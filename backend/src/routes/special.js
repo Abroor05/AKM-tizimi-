@@ -109,7 +109,7 @@ usersRouter.post('/', authMiddleware, (req, res) => {
     }
   }
 
-  if (req.user.role !== 'super_admin' && req.user.role !== 'viloyat_admin' && req.user.role !== 'tuman_admin') {
+  if (req.user.role !== 'super_admin' && req.user.role !== 'viloyat_admin' && req.user.role !== 'tuman_admin' && req.user.role !== 'xodimlar_boshligi') {
     return res.status(403).json({ error: 'Siz foydalanuvchi yaratish uchun ruxsatga ega emassiz' });
   }
 
@@ -122,6 +122,15 @@ usersRouter.post('/', authMiddleware, (req, res) => {
     }
     if (req.user.role === 'tuman_admin' && (tumanId || req.user.tumanId) !== req.user.tumanId) {
       return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni kiritishingiz mumkin' });
+    }
+    // Xodimlar boshligi: faqat o'z kutubxonasiga xodim qo'sha oladi
+    if (req.user.role === 'xodimlar_boshligi') {
+      if (role !== 'kutubxona_xodimi') {
+        return res.status(403).json({ error: 'Xodimlar boshligi faqat kutubxona xodimi yaratishi mumkin' });
+      }
+      if ((libraryId || req.user.libraryId) !== req.user.libraryId) {
+        return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangizga xodim qo\'sha olasiz' });
+      }
     }
   }
 
@@ -164,6 +173,9 @@ usersRouter.put('/:id', authMiddleware, (req, res) => {
     if (req.user.role === 'tuman_admin' && (req.body.tumanId || existing.tumanId) !== req.user.tumanId) {
       return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni yangilay olasiz' });
     }
+    if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== req.user.libraryId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangiz xodimlarini yangilay olasiz' });
+    }
   }
 
   const updates = { ...req.body };
@@ -200,6 +212,9 @@ usersRouter.patch('/:id', authMiddleware, (req, res) => {
     if (req.user.role === 'tuman_admin' && (req.body.tumanId || existing.tumanId) !== req.user.tumanId) {
       return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni yangilay olasiz' });
     }
+    if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== req.user.libraryId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangiz xodimlarini yangilay olasiz' });
+    }
   }
 
   const updates = { ...req.body };
@@ -232,6 +247,9 @@ usersRouter.delete('/:id', authMiddleware, (req, res) => {
     }
     if (req.user.role === 'tuman_admin' && existing.tumanId !== req.user.tumanId) {
       return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni o\'chira olasiz' });
+    }
+    if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== req.user.libraryId) {
+      return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangiz xodimlarini o\'chira olasiz' });
     }
   }
 

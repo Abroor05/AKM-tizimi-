@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { api, authApi, getToken, setToken, getCachedUser, setCachedUser, STORAGE_TO_API } from '../utils/api.js';
-import { generateId } from '../utils/helpers.js';
+import { generateId, formatDate } from '../utils/helpers.js';
 import { STORAGE_KEYS, ROLE_PERMISSIONS, DEFAULT_SETTINGS } from '../data/constants.js';
 
 const AppContext = createContext(null);
@@ -519,7 +519,111 @@ export function AppProvider({ children }) {
     }
   }, [updateCollection]);
 
-  // --- SETTINGS ---
+  // --- ACTIVITIES ---
+  const submitActivity = useCallback(async (activityId) => {
+    try {
+      const updated = await api.update('activities', activityId, { status: 'sent' });
+      updateCollection(STORAGE_KEYS.ACTIVITIES, (items) =>
+        (items || []).map(a => a.id === activityId ? { ...a, status: 'sent' } : a)
+      );
+
+      // O'z TUMANI boshliqni topish (libraryId emas, tumanId bo'yicha)
+      const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const boshligi = allUsers.find(u =>
+        u.role === 'xodimlar_boshligi' &&
+        u.tumanId === currentUser?.tumanId &&
+        u.viloyatId === currentUser?.viloyatId
+      );
+
+      await createNotification({
+        type: 'report',
+        title: 'Kunlik hisobot yuborildi',
+        message: `${currentUser?.fullName} tomonidan ${new Date().toLocaleDateString('uz-UZ')} kunlik hisobot yuborildi`,
+        targetUserId: boshligi?.id || null,
+        targetRole:   boshligi ? null : 'xodimlar_boshligi',
+      });
+
+      return updated;
+    } catch (err) {
+      console.error('Submit activity failed:', err);
+      throw err;
+    }
+  }, [currentUser, updateCollection, createNotification]);
+
+  // Bolim boshligi — xodim hisobotini qabul qilish
+  // Qabul qilganda: status='accepted', oylik jamlangan hisobot tuman adminga yuboriladi
+  const acceptActivity = useCallback(async (activityId) => {
+    try {
+      // 1. Faoliyatni "accepted" ga o'zgartir
+      await api.update('activities', activityId, { status: 'accepted' });
+      updateCollection(STORAGE_KEYS.ACTIVITIES, (items) =>
+        (items || []).map(a => a.id === activityId ? { ...a, status: 'accepted' } : a)
+      );
+
+      // 2. Bu oyning qabul qilingan barcha faoliyatlarini jamlash
+      const activity = (collectionsRef.current[STORAGE_KEYS.ACTIVITIES] || [])
+        .find(a => a.id === activityId);
+      const month = activity?.date?.slice(0, 7) || new Date().toISOString().slice(0, 7);
+
+      const allActs = collectionsRef.current[STORAGE_KEYS.ACTIVITIES] || [];
+      const monthActs = allActs.filter(a =>
+        a.type === 'daily_report' &&
+        a.libraryId === currentUser?.libraryId &&
+        a.date?.startsWith(month) &&
+        (a.status === 'accepted' || a.id === activityId)
+      );
+
+      // Oylik jami hisoblash
+      const monthTotals = {};
+      monthActs.forEach(a => {
+        let data = {};
+        try { data = typeof a.data === 'object' && a.data ? a.data : JSON.parse(a.data || '{}'); } catch { /**/ }
+        Object.entries(data).forEach(([k, v]) => { monthTotals[k] = (monthTotals[k] || 0) + Number(v); });
+      });
+
+      // 3. Tuman adminga notification yuborish
+      const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const tumanAdmin = allUsers.find(u =>
+        u.role === 'tuman_admin' &&
+        u.tumanId === currentUser?.tumanId &&
+        u.viloyatId === currentUser?.viloyatId
+      );
+
+      const monthLabel = (() => {
+        const [y, m] = month.split('-');
+        const months = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+        return `${months[+m - 1]} ${y}`;
+      })();
+
+      const totalSum = Object.values(monthTotals).reduce((s, v) => s + v, 0);
+
+      await createNotification({
+        type: 'report',
+        title: `${monthLabel} oylik hisobot yangilandi`,
+        message: `${currentUser?.fullName} hisobotni qabul qildi. ${monthLabel} jami: ${totalSum} ta ish bajarilgan (${monthActs.length} kun).`,
+        targetUserId: tumanAdmin?.id || null,
+        targetRole:   tumanAdmin ? null : 'tuman_admin',
+      });
+
+      // 4. Hisobotni yuborgan xodimga ham xabar
+      const xodim = allUsers.find(u => u.id === activity?.userId);
+      if (xodim) {
+        await createNotification({
+          type: 'success',
+          title: 'Hisobotingiz qabul qilindi',
+          message: `${formatDate(activity?.date)} kunlik hisobotingiz bolim boshligi tomonidan qabul qilindi`,
+          targetUserId: xodim.id,
+        });
+      }
+
+      return { accepted: true, month, monthTotals, monthActs: monthActs.length };
+    } catch (err) {
+      console.error('Accept activity failed:', err);
+      throw err;
+    }
+  }, [currentUser, updateCollection, createNotification]);
+
+
   const getSettings = useCallback(() => settings, [settings]);
 
   const updateSettings = useCallback(async (updates) => {
@@ -585,6 +689,10 @@ export function AppProvider({ children }) {
     getTasks,
     createTask,
     updateTaskStatus,
+
+    // Activities
+    submitActivity,
+    acceptActivity,
 
     // Notifications
     getNotifications,

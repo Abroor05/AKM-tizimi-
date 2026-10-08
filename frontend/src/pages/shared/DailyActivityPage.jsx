@@ -7,10 +7,9 @@ import Button from '../../components/ui/Button.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import ICONS from '../../components/icons.jsx';
-import { STORAGE_KEYS, ROLES, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '../../data/constants.js';
+import { STORAGE_KEYS, ROLES, ACTIVITY_TYPE_LABELS } from '../../data/constants.js';
 import { formatDate, formatNumber } from '../../utils/helpers.js';
 
-// Har bir tur uchun qisqacha label
 const TYPE_SHORT = {
   kitob_skanerlash: 'Scanner',
   kitob_pdf:        'PDF',
@@ -19,6 +18,10 @@ const TYPE_SHORT = {
   tuzatish:         "Ta'mirlash",
   boshqa:           'Boshqa',
 };
+
+// Status badge
+const STATUS_COLORS = { draft: 'gray', submitted: 'blue', sent: 'green' };
+const STATUS_LABELS = { draft: 'Qoralama', submitted: 'Saqlangan', sent: 'Yuborildi' };
 
 function buildEmptyForm() {
   const counts = {};
@@ -45,11 +48,12 @@ function getMonthLabel(yyyy_mm) {
 }
 
 export default function DailyActivityPage() {
-  const { currentUser, getCollection, createEntity, isRole, hasPermission } = useApp();
+  const { currentUser, getCollection, createEntity, isRole, hasPermission, submitActivity } = useApp();
 
   const [viewTab,     setViewTab]     = useState('daily');
   const [showModal,   setShowModal]   = useState(false);
-  const [showDetail,  setShowDetail]  = useState(null); // selected activity
+  const [showDetail,  setShowDetail]  = useState(null);
+  const [sending,     setSending]     = useState(null); // activity id being sent
   const [dateFilter,  setDateFilter]  = useState(new Date().toISOString().split('T')[0]);
   const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7));
   const [yearFilter,  setYearFilter]  = useState(new Date().getFullYear().toString());
@@ -59,38 +63,37 @@ export default function DailyActivityPage() {
   const libraries     = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES),  [getCollection]);
   const allUsers      = useMemo(() => getCollection(STORAGE_KEYS.USERS),      [getCollection]);
 
+  const isXodim = isRole(ROLES.KUTUBXONA_XODIMI);
+
   const scopedLibIds = useMemo(() => {
     if (isRole(ROLES.SUPER_ADMIN))         return libraries.map(l => l.id);
     if (isRole(ROLES.VILOYAT_ADMIN))       return libraries.filter(l => l.viloyatId === currentUser.viloyatId).map(l => l.id);
+    if (isRole(ROLES.KUTUBXONA_XODIMI))    return libraries.filter(l => l.id === currentUser.libraryId).map(l => l.id);
     return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId).map(l => l.id);
   }, [libraries, currentUser, isRole]);
 
-  // Faqat "report" tipidagi (bitta kunlik) yozuvlar
   const activities = useMemo(() =>
     allActivities.filter(a => scopedLibIds.includes(a.libraryId) && a.type === 'daily_report'),
     [allActivities, scopedLibIds]);
 
-  // Ko'rish uchun filtrlash
   const filtered = useMemo(() => {
     let list = activities;
     if (viewTab === 'daily')   list = list.filter(a => a.date === dateFilter);
     if (viewTab === 'monthly') list = list.filter(a => a.date?.startsWith(monthFilter));
     if (viewTab === 'yearly')  list = list.filter(a => a.date?.startsWith(yearFilter));
-    return list.sort((a, b) => new Date(b.date + 'T' + (b.time||'00:00')) - new Date(a.date + 'T' + (a.time||'00:00')));
+    return list.sort((a, b) =>
+      new Date(b.date + 'T' + (b.time||'00:00')) -
+      new Date(a.date + 'T' + (a.time||'00:00'))
+    );
   }, [activities, viewTab, dateFilter, monthFilter, yearFilter]);
 
   const canCreate = hasPermission('create_activity');
 
-  // Bitta yozuv sifatida saqlash
   const handleSave = () => {
     const hasAny = Object.values(form.counts).some(v => Number(v) > 0);
     if (!hasAny) { alert("Kamida bitta faoliyat uchun son kiriting"); return; }
-
     const data = {};
-    Object.entries(form.counts).forEach(([k, v]) => {
-      if (Number(v) > 0) data[k] = Number(v);
-    });
-
+    Object.entries(form.counts).forEach(([k, v]) => { if (Number(v) > 0) data[k] = Number(v); });
     createEntity(STORAGE_KEYS.ACTIVITIES, {
       type:        'daily_report',
       data:        JSON.stringify(data),
@@ -101,18 +104,27 @@ export default function DailyActivityPage() {
       userId:      currentUser?.id,
       status:      'submitted',
     });
-
     setShowModal(false);
     setForm(buildEmptyForm());
   };
 
-  // data ni parse qilish
+  const handleSend = async (a) => {
+    if (!confirm(`${formatDate(a.date)} kunlik hisobotni bolim boshligiga yuborasizmi?`)) return;
+    setSending(a.id);
+    try {
+      await submitActivity(a.id);
+    } catch {
+      alert("Yuborishda xato yuz berdi");
+    } finally {
+      setSending(null);
+    }
+  };
+
   const parseData = (a) => {
-    try { return typeof a.data === 'object' ? a.data : JSON.parse(a.data || '{}'); }
+    try { return typeof a.data === 'object' && a.data ? a.data : JSON.parse(a.data || '{}'); }
     catch { return {}; }
   };
 
-  // Oylik jami
   const monthTotals = useMemo(() => {
     const totals = {};
     Object.keys(ACTIVITY_TYPE_LABELS).forEach(k => { totals[k] = 0; });
@@ -137,7 +149,7 @@ export default function DailyActivityPage() {
         }
       />
 
-      {/* Ko'rish tablari */}
+      {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5 w-fit">
         {VIEW_TABS.map(tab => (
           <button key={tab.id} onClick={() => setViewTab(tab.id)}
@@ -152,23 +164,16 @@ export default function DailyActivityPage() {
 
       {/* Filtr */}
       <div className="mb-5">
-        {viewTab === 'daily'   && (
-          <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white" />
-        )}
-        {viewTab === 'monthly' && (
-          <input type="month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white" />
-        )}
+        {viewTab === 'daily'   && <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white" />}
+        {viewTab === 'monthly' && <input type="month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white" />}
         {viewTab === 'yearly'  && (
-          <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white">
+          <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white">
             {yearOptions.map(y => <option key={y} value={y}>{y}-yil</option>)}
           </select>
         )}
       </div>
 
-      {/* Oylik/yillik jami kartalar */}
+      {/* Oylik/yillik jami */}
       {(viewTab === 'monthly' || viewTab === 'yearly') && filtered.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
           {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => (
@@ -180,7 +185,7 @@ export default function DailyActivityPage() {
         </div>
       )}
 
-      {/* Hisobotlar ro'yxati */}
+      {/* Jadval */}
       {filtered.length === 0 ? (
         <EmptyState icon={ICONS.activity}
           title={
@@ -197,36 +202,66 @@ export default function DailyActivityPage() {
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Sana</th>
-                  <th className="text-left px-4 py-3 font-medium">Kim tomonidan</th>
+                  <th className="text-left px-4 py-3 font-medium">Kim</th>
                   {Object.entries(TYPE_SHORT).map(([k, v]) => (
                     <th key={k} className="text-center px-3 py-3 font-medium whitespace-nowrap">{v}</th>
                   ))}
-                  <th className="text-center px-4 py-3 font-medium">Ko'rish</th>
+                  <th className="text-left px-4 py-3 font-medium">Holat</th>
+                  <th className="text-center px-4 py-3 font-medium">Amallar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map(a => {
                   const data  = parseData(a);
                   const owner = allUsers.find(u => u.id === a.userId);
+                  const isMine = a.userId === currentUser?.id;
+                  const canSend = isXodim && isMine && a.status !== 'sent';
                   return (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
                         {formatDate(a.date)}
                         {a.time && <span className="text-xs text-gray-400 ml-1">{a.time}</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{owner?.fullName || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{owner?.fullName || '—'}</td>
                       {Object.keys(TYPE_SHORT).map(k => (
                         <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
                           {data[k] ? formatNumber(data[k]) : <span className="text-gray-300">—</span>}
                         </td>
                       ))}
+                      <td className="px-4 py-3">
+                        <Badge color={STATUS_COLORS[a.status] || 'gray'}>
+                          {STATUS_LABELS[a.status] || a.status}
+                        </Badge>
+                      </td>
                       <td className="text-center px-4 py-3">
-                        <button
-                          onClick={() => setShowDetail(a)}
-                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
-                        >
-                          <ICONS.eye />
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          {/* Ko'rish */}
+                          <button onClick={() => setShowDetail(a)}
+                            className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Ko'rish">
+                            <ICONS.eye className="text-sm" />
+                          </button>
+                          {/* Yuborish — faqat o'z hisoboti va yuborilmagan */}
+                          {canSend && (
+                            <button
+                              onClick={() => handleSend(a)}
+                              disabled={sending === a.id}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium disabled:opacity-50"
+                              title="Bolim boshligiga yuborish"
+                            >
+                              {sending === a.id
+                                ? <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                : <ICONS.paperPlane className="text-xs" />
+                              }
+                              Yuborish
+                            </button>
+                          )}
+                          {/* Yuborildi belgisi */}
+                          {a.status === 'sent' && (
+                            <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                              <ICONS.check className="text-xs" /> Yuborildi
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -241,7 +276,7 @@ export default function DailyActivityPage() {
       <Modal
         isOpen={showModal}
         onClose={() => { setShowModal(false); setForm(buildEmptyForm()); }}
-        title="Kunlik faoliyat hisoboti"
+        title="Bugungi faoliyat hisoboti"
         size="md"
         footer={
           <>
@@ -269,9 +304,7 @@ export default function DailyActivityPage() {
                   {label}
                 </span>
                 <input
-                  type="number"
-                  min="0"
-                  value={val}
+                  type="number" min="0" value={val}
                   onChange={e => setForm(f => ({ ...f, counts: { ...f.counts, [key]: e.target.value } }))}
                   placeholder="0"
                   className="w-20 text-center px-2 py-1.5 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
@@ -281,7 +314,6 @@ export default function DailyActivityPage() {
             );
           })}
         </div>
-
         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Sana</label>
@@ -296,20 +328,41 @@ export default function DailyActivityPage() {
         </div>
       </Modal>
 
-      {/* Hisobot detail modali */}
+      {/* Detail modali */}
       {showDetail && (
         <Modal
           isOpen={!!showDetail}
           onClose={() => setShowDetail(null)}
           title={`${formatDate(showDetail.date)} — Kunlik hisobot`}
           size="sm"
-          footer={<Button variant="secondary" onClick={() => setShowDetail(null)}>Yopish</Button>}
+          footer={
+            <div className="flex gap-2 w-full">
+              {/* Modaldan turib ham yuborish */}
+              {isRole(ROLES.KUTUBXONA_XODIMI) && showDetail.userId === currentUser?.id && showDetail.status !== 'sent' && (
+                <Button
+                  onClick={() => { handleSend(showDetail); setShowDetail(null); }}
+                  disabled={sending === showDetail.id}
+                >
+                  <ICONS.paperPlane /> Bolim boshligiga yuborish
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => setShowDetail(null)}>Yopish</Button>
+            </div>
+          }
         >
           <div className="space-y-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-gray-400">Holat</span>
+              <Badge color={STATUS_COLORS[showDetail.status] || 'gray'}>
+                {STATUS_LABELS[showDetail.status] || showDetail.status}
+              </Badge>
+            </div>
             {Object.entries(parseData(showDetail)).map(([key, val]) => (
               <div key={key} className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 border border-gray-100">
                 <span className="text-sm text-gray-600">{ACTIVITY_TYPE_LABELS[key] || key}</span>
-                <span className="text-lg font-bold text-blue-700">{formatNumber(val)} <span className="text-xs font-normal text-gray-400">ta</span></span>
+                <span className="text-lg font-bold text-blue-700">
+                  {formatNumber(val)} <span className="text-xs font-normal text-gray-400">ta</span>
+                </span>
               </div>
             ))}
             {showDetail.description && (
@@ -318,7 +371,7 @@ export default function DailyActivityPage() {
               </div>
             )}
             <div className="text-xs text-gray-400 pt-1 text-center">
-              {allUsers.find(u => u.id === showDetail.userId)?.fullName || '—'} tomonidan yuborildi
+              {allUsers.find(u => u.id === showDetail.userId)?.fullName || '—'} tomonidan
             </div>
           </div>
         </Modal>

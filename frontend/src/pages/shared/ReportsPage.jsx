@@ -66,7 +66,7 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader title="Hisobotlar" subtitle="Faoliyat hisobotlari va moliyaviy hisobotlar" icon={ICONS.reports}
-        action={canCreate ? <Button onClick={() => setShowModal(true)}><ICONS.plus /> Yangi hisobot</Button> : null} />
+        action={canCreate && !isRole(ROLES.KUTUBXONA_XODIMI) ? <Button onClick={() => setShowModal(true)}><ICONS.plus /> Yangi hisobot</Button> : null} />
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
         <Card className="text-center"><p className="text-2xl font-bold text-blue-600">{reports.length}</p><p className="text-xs text-gray-500">Jami</p></Card>
