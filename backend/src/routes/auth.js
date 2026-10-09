@@ -58,24 +58,51 @@ router.post('/bootstrap', (req, res) => {
   res.status(201).json({ token, user: safeUser });
 });
 
+import { authRateLimiter } from '../middleware/security.js';
+
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', authRateLimiter, (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Login va parol talab qilinadi' });
   }
 
-  const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username.trim());
+  const cleanUsername = String(username).trim();
+  const row = db.prepare('SELECT * FROM users WHERE username = ?').get(cleanUsername);
+
   if (!row) {
+    // Xavfsizlik: Muvaffaqiyatsiz urinishni qayd etish
+    const logId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    insertRow('audit_log', {
+      id: logId,
+      user_id: 'unknown',
+      action: 'failed_login',
+      module: 'auth',
+      details: `Mavjud bo'lmagan foydalanuvchi orqali kirish urinishi: ${cleanUsername}`,
+      ip_address: req.ip || '127.0.0.1',
+      timestamp: new Date().toISOString(),
+    });
     return res.status(401).json({ error: 'Login yoki parol noto\'g\'ri!' });
   }
+
   if (row.active !== 1) {
     return res.status(401).json({ error: 'Hisob faol emas' });
   }
 
   const valid = bcrypt.compareSync(password, row.password_hash);
   if (!valid) {
+    // Xavfsizlik: Noto'g'ri parol urinishini qayd etish
+    const logId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    insertRow('audit_log', {
+      id: logId,
+      user_id: row.id,
+      action: 'failed_login',
+      module: 'auth',
+      details: `Noto'g'ri parol bilan kirish urinishi: ${cleanUsername}`,
+      ip_address: req.ip || '127.0.0.1',
+      timestamp: new Date().toISOString(),
+    });
     return res.status(401).json({ error: 'Login yoki parol noto\'g\'ri!' });
   }
 
@@ -93,7 +120,7 @@ router.post('/login', (req, res) => {
     user_id: user.id,
     action: 'login',
     module: 'auth',
-    details: 'Tizimga kirildi',
+    details: 'Tizimga muvaffaqiyatli kirildi',
     ip_address: req.ip || '127.0.0.1',
     timestamp: new Date().toISOString(),
   });

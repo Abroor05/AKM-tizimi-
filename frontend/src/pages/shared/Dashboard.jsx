@@ -17,7 +17,7 @@ import {
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 export default function Dashboard() {
-  const { currentUser, getCollection, getReports, getTasks, getNotifications } = useApp();
+  const { currentUser, getCollection, getReports, getTasks, getUsers } = useApp();
   const navigate = useNavigate();
 
   const role = currentUser?.role;
@@ -26,6 +26,7 @@ export default function Dashboard() {
   const isTumanAdmin = role === ROLES.TUMAN_ADMIN;
   const isXodimBoshligi = role === ROLES.XODIMLAR_BOSHLIGI;
   const isXodim = role === ROLES.KUTUBXONA_XODIMI;
+  const isAdmin = isSuperAdmin || isViloyatAdmin || isTumanAdmin;
 
   // Get data
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
@@ -94,6 +95,15 @@ export default function Dashboard() {
   const newAppeals = appeals.filter(a => a.status === 'new');
   const upcomingEvents = events.filter(e => e.status === 'upcoming');
 
+  // Users for admin
+  const allUsers = useMemo(() => getUsers(), [getUsers]);
+  const scopedUsers = useMemo(() => {
+    if (isSuperAdmin) return allUsers;
+    if (isViloyatAdmin) return allUsers.filter(u => u.viloyatId === currentUser?.viloyatId);
+    if (isTumanAdmin) return allUsers.filter(u => u.viloyatId === currentUser?.viloyatId && u.tumanId === currentUser?.tumanId);
+    return allUsers.filter(u => u.libraryId === currentUser?.libraryId);
+  }, [allUsers, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin]);
+
   // Chart data: Monthly visitors trend
   const visitorsTrend = useMemo(() => {
     const months = ['May', 'Iyun', 'Iyul', 'Avg', 'Sen'];
@@ -103,6 +113,22 @@ export default function Dashboard() {
       kitobxon: 20 + Math.floor(Math.random() * 40) + i * 8,
     }));
   }, []);
+
+  // Chart data: Report status distribution (for admins)
+  const reportStatusData = useMemo(() => {
+    const counts = {
+      [REPORT_STATUS.APPROVED]: { name: 'Tasdiqlangan', value: 0, color: '#10b981' },
+      [REPORT_STATUS.SUBMITTED]: { name: 'Yuborilgan', value: 0, color: '#3b82f6' },
+      [REPORT_STATUS.UNDER_REVIEW]: { name: 'Ko\'rib chiqilmoqda', value: 0, color: '#f59e0b' },
+      [REPORT_STATUS.REJECTED]: { name: 'Rad etilgan', value: 0, color: '#ef4444' },
+      [REPORT_STATUS.DRAFT]: { name: 'Qoralama', value: 0, color: '#94a3b8' },
+    };
+    scopedReports.forEach(r => {
+      if (counts[r.status]) counts[r.status].value++;
+    });
+    const list = Object.values(counts).filter(c => c.value > 0);
+    return list.length > 0 ? list : [{ name: 'Hisobotlar yo\'q', value: 1, color: '#cbd5e1' }];
+  }, [scopedReports]);
 
   // Chart data: Book categories distribution
   const bookCategories = useMemo(() => {
@@ -176,27 +202,55 @@ export default function Dashboard() {
           color="blue"
           subtitle="Jami filiallar"
         />
-        <StatCard
-          title="Kitobxonlar"
-          value={formatNumber(scopedReaders.length)}
-          icon={ICONS.readers}
-          color="green"
-          subtitle="Faol kitobxonlar"
-        />
-        <StatCard
-          title="Kitob fondi"
-          value={formatNumber(scopedBooks.length)}
-          icon={ICONS.books}
-          color="amber"
-          subtitle="Jami nusxalar"
-        />
-        <StatCard
-          title="Hisobotlar"
-          value={formatNumber(scopedReports.length)}
-          icon={ICONS.reports}
-          color="purple"
-          subtitle={`${pendingReports.length} kutilmoqda`}
-        />
+        {isAdmin ? (
+          <>
+            <StatCard
+              title="Xodimlar"
+              value={formatNumber(scopedUsers.length)}
+              icon={ICONS.users}
+              color="teal"
+              subtitle="Faol xodimlar"
+            />
+            <StatCard
+              title="Hisobotlar"
+              value={formatNumber(scopedReports.length)}
+              icon={ICONS.reports}
+              color="purple"
+              subtitle={`${pendingReports.length} kutilmoqda`}
+            />
+            <StatCard
+              title="Topshiriqlar"
+              value={formatNumber(scopedTasks.length)}
+              icon={ICONS.tasks}
+              color="amber"
+              subtitle={`${pendingTasks.length} ijroda`}
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Kitobxonlar"
+              value={formatNumber(scopedReaders.length)}
+              icon={ICONS.readers}
+              color="green"
+              subtitle="Faol kitobxonlar"
+            />
+            <StatCard
+              title="Kitob fondi"
+              value={formatNumber(scopedBooks.length)}
+              icon={ICONS.books}
+              color="amber"
+              subtitle="Jami nusxalar"
+            />
+            <StatCard
+              title="Hisobotlar"
+              value={formatNumber(scopedReports.length)}
+              icon={ICONS.reports}
+              color="purple"
+              subtitle={`${pendingReports.length} kutilmoqda`}
+            />
+          </>
+        )}
       </div>
 
       {/* Charts row */}
@@ -211,32 +265,55 @@ export default function Dashboard() {
               <Tooltip />
               <Legend />
               <Line type="monotone" dataKey="tashrif" stroke="#3b82f6" strokeWidth={2} name="Tashriflar" />
-              <Line type="monotone" dataKey="kitobxon" stroke="#10b981" strokeWidth={2} name="Yangi kitobxonlar" />
+              <Line type="monotone" dataKey="kitobxon" stroke="#10b981" strokeWidth={2} name="Faolliklar" />
             </LineChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* Book categories */}
-        <Card title="Kitob fondi kategoriyalar bo'yicha">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={bookCategories}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-              >
-                {bookCategories.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
+        {/* Right chart: Admin gets Report Status, Xodim gets Book categories */}
+        {isAdmin ? (
+          <Card title="Hisobotlar holati taqsimoti">
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={reportStatusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                >
+                  {reportStatusData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        ) : (
+          <Card title="Kitob fondi kategoriyalar bo'yicha">
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={bookCategories}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                >
+                  {bookCategories.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
       </div>
 
       {/* Libraries by viloyat (only for super admin / viloyat admin) */}

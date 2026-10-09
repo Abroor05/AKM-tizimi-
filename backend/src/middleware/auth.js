@@ -4,8 +4,8 @@
 import jwt from 'jsonwebtoken';
 import { getById } from '../db/database.js';
 
-const JWT_SECRET = 'kbt-secret-key-2024';
-const JWT_EXPIRES_IN = '24h';
+const JWT_SECRET = process.env.JWT_SECRET || 'kbt_sec_jwt_key_98fbc83d47a19283e746b5a34f89d1';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 export function generateToken(user) {
   return jwt.sign(

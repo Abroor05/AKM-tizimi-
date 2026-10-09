@@ -63,9 +63,10 @@ Start-Sleep -Seconds 3
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Tayyor!" -ForegroundColor Green
-Write-Host "  Frontend: http://localhost:3000" -ForegroundColor White
-Write-Host "  Backend:  http://localhost:5000/api" -ForegroundColor White
-Write-Host "  Login: admin / admin123" -ForegroundColor White
+Write-Host "  Frontend:    http://localhost:3000" -ForegroundColor White
+Write-Host "  Backend:     http://localhost:5000/api" -ForegroundColor White
+Write-Host "  Swagger UI:  http://localhost:5000/api/docs" -ForegroundColor Yellow
+Write-Host "  Login:       admin / admin123" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
