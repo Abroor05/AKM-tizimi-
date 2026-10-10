@@ -1,5 +1,6 @@
 const Database = require('better-sqlite3');
-const db = new Database('./src/data/kbt.db');
+const path = require('path');
+const db = new Database(path.join(__dirname, '..', 'database', 'kbt.db'));
 console.log('USERS');
 console.log(JSON.stringify(db.prepare("SELECT id,username,full_name,role,library_id,viloyat_id,tuman_id,active FROM users").all(), null, 2));
 console.log('LIBRARIES');

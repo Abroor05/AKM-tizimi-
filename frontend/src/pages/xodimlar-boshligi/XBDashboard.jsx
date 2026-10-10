@@ -158,60 +158,67 @@ export default function XBDashboard() {
   return (
     <div>
       {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-teal-600 to-cyan-700 rounded-xl p-6 mb-6 text-white">
-        <div className="flex items-start justify-between flex-wrap gap-4">
+      <div className="relative rounded-3xl bg-gradient-to-br from-[#042f2e] via-[#0b1329] to-[#0f172a] border border-teal-900/60 p-6 sm:p-8 mb-7 text-white shadow-executive-lg overflow-hidden">
+        <div className="flex items-start justify-between flex-wrap gap-4 relative z-10">
           <div>
-            <h2 className="text-2xl font-bold">{greeting()}, {currentUser?.fullName}!</h2>
-            <p className="text-teal-100 mt-1">
-              Xodimlar Boshligi
-              {currentUser?.viloyatId ? ` • ${getViloyatName(currentUser.viloyatId)}` : ''}
-              {currentUser?.tumanId ? ` / ${getTumanName(currentUser.viloyatId, currentUser.tumanId)}` : ''}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                Xodimlar Boshlig'i
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                {currentUser?.viloyatId ? getViloyatName(currentUser.viloyatId) : ''}
+                {currentUser?.tumanId ? ` / ${getTumanName(currentUser.viloyatId, currentUser.tumanId)}` : ''}
+              </span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{greeting()}, {currentUser?.fullName}!</h2>
             {myLibrary && (
-              <p className="text-teal-200 text-sm mt-1">
-                <ICONS.library className="inline mr-1" />
-                {myLibrary.name}
+              <p className="text-teal-300 text-sm mt-1.5 font-medium flex items-center gap-2">
+                <ICONS.library className="text-sm shrink-0" />
+                <span>{myLibrary.name}</span>
               </p>
             )}
           </div>
           <div className="flex gap-3 flex-wrap">
-            <div className="bg-white/15 rounded-lg px-4 py-2 text-center">
-              <p className="text-xl font-bold">{myStaff.length}</p>
-              <p className="text-xs text-teal-100">Xodimlar</p>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl px-4 py-2.5 text-center min-w-[90px]">
+              <p className="text-2xl font-extrabold tabular-nums font-mono">{myStaff.length}</p>
+              <p className="text-[11px] text-teal-200 uppercase font-semibold tracking-wider mt-0.5">Xodimlar</p>
             </div>
-            <div className="bg-white/15 rounded-lg px-4 py-2 text-center">
-              <p className="text-xl font-bold">{todayActs.length}</p>
-              <p className="text-xs text-teal-100">Bugungi yozuvlar</p>
-            </div>
-            <div className="bg-white/15 rounded-lg px-4 py-2 text-center">
-              <p className="text-xl font-bold">{new Date().getDate()}</p>
-              <p className="text-xs text-teal-100">
-                {new Date().toLocaleDateString('uz-UZ', { month: 'long', year: 'numeric' })}
-              </p>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl px-4 py-2.5 text-center min-w-[90px]">
+              <p className="text-2xl font-extrabold tabular-nums font-mono">{todayActs.length}</p>
+              <p className="text-[11px] text-teal-200 uppercase font-semibold tracking-wider mt-0.5">Bugungi yozuv</p>
             </div>
           </div>
         </div>
 
         {/* Quick action buttons */}
-        <div className="flex gap-3 mt-5 flex-wrap">
-          <button
+        <div className="flex gap-3 mt-6 flex-wrap relative z-10">
+          <Button
+            variant="primary"
+            size="md"
+            icon={ICONS.plus}
             onClick={() => setShowActModal(true)}
-            className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-950/40"
           >
-            <ICONS.plus /> Kunlik yozuv qo'shish
-          </button>
-          <button
+            Kunlik yozuv kiritish
+          </Button>
+          <Button
+            variant="dark"
+            size="md"
+            icon={ICONS.activity}
             onClick={() => navigate('/daily-activity')}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80"
           >
-            <ICONS.activity /> Barcha faoliyatlar
-          </button>
-          <button
+            Barcha faoliyatlar
+          </Button>
+          <Button
+            variant="dark"
+            size="md"
+            icon={ICONS.reports}
             onClick={() => navigate('/reports')}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80"
           >
-            <ICONS.reports /> Hisobotlar
-          </button>
+            Hisobotlar
+          </Button>
         </div>
       </div>
 
@@ -394,12 +401,16 @@ export default function XBDashboard() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {recentReports.map(r => {
-                  const submitter = allUsers.find(u => u.id === r.createdBy);
+                  const submitter = allUsers.find(u => u.id === r.userId || u.id === r.createdBy);
+                  const lib = libraries.find(l => l.id === r.libraryId || l.id === submitter?.libraryId);
                   return (
-                    <tr key={r.id} className="hover:bg-gray-50">
+                    <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate('/reports')}>
                       <td className="px-4 py-3 text-gray-700 font-medium truncate max-w-[200px]">{r.title}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{REPORT_TYPE_LABELS[r.type] || r.type}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{submitter?.fullName || '—'}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-xs font-semibold text-gray-800 leading-tight">{submitter?.fullName || '—'}</p>
+                        {lib && <p className="text-[11px] text-gray-400 truncate max-w-[140px]">{lib.name}</p>}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(r.submittedAt || r.createdAt)}</td>
                       <td className="px-4 py-3">
                         <Badge color={REPORT_STATUS_COLORS[r.status] || 'gray'}>

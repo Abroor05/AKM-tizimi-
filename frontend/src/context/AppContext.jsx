@@ -42,11 +42,11 @@ export function AppProvider({ children }) {
     ];
 
     const results = await Promise.allSettled(
-      endpoints.map(([_, ep]) => api.get(ep))
+      endpoints.map(([, ep]) => api.get(ep))
     );
 
     const newCollections = {};
-    endpoints.forEach(([key, _], i) => {
+    endpoints.forEach(([key], i) => {
       newCollections[key] = results[i].status === 'fulfilled' ? results[i].value : [];
     });
 
@@ -400,11 +400,22 @@ export function AppProvider({ children }) {
         (reports || []).map(r => r.id === id ? updated : r)
       );
       // Notify admins about submitted report
+      const libraries = collectionsRef.current[STORAGE_KEYS.LIBRARIES] || [];
+      const myLib = libraries.find(l => l.id === currentUser?.libraryId);
+      const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const tumanAdmin = allUsers.find(u =>
+        u.role === 'tuman_admin' &&
+        u.tumanId === currentUser?.tumanId &&
+        u.viloyatId === currentUser?.viloyatId
+      );
+      const libText = myLib?.name ? ` (${myLib.name})` : '';
+
       await createNotification({
         type: 'report',
-        title: 'Hisobot yuborildi',
-        message: `"${updated.title || 'Nomsuz'}" hisoboti ko'rib chiqish uchun yuborildi`,
-        targetRole: 'super_admin',
+        title: 'Yangi hisobot yuborildi',
+        message: `${currentUser?.fullName || 'Foydalanuvchi'}${libText} tomonidan "${updated.title || 'Nomsuz'}" hisoboti ko'rib chiqish uchun yuborildi`,
+        targetUserId: tumanAdmin?.id || null,
+        targetRole:   tumanAdmin ? null : 'super_admin',
       });
       return updated;
     } catch (err) {
@@ -529,6 +540,9 @@ export function AppProvider({ children }) {
 
       // O'z TUMANI boshliqni topish (libraryId emas, tumanId bo'yicha)
       const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const libraries = collectionsRef.current[STORAGE_KEYS.LIBRARIES] || [];
+      const myLib = libraries.find(l => l.id === currentUser?.libraryId);
+      const libText = myLib?.name ? ` (${myLib.name})` : '';
       const boshligi = allUsers.find(u =>
         u.role === 'xodimlar_boshligi' &&
         u.tumanId === currentUser?.tumanId &&
@@ -537,8 +551,8 @@ export function AppProvider({ children }) {
 
       await createNotification({
         type: 'report',
-        title: 'Kunlik hisobot yuborildi',
-        message: `${currentUser?.fullName} tomonidan ${new Date().toLocaleDateString('uz-UZ')} kunlik hisobot yuborildi`,
+        title: 'Yangi kunlik hisobot keldi',
+        message: `${currentUser?.fullName}${libText} tomonidan ${new Date().toLocaleDateString('uz-UZ')} kunlik hisobot yuborildi`,
         targetUserId: boshligi?.id || null,
         targetRole:   boshligi ? null : 'xodimlar_boshligi',
       });
@@ -583,6 +597,9 @@ export function AppProvider({ children }) {
 
       // 3. Tuman adminga notification yuborish
       const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const libraries = collectionsRef.current[STORAGE_KEYS.LIBRARIES] || [];
+      const myLib = libraries.find(l => l.id === currentUser?.libraryId);
+      const libText = myLib?.name ? ` (${myLib.name})` : '';
       const tumanAdmin = allUsers.find(u =>
         u.role === 'tuman_admin' &&
         u.tumanId === currentUser?.tumanId &&
@@ -599,8 +616,8 @@ export function AppProvider({ children }) {
 
       await createNotification({
         type: 'report',
-        title: `${monthLabel} oylik hisobot yangilandi`,
-        message: `${currentUser?.fullName} hisobotni qabul qildi. ${monthLabel} jami: ${totalSum} ta ish bajarilgan (${monthActs.length} kun).`,
+        title: `${monthLabel} jamlangan hisoboti keldi`,
+        message: `${currentUser?.fullName} (Bo'lim boshlig'i${libText}) tomonidan ${monthLabel} oylik jamlangan hisoboti tasdiqlanib yuborildi. Jami: ${totalSum} ta ish (${monthActs.length} kun).`,
         targetUserId: tumanAdmin?.id || null,
         targetRole:   tumanAdmin ? null : 'tuman_admin',
       });

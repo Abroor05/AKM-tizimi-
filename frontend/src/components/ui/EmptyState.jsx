@@ -1,14 +1,20 @@
 import { FaInbox } from 'react-icons/fa6';
 
-export default function EmptyState({ icon: Icon = FaInbox, title = 'Ma\'lumot topilmadi', message = 'Hozircha bu yerada ma\'lumotlar yo\'q', action = null }) {
+export default function EmptyState({
+  icon: Icon = FaInbox,
+  title = "Ma'lumot topilmadi",
+  message = "Hozircha bu bo'limda ma'lumotlar mavjud emas",
+  action = null,
+  className = '',
+}) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="p-4 rounded-full bg-gray-100 text-gray-400 mb-4">
-        <Icon className="text-4xl" />
+    <div className={`flex flex-col items-center justify-center py-16 px-4 text-center ${className}`}>
+      <div className="p-4 rounded-2xl bg-slate-100/80 border border-slate-200/60 text-slate-400 mb-4 shadow-xs">
+        <Icon className="text-3xl" />
       </div>
-      <h3 className="text-lg font-semibold text-gray-700">{title}</h3>
-      <p className="text-sm text-gray-500 mt-1 text-center max-w-sm">{message}</p>
-      {action && <div className="mt-4">{action}</div>}
+      <h3 className="text-base font-bold text-slate-800 tracking-tight">{title}</h3>
+      <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">{message}</p>
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 }

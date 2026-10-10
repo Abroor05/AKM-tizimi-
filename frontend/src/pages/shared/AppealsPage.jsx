@@ -16,10 +16,8 @@ export default function AppealsPage() {
   const { currentUser, getCollection, createEntity, updateEntity, isRole, hasPermission } = useApp();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
   const [resolveItem, setResolveItem] = useState(null);
   const [resolution, setResolution] = useState('');
-  const [form, setForm] = useState({ fullName: '', phone: '', email: '', subject: '', message: '', libraryId: '' });
 
   const allAppeals = useMemo(() => getCollection(STORAGE_KEYS.APPEALS), [getCollection]);
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);

@@ -11,8 +11,6 @@ import LibrariesPage from './pages/shared/LibrariesPage.jsx';
 import DailyActivityPage from './pages/shared/DailyActivityPage.jsx';
 import ReportsPage from './pages/shared/ReportsPage.jsx';
 import TasksPage from './pages/shared/TasksPage.jsx';
-import BooksPage from './pages/shared/BooksPage.jsx';
-import ReadersPage from './pages/shared/ReadersPage.jsx';
 import EventsPage from './pages/shared/EventsPage.jsx';
 import InventoryPage from './pages/shared/InventoryPage.jsx';
 import DocumentsPage from './pages/shared/DocumentsPage.jsx';
@@ -39,8 +37,6 @@ const MODULES = [
   { path: 'daily-activity', comp: DailyActivityPage, perm: 'view_activities' },
   { path: 'reports', comp: ReportsPage, perm: 'view_reports' },
   { path: 'tasks', comp: TasksPage, perm: 'view_tasks' },
-  { path: 'books', comp: BooksPage, perm: 'view_books' },
-  { path: 'readers', comp: ReadersPage, perm: 'view_readers' },
   { path: 'events', comp: EventsPage, perm: 'view_events' },
   { path: 'inventory', comp: InventoryPage, perm: 'view_inventory' },
   { path: 'documents', comp: DocumentsPage, perm: 'view_documents' },

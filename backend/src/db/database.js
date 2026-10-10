@@ -383,7 +383,8 @@ export function getById(table, id) {
 
 export function insertRow(table, obj) {
   const row = objectToRow(table, obj);
-  const keys = Object.keys(row);
+  const tableColumns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name));
+  const keys = Object.keys(row).filter(k => tableColumns.has(k));
   const placeholders = keys.map(() => '?').join(', ');
   const values = keys.map(k => row[k]);
   db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
@@ -393,7 +394,8 @@ export function insertRow(table, obj) {
 export function updateRow(table, id, updates) {
   const row = objectToRow(table, updates);
   delete row.id; // Don't update ID
-  const keys = Object.keys(row);
+  const tableColumns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name));
+  const keys = Object.keys(row).filter(k => tableColumns.has(k));
   if (keys.length === 0) return getById(table, id);
   const setClause = keys.map(k => `${k} = ?`).join(', ');
   const values = keys.map(k => row[k]);

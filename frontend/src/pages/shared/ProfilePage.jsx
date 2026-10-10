@@ -10,8 +10,8 @@ import Button from '../../components/ui/Button.jsx';
 import Input from '../../components/ui/Input.jsx';
 import ICONS from '../../components/icons.jsx';
 import {
-  ROLES, ROLE_LABELS, ROLE_COLORS, ROLE_PERMISSIONS, PERMISSIONS,
-  avatarClass, badgeClass, STORAGE_KEYS,
+  ROLE_LABELS, ROLE_COLORS, ROLE_PERMISSIONS, PERMISSIONS,
+  avatarClass, STORAGE_KEYS,
 } from '../../data/constants.js';
 import { getViloyatName, getTumanName } from '../../data/regions.js';
 import { formatDate } from '../../utils/helpers.js';
@@ -31,10 +31,6 @@ const PERM_LABELS = {
   [PERMISSIONS.VIEW_TASKS]:        'Topshiriqlarni ko\'rish',
   [PERMISSIONS.ASSIGN_TASK]:       'Topshiriq berish',
   [PERMISSIONS.COMPLETE_TASK]:     'Topshiriqni bajarish',
-  [PERMISSIONS.MANAGE_BOOKS]:      'Kitoblarni boshqarish',
-  [PERMISSIONS.VIEW_BOOKS]:        'Kitoblarni ko\'rish',
-  [PERMISSIONS.MANAGE_READERS]:    'Kitobxonlarni boshqarish',
-  [PERMISSIONS.VIEW_READERS]:      'Kitobxonlarni ko\'rish',
   [PERMISSIONS.MANAGE_EVENTS]:     'Tadbirlarni boshqarish',
   [PERMISSIONS.VIEW_EVENTS]:       'Tadbirlarni ko\'rish',
   [PERMISSIONS.MANAGE_INVENTORY]:  'Inventarni boshqarish',

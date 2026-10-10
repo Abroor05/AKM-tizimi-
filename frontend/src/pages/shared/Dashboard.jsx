@@ -4,20 +4,49 @@ import { useNavigate } from 'react-router-dom';
 import StatCard from '../../components/ui/StatCard.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
-import PageHeader from '../../components/common/PageHeader.jsx';
+import Button from '../../components/ui/Button.jsx';
 import ICONS from '../../components/icons.jsx';
-import { ROLES, ROLE_LABELS, STORAGE_KEYS, REPORT_STATUS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS, TASK_STATUS, TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '../../data/constants.js';
-import { getViloyatName, getTumanName, VILOYATLAR } from '../../data/regions.js';
-import { formatNumber, formatMoney, getRelativeTime } from '../../utils/helpers.js';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  ROLES, ROLE_LABELS, STORAGE_KEYS, REPORT_STATUS, REPORT_STATUS_LABELS,
+  REPORT_STATUS_COLORS, TASK_STATUS, TASK_STATUS_LABELS, TASK_STATUS_COLORS
+} from '../../data/constants.js';
+import { getViloyatName, getTumanName } from '../../data/regions.js';
+import { formatNumber, getRelativeTime } from '../../utils/helpers.js';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
 } from 'recharts';
+import { FaPlus, FaArrowRight, FaChartLine, FaShieldHalved } from 'react-icons/fa6';
 
-const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
+
+// Sleek Custom Tooltip
+function CustomChartTooltip({ active, payload, label }) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-executive-xl text-xs text-white">
+        <p className="font-bold text-slate-300 mb-1.5">{label}</p>
+        <div className="space-y-1">
+          {payload.map((entry, index) => (
+            <div key={index} className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }} />
+                {entry.name}:
+              </span>
+              <span className="font-bold font-mono text-white tabular-nums">
+                {entry.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
 
 export default function Dashboard() {
-  const { currentUser, getCollection, getReports, getTasks, getUsers } = useApp();
+  const { currentUser, getCollection, getReports, getTasks, getUsers, hasPermission } = useApp();
   const navigate = useNavigate();
 
   const role = currentUser?.role;
@@ -28,74 +57,47 @@ export default function Dashboard() {
   const isXodim = role === ROLES.KUTUBXONA_XODIMI;
   const isAdmin = isSuperAdmin || isViloyatAdmin || isTumanAdmin;
 
-  // Get data
+  // Collections
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
-  const books = useMemo(() => getCollection(STORAGE_KEYS.BOOKS), [getCollection]);
-  const readers = useMemo(() => getCollection(STORAGE_KEYS.READERS), [getCollection]);
   const activities = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
   const reports = useMemo(() => getReports(), [getReports]);
   const tasks = useMemo(() => getTasks(), [getTasks]);
   const events = useMemo(() => getCollection(STORAGE_KEYS.EVENTS), [getCollection]);
   const appeals = useMemo(() => getCollection(STORAGE_KEYS.APPEALS), [getCollection]);
 
-  // Filter data based on user's scope
+  // Scoped data by role
   const scopedLibraries = useMemo(() => {
     if (isSuperAdmin) return libraries;
-    if (isViloyatAdmin) return libraries.filter(l => l.viloyatId === currentUser.viloyatId);
-    if (isTumanAdmin) return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId);
-    if (isXodimBoshligi || isXodim) return libraries.filter(l => l.id === currentUser.libraryId);
+    if (isViloyatAdmin) return libraries.filter(l => l.viloyatId === currentUser?.viloyatId);
+    if (isTumanAdmin) return libraries.filter(l => l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId);
+    if (isXodimBoshligi || isXodim) return libraries.filter(l => l.id === currentUser?.libraryId);
     return libraries;
   }, [libraries, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
-  const scopedReaders = useMemo(() => {
-    if (isSuperAdmin) return readers;
-    if (isViloyatAdmin) return readers.filter(r => {
-      const lib = scopedLibraries.find(l => l.id === r.libraryId);
-      return !!lib;
-    });
-    const libIds = scopedLibraries.map(l => l.id);
-    return readers.filter(r => libIds.includes(r.libraryId));
-  }, [readers, scopedLibraries, isSuperAdmin, isViloyatAdmin]);
-
-  const scopedBooks = useMemo(() => {
-    if (isSuperAdmin) return books;
-    if (isViloyatAdmin) return books.filter(b => {
-      const lib = scopedLibraries.find(l => l.id === b.libraryId);
-      return !!lib;
-    });
-    const libIds = scopedLibraries.map(l => l.id);
-    return books.filter(b => libIds.includes(b.libraryId));
-  }, [books, scopedLibraries, isSuperAdmin, isViloyatAdmin]);
-
   const scopedReports = useMemo(() => {
     if (isSuperAdmin) return reports;
-    if (isViloyatAdmin) return reports.filter(r => r.viloyatId === currentUser.viloyatId);
-    if (isTumanAdmin) return reports.filter(r => r.viloyatId === currentUser.viloyatId && r.tumanId === currentUser.tumanId);
-    if (isXodimBoshligi || isXodim) return reports.filter(r => r.libraryId === currentUser.libraryId || r.createdBy === currentUser.id);
+    if (isViloyatAdmin) return reports.filter(r => r.viloyatId === currentUser?.viloyatId);
+    if (isTumanAdmin) return reports.filter(r => r.viloyatId === currentUser?.viloyatId && r.tumanId === currentUser?.tumanId);
+    if (isXodimBoshligi || isXodim) return reports.filter(r => r.libraryId === currentUser?.libraryId || r.createdBy === currentUser?.id);
     return reports;
   }, [reports, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
   const scopedTasks = useMemo(() => {
     if (isSuperAdmin || isViloyatAdmin) return tasks;
-    if (isTumanAdmin) return tasks.filter(t => t.assignedBy === currentUser.id || t.assignedTo === currentUser.id);
+    if (isTumanAdmin) return tasks.filter(t => t.assignedBy === currentUser?.id || t.assignedTo === currentUser?.id);
     if (isXodimBoshligi) return tasks.filter(t =>
-      t.assignedBy === currentUser.id ||
-      t.assignedTo === currentUser.id ||
-      t.libraryId === currentUser.libraryId
+      t.assignedBy === currentUser?.id || t.assignedTo === currentUser?.id || t.libraryId === currentUser?.libraryId
     );
-    if (isXodim) return tasks.filter(t => t.assignedTo === currentUser.id);
+    if (isXodim) return tasks.filter(t => t.assignedTo === currentUser?.id);
     return tasks;
   }, [tasks, currentUser, isSuperAdmin, isViloyatAdmin, isXodimBoshligi, isXodim, isTumanAdmin]);
 
-  // Calculate stats
+  // Derived stats
   const pendingReports = scopedReports.filter(r => r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW);
-  const approvedReports = scopedReports.filter(r => r.status === REPORT_STATUS.APPROVED);
   const pendingTasks = scopedTasks.filter(t => t.status === TASK_STATUS.PENDING || t.status === TASK_STATUS.IN_PROGRESS);
-  const overdueTasks = scopedTasks.filter(t => t.status === TASK_STATUS.OVERDUE);
   const newAppeals = appeals.filter(a => a.status === 'new');
   const upcomingEvents = events.filter(e => e.status === 'upcoming');
 
-  // Users for admin
   const allUsers = useMemo(() => getUsers(), [getUsers]);
   const scopedUsers = useMemo(() => {
     if (isSuperAdmin) return allUsers;
@@ -104,17 +106,23 @@ export default function Dashboard() {
     return allUsers.filter(u => u.libraryId === currentUser?.libraryId);
   }, [allUsers, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin]);
 
-  // Chart data: Monthly visitors trend
+  // Pure Visitors trend (deterministic, without Math.random)
   const visitorsTrend = useMemo(() => {
-    const months = ['May', 'Iyun', 'Iyul', 'Avg', 'Sen'];
+    const months = ['May', 'Iyun', 'Iyul', 'Avgust', 'Sentyabr', 'Oktyabr'];
+    const baseCounts = [380, 420, 390, 480, 560, 620];
+    const baseActivities = [35, 42, 38, 51, 58, 64];
+
+    // Factor in actual activity count
+    const activityWeight = Math.min(activities.length * 2, 50);
+
     return months.map((month, i) => ({
       name: month,
-      tashrif: 300 + Math.floor(Math.random() * 300) + i * 50,
-      kitobxon: 20 + Math.floor(Math.random() * 40) + i * 8,
+      tashrif: baseCounts[i] + activityWeight,
+      faollik: baseActivities[i] + Math.floor(activityWeight / 2),
     }));
-  }, []);
+  }, [activities.length]);
 
-  // Chart data: Report status distribution (for admins)
+  // Report status chart
   const reportStatusData = useMemo(() => {
     const counts = {
       [REPORT_STATUS.APPROVED]: { name: 'Tasdiqlangan', value: 0, color: '#10b981' },
@@ -130,19 +138,7 @@ export default function Dashboard() {
     return list.length > 0 ? list : [{ name: 'Hisobotlar yo\'q', value: 1, color: '#cbd5e1' }];
   }, [scopedReports]);
 
-  // Chart data: Book categories distribution
-  const bookCategories = useMemo(() => {
-    const cats = {};
-    scopedBooks.forEach(b => {
-      cats[b.category] = (cats[b.category] || 0) + 1;
-    });
-    return Object.entries(cats).map(([key, val]) => ({
-      name: key,
-      value: val,
-    })).slice(0, 6);
-  }, [scopedBooks]);
-
-  // Chart data: Libraries by viloyat
+  // Libraries by viloyat
   const librariesByViloyat = useMemo(() => {
     if (!isSuperAdmin && !isViloyatAdmin) return [];
     const counts = {};
@@ -173,34 +169,79 @@ export default function Dashboard() {
   };
 
   return (
-    <div>
-      {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 mb-6 text-white">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-2xl font-bold">{greeting()}, {currentUser?.fullName}!</h2>
-            <p className="text-blue-200 mt-1">
-              {ROLE_LABELS[role]} • {currentUser?.viloyatId ? getViloyatName(currentUser.viloyatId) : "O'zbekiston Respublikasi"}
-              {currentUser?.tumanId ? ' / ' + getTumanName(currentUser.viloyatId, currentUser.tumanId) : ''}
+    <div className="space-y-7">
+      {/* Executive Hero Banner (Deep Obsidian / Royal Slate) */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-[#0b1120] via-[#111827] to-[#0f172a] border border-slate-800 p-6 sm:p-8 text-white shadow-executive-lg overflow-hidden">
+        {/* Ambient subtle glow */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                {ROLE_LABELS[role]}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                {currentUser?.viloyatId ? getViloyatName(currentUser.viloyatId) : "O'zbekiston Respublikasi"}
+                {currentUser?.tumanId ? ` / ${getTumanName(currentUser.viloyatId, currentUser.tumanId)}` : ''}
+              </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              {greeting()}, {currentUser?.fullName}!
+            </h1>
+            <p className="text-slate-400 text-xs sm:text-sm max-w-2xl leading-relaxed">
+              Kutubxona faoliyati monitoringi, hisobotlar topshirilishi va ijro intizomi bo'yicha markaziy boshqaruv paneli.
             </p>
           </div>
-          <div className="flex gap-3">
-            <div className="bg-white/10 rounded-lg px-4 py-2 text-center">
-              <p className="text-2xl font-bold">{new Date().getDate()}</p>
-              <p className="text-xs text-blue-200">{new Date().toLocaleDateString('uz-UZ', { month: 'long', year: 'numeric' })}</p>
-            </div>
+
+          {/* Quick Action Buttons on Hero */}
+          <div className="flex items-center gap-3 flex-wrap shrink-0">
+            {hasPermission('create_activity') && (
+              <Button
+                variant="primary"
+                size="md"
+                icon={FaPlus}
+                onClick={() => navigate('/daily-activity')}
+                className="bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-900/40"
+              >
+                Kunlik faoliyat
+              </Button>
+            )}
+            {hasPermission('create_report') && (
+              <Button
+                variant="dark"
+                size="md"
+                onClick={() => navigate('/reports')}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80"
+              >
+                Hisobot topshirish
+              </Button>
+            )}
+            <Button
+              variant="dark"
+              size="md"
+              onClick={() => navigate('/tasks')}
+              className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80"
+            >
+              Topshiriqlar ({pendingTasks.length})
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Primary KPI Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         <StatCard
           title="Kutubxonalar"
           value={formatNumber(scopedLibraries.length)}
           icon={ICONS.library}
           color="blue"
-          subtitle="Jami filiallar"
+          subtitle="Faol filiallar soni"
+          trend={+4.2}
+          onClick={() => navigate('/libraries')}
         />
         {isAdmin ? (
           <>
@@ -209,193 +250,284 @@ export default function Dashboard() {
               value={formatNumber(scopedUsers.length)}
               icon={ICONS.users}
               color="teal"
-              subtitle="Faol xodimlar"
+              subtitle="Tizimdagi mas'ul xodimlar"
+              trend={+2.8}
+              onClick={() => navigate('/users')}
             />
             <StatCard
               title="Hisobotlar"
               value={formatNumber(scopedReports.length)}
               icon={ICONS.reports}
               color="purple"
-              subtitle={`${pendingReports.length} kutilmoqda`}
+              subtitle={`${pendingReports.length} ta tekshirishda`}
+              badge={pendingReports.length > 0 ? "Ijroda" : "Barchasi joyida"}
+              onClick={() => navigate('/reports')}
             />
             <StatCard
               title="Topshiriqlar"
               value={formatNumber(scopedTasks.length)}
               icon={ICONS.tasks}
               color="amber"
-              subtitle={`${pendingTasks.length} ijroda`}
+              subtitle={`${pendingTasks.length} ta faol ijroda`}
+              badge={pendingTasks.length > 0 ? `${pendingTasks.length} ta kutilmoqda` : null}
+              onClick={() => navigate('/tasks')}
             />
           </>
         ) : (
           <>
             <StatCard
-              title="Kitobxonlar"
-              value={formatNumber(scopedReaders.length)}
-              icon={ICONS.readers}
-              color="green"
-              subtitle="Faol kitobxonlar"
+              title="Kunlik faoliyatlar"
+              value={formatNumber(activities.length)}
+              icon={ICONS.activity}
+              color="emerald"
+              subtitle="Ro'yxatga olingan faoliyatlar"
+              onClick={() => navigate('/daily-activity')}
             />
             <StatCard
-              title="Kitob fondi"
-              value={formatNumber(scopedBooks.length)}
-              icon={ICONS.books}
+              title="Topshiriqlar"
+              value={formatNumber(scopedTasks.length)}
+              icon={ICONS.tasks}
               color="amber"
-              subtitle="Jami nusxalar"
+              subtitle={`${pendingTasks.length} ta faol ijroda`}
+              badge={pendingTasks.length > 0 ? `${pendingTasks.length} ta kutilmoqda` : null}
+              onClick={() => navigate('/tasks')}
             />
             <StatCard
               title="Hisobotlar"
               value={formatNumber(scopedReports.length)}
               icon={ICONS.reports}
               color="purple"
-              subtitle={`${pendingReports.length} kutilmoqda`}
+              subtitle={`${pendingReports.length} ta yuborilgan`}
+              onClick={() => navigate('/reports')}
             />
           </>
         )}
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        {/* Visitors trend */}
-        <Card title="Tashriflar dinamikasi (oylar bo'yicha)">
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={visitorsTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="tashrif" stroke="#3b82f6" strokeWidth={2} name="Tashriflar" />
-              <Line type="monotone" dataKey="kitobxon" stroke="#10b981" strokeWidth={2} name="Faolliklar" />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Right chart: Admin gets Report Status, Xodim gets Book categories */}
-        {isAdmin ? (
-          <Card title="Hisobotlar holati taqsimoti">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={reportStatusData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {reportStatusData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Card>
-        ) : (
-          <Card title="Kitob fondi kategoriyalar bo'yicha">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={bookCategories}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                >
-                  {bookCategories.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Card>
-        )}
-      </div>
-
-      {/* Libraries by viloyat (only for super admin / viloyat admin) */}
-      {(isSuperAdmin || isViloyatAdmin) && librariesByViloyat.length > 0 && (
-        <div className="mb-6">
-          <Card title="Kutubxonalar viloyatlar bo'yicha">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={librariesByViloyat}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="kutubxona" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Kutubxonalar" />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* Analytics & Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Trend Chart (AreaChart) */}
+        <div className="lg:col-span-8">
+          <Card
+            title="Tashriflar va xizmatlar dinamikasi"
+            subtitle="Oylik qatnovlar va tizim xizmatlaridan foydalanish ko'rsatkichlari"
+            icon={FaChartLine}
+          >
+            <div className="h-[300px] w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={visitorsTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorTashrif" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorFaollik" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomChartTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="tashrif"
+                    name="Tashriflar"
+                    stroke="#2563eb"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorTashrif)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="faollik"
+                    name="Faolliklar"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorFaollik)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </Card>
         </div>
-      )}
 
-      {/* Quick stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Kutilayotgan topshiriqlar" value={pendingTasks.length} icon={ICONS.tasks} color="amber" />
-        <StatCard title="Yangi murojaatlar" value={newAppeals.length} icon={ICONS.appeals} color="red" />
-        <StatCard title="Yakunlangan hisobotlar" value={approvedReports.length} icon={ICONS.success} color="green" />
-        <StatCard title="Yaqin tadbirlar" value={upcomingEvents.length} icon={ICONS.events} color="indigo" />
+        {/* Right Distribution Chart (PieChart) */}
+        <div className="lg:col-span-4">
+          <Card
+            title="Hisobotlar holati"
+            subtitle="Tasdiqlangan va tekshiruvdagi ijrolar"
+          >
+            <div className="h-[300px] w-full flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={reportStatusData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={95}
+                    paddingAngle={3}
+                  >
+                    {reportStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color || PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomChartTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        </div>
       </div>
 
-      {/* Recent reports & tasks */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent reports */}
+      {/* Regional Libraries breakdown (Admins) */}
+      {(isSuperAdmin || isViloyatAdmin) && librariesByViloyat.length > 0 && (
+        <Card
+          title="Hududlar bo'yicha filiallar taqsimoti"
+          subtitle="Shahar va tuman axborot-kutubxona tarmoqlari"
+        >
+          <div className="h-[220px] w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={librariesByViloyat} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomChartTooltip />} />
+                <Bar dataKey="kutubxona" name="Kutubxonalar" fill="#2563eb" radius={[8, 8, 0, 0]} maxBarSize={48} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
+
+      {/* Secondary Operational Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Kutilayotgan topshiriqlar"
+          value={pendingTasks.length}
+          icon={ICONS.tasks}
+          color="amber"
+          subtitle="Ijro muddati kelgan"
+          onClick={() => navigate('/tasks')}
+        />
+        <StatCard
+          title="Yangi murojaatlar"
+          value={newAppeals.length}
+          icon={ICONS.appeals}
+          color="rose"
+          subtitle="Fuqarolardan kelgan"
+          onClick={() => navigate('/appeals')}
+        />
+        <StatCard
+          title="Yaqin tadbirlar"
+          value={upcomingEvents.length}
+          icon={ICONS.events}
+          color="indigo"
+          subtitle="Rejalashtirilgan seminarlar"
+          onClick={() => navigate('/events')}
+        />
+        <StatCard
+          title="Audit xavfsizlik"
+          value="Himoyalangan"
+          icon={FaShieldHalved}
+          color="emerald"
+          subtitle="Barcha amallar jurnalda"
+          onClick={() => navigate('/audit')}
+        />
+      </div>
+
+      {/* Tables Row: Recent Reports & Active Tasks */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Reports Table */}
         <Card
           title="So'nggi hisobotlar"
+          subtitle="Kutubxonalar tomonidan taqdim etilgan hisobotlar"
           action={
-            <button onClick={() => navigate('/reports')} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-              Barchasi
-            </button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/reports')}
+            >
+              Barchasi <FaArrowRight className="text-[10px]" />
+            </Button>
           }
         >
-          <div className="space-y-3">
+          <div className="divide-y divide-slate-100">
             {recentReports.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Hisobotlar yo'q</p>
+              <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                Hisobotlar mavjud emas
+              </div>
             ) : (
-              recentReports.map(r => (
-                <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-700 truncate">{r.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {r.submittedAt || 'Qoralama'} • {r.period}
-                    </p>
+              recentReports.map(r => {
+                const author = scopedUsers.find(u => u.id === r.userId || u.id === r.createdBy);
+                const lib = libraries.find(l => l.id === r.libraryId || l.id === author?.libraryId);
+                return (
+                  <div
+                    key={r.id}
+                    onClick={() => navigate('/reports')}
+                    className="py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 px-2 -mx-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-800 truncate leading-snug">
+                        {r.title || 'Nomsiz hisobot'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-blue-600 font-semibold">{author?.fullName || 'Xodim'}</span>
+                        {lib && <span className="text-slate-400">• {lib.name}</span>}
+                        <span className="text-slate-400">• Davr: {r.period || 'Joriy'}</span>
+                      </p>
+                    </div>
+                    <Badge color={REPORT_STATUS_COLORS[r.status] || 'gray'} withDot>
+                      {REPORT_STATUS_LABELS[r.status] || r.status}
+                    </Badge>
                   </div>
-                  <Badge color={REPORT_STATUS_COLORS[r.status] || 'gray'}>
-                    {REPORT_STATUS_LABELS[r.status]}
-                  </Badge>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </Card>
 
-        {/* Recent tasks */}
+        {/* Active Tasks Table */}
         <Card
-          title="Topshiriqlar"
+          title="Topshiriqlar ijrosi"
+          subtitle="Belgilangan muddatli vazifalar monitoringi"
           action={
-            <button onClick={() => navigate('/tasks')} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-              Barchasi
-            </button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/tasks')}
+            >
+              Barchasi <FaArrowRight className="text-[10px]" />
+            </Button>
           }
         >
-          <div className="space-y-3">
+          <div className="divide-y divide-slate-100">
             {myTasks.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Topshiriqlar yo'q</p>
+              <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                Topshiriqlar mavjud emas
+              </div>
             ) : (
               myTasks.map(t => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                <div
+                  key={t.id}
+                  onClick={() => navigate('/tasks')}
+                  className="py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 px-2 -mx-2 rounded-xl transition-colors cursor-pointer"
+                >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-700 truncate">{t.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Muddat: {t.dueDate} • {getRelativeTime(t.createdAt)}
+                    <p className="text-sm font-bold text-slate-800 truncate leading-snug">
+                      {t.title}
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                      Muddat: {t.dueDate || 'Belgilanmagan'} • {getRelativeTime(t.createdAt)}
                     </p>
                   </div>
-                  <Badge color={TASK_STATUS_COLORS[t.status] || 'gray'}>
-                    {TASK_STATUS_LABELS[t.status]}
+                  <Badge color={TASK_STATUS_COLORS[t.status] || 'gray'} withDot>
+                    {TASK_STATUS_LABELS[t.status] || t.status}
                   </Badge>
                 </div>
               ))

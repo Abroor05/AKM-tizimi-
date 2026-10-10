@@ -1,4 +1,4 @@
-import { FaTrashCan, FaTriangleExclamation } from 'react-icons/fa6';
+import { FaTriangleExclamation, FaTrashCan, FaCircleInfo } from 'react-icons/fa6';
 import Modal from './Modal.jsx';
 import Button from './Button.jsx';
 
@@ -6,33 +6,45 @@ export default function ConfirmDialog({
   isOpen,
   onClose,
   onConfirm,
-  title = 'Tasdiqlang',
-  message = 'Bu amalni bajarishni xohlaysizmi?',
+  title = 'Amalni tasdiqlang',
+  message = 'Haqiqatan ham bu amalni bajarishni xohlaysizmi?',
   confirmText = 'Tasdiqlash',
-  cancelText = "Bekor qilish",
+  cancelText = 'Bekor qilish',
   variant = 'danger',
-  icon: Icon = FaTriangleExclamation,
+  icon: Icon = null,
 }) {
   const iconColors = {
-    danger: 'bg-red-50 text-red-600',
-    warning: 'bg-amber-50 text-amber-600',
-    info: 'bg-blue-50 text-blue-600',
+    danger: 'bg-rose-50 text-rose-600 border-rose-200/80',
+    warning: 'bg-amber-50 text-amber-600 border-amber-200/80',
+    info: 'bg-blue-50 text-blue-600 border-blue-200/80',
   };
 
+  const SelectedIcon = Icon || (variant === 'danger' ? FaTrashCan : variant === 'warning' ? FaTriangleExclamation : FaCircleInfo);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>{cancelText}</Button>
-          <Button variant={variant} onClick={onConfirm}>{confirmText}</Button>
+          <Button variant="secondary" size="md" onClick={onClose}>
+            {cancelText}
+          </Button>
+          <Button variant={variant} size="md" onClick={onConfirm}>
+            {confirmText}
+          </Button>
         </>
       }
     >
       <div className="flex items-start gap-4">
-        <div className={`p-3 rounded-lg ${iconColors[variant] || iconColors.danger} shrink-0`}>
-          <Icon className="text-xl" />
+        <div className={`p-3.5 rounded-2xl border ${iconColors[variant] || iconColors.danger} shrink-0`}>
+          <SelectedIcon className="text-xl" />
         </div>
-        <p className="text-sm text-gray-600 pt-1">{message}</p>
+        <p className="text-sm text-slate-600 font-medium pt-1 leading-relaxed">
+          {message}
+        </p>
       </div>
     </Modal>
   );

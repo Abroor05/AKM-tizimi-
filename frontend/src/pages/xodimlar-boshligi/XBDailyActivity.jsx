@@ -68,8 +68,9 @@ function buildEmptyForm() {
 export default function XBDailyActivity() {
   const { currentUser, getCollection, createEntity, acceptActivity } = useApp();
 
-  const allActs  = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
-  const allUsers = useMemo(() => getCollection(STORAGE_KEYS.USERS),      [getCollection]);
+  const allActs   = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
+  const allUsers  = useMemo(() => getCollection(STORAGE_KEYS.USERS),      [getCollection]);
+  const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
 
   // Faqat o'z kutubxonasidagi daily_report lar
   const myLibActs = useMemo(() =>
@@ -161,7 +162,10 @@ export default function XBDailyActivity() {
 
   // ─── Handlers ─────────────────────────────────────────────
   const handleAccept = async (a) => {
-    if (!confirm(`${allUsers.find(u => u.id === a.userId)?.fullName || 'Xodim'} ning ${formatDate(a.date)} kunlik hisobotini qabul qilasizmi?`)) return;
+    const sender = allUsers.find(u => u.id === a.userId);
+    const lib = libraries.find(l => l.id === a.libraryId || l.id === sender?.libraryId);
+    const libName = lib?.name ? ` (${lib.name})` : '';
+    if (!confirm(`${sender?.fullName || 'Xodim'}${libName} ning ${formatDate(a.date)} kunlik hisobotini qabul qilasizmi?`)) return;
     setAccepting(a.id);
     try {
       await acceptActivity(a.id);
@@ -274,11 +278,17 @@ export default function XBDailyActivity() {
                             {a.time && <span className="text-xs text-gray-400 ml-1">{a.time}</span>}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-semibold shrink-0">
-                                {owner?.fullName?.charAt(0)}
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                {owner?.fullName?.charAt(0) || 'X'}
                               </div>
-                              <span className="text-gray-600 text-xs">{owner?.fullName || '—'}</span>
+                              <div>
+                                <span className="text-xs font-bold text-gray-800 leading-tight block">{owner?.fullName || '—'}</span>
+                                <span className="text-[11px] text-teal-600 font-medium flex items-center gap-1 mt-0.5">
+                                  <ICONS.library className="text-[10px] text-teal-500 shrink-0" />
+                                  <span>{libraries.find(l => l.id === a.libraryId || l.id === owner?.libraryId)?.name || 'Kutubxona xodimi'}</span>
+                                </span>
+                              </div>
                             </div>
                           </td>
                           {Object.keys(TYPE_SHORT).map(k => (
@@ -576,19 +586,43 @@ export default function XBDailyActivity() {
           }
         >
           <div className="space-y-2">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-semibold">
-                  {allUsers.find(u => u.id === showDetail.userId)?.fullName?.charAt(0)}
+            {/* Sender profile card */}
+            {(() => {
+              const staffUser = allUsers.find(u => u.id === showDetail.userId);
+              const staffLib = libraries.find(l => l.id === showDetail.libraryId || l.id === staffUser?.libraryId);
+              return (
+                <div className="p-3.5 rounded-xl bg-teal-50/70 border border-teal-200/80 mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1">
+                      <ICONS.user className="text-xs" /> Hisobot yuborgan xodim
+                    </span>
+                    <Badge color={ACT_STATUS_COLORS[showDetail.status] || 'gray'}>
+                      {ACT_STATUS_LABELS[showDetail.status] || showDetail.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-600 text-white font-bold flex items-center justify-center shrink-0 text-base shadow-sm">
+                      {staffUser?.fullName?.charAt(0) || 'X'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-extrabold text-slate-900 text-sm leading-tight">{staffUser?.fullName || '—'}</p>
+                      <p className="text-xs text-teal-700 font-semibold mt-0.5">Kutubxona xodimi</p>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1 flex-wrap">
+                        {staffLib && (
+                          <span className="flex items-center gap-1">
+                            <ICONS.library className="text-[10px] text-teal-600 shrink-0" />
+                            <span>{staffLib.name}</span>
+                          </span>
+                        )}
+                        {staffUser?.phone && (
+                          <span>Tel: <strong className="text-slate-700 font-mono">{staffUser.phone}</strong></span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-sm font-medium text-gray-700">
-                  {allUsers.find(u => u.id === showDetail.userId)?.fullName || '—'}
-                </span>
-              </div>
-              <Badge color={ACT_STATUS_COLORS[showDetail.status] || 'gray'}>
-                {ACT_STATUS_LABELS[showDetail.status] || showDetail.status}
-              </Badge>
-            </div>
+              );
+            })()}
             {Object.entries(parseData(showDetail)).map(([key, val]) => (
               <div key={key} className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 border border-gray-100">
                 <span className="text-sm text-gray-600">{ACTIVITY_TYPE_LABELS[key] || key}</span>

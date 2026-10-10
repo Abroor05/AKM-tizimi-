@@ -20,8 +20,20 @@ const TYPE_SHORT = {
 };
 
 // Status badge
-const STATUS_COLORS = { draft: 'gray', submitted: 'blue', sent: 'green' };
-const STATUS_LABELS = { draft: 'Qoralama', submitted: 'Saqlangan', sent: 'Yuborildi' };
+const STATUS_COLORS = {
+  draft: 'gray',
+  submitted: 'blue',
+  sent: 'green',
+  accepted: 'emerald',
+  completed: 'green',
+};
+const STATUS_LABELS = {
+  draft: 'Qoralama',
+  submitted: 'Saqlangan',
+  sent: 'Yuborilgan',
+  accepted: 'Qabul qilindi',
+  completed: 'Yuborilgan',
+};
 
 function buildEmptyForm() {
   const counts = {};
@@ -215,22 +227,39 @@ export default function DailyActivityPage() {
                   const data  = parseData(a);
                   const owner = allUsers.find(u => u.id === a.userId);
                   const isMine = a.userId === currentUser?.id;
-                  const canSend = isXodim && isMine && a.status !== 'sent';
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const isAlreadySent = a.status === 'sent' || a.status === 'accepted' || a.status === 'completed' || (a.date && a.date < todayStr);
+                  const canSend = isXodim && isMine && !isAlreadySent;
+                  const badgeStatus = isAlreadySent && a.status !== 'accepted' ? 'sent' : a.status;
+
                   return (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
                         {formatDate(a.date)}
                         {a.time && <span className="text-xs text-gray-400 ml-1">{a.time}</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs">{owner?.fullName || '—'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
+                            {owner?.fullName?.charAt(0) || 'X'}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-800 leading-tight">{owner?.fullName || '—'}</p>
+                            <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                              <ICONS.library className="text-[10px] text-slate-400 shrink-0" />
+                              <span className="truncate max-w-[150px]">{libraries.find(l => l.id === a.libraryId || l.id === owner?.libraryId)?.name || 'Kutubxona'}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
                       {Object.keys(TYPE_SHORT).map(k => (
                         <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
                           {data[k] ? formatNumber(data[k]) : <span className="text-gray-300">—</span>}
                         </td>
                       ))}
                       <td className="px-4 py-3">
-                        <Badge color={STATUS_COLORS[a.status] || 'gray'}>
-                          {STATUS_LABELS[a.status] || a.status}
+                        <Badge color={STATUS_COLORS[badgeStatus] || 'green'}>
+                          {STATUS_LABELS[badgeStatus] || 'Yuborilgan'}
                         </Badge>
                       </td>
                       <td className="text-center px-4 py-3">
@@ -240,13 +269,13 @@ export default function DailyActivityPage() {
                             className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Ko'rish">
                             <ICONS.eye className="text-sm" />
                           </button>
-                          {/* Yuborish — faqat o'z hisoboti va yuborilmagan */}
+                          {/* Yuborish — faqat bugungi, o'z hisoboti va hali yuborilmagan bo'lsa */}
                           {canSend && (
                             <button
                               onClick={() => handleSend(a)}
                               disabled={sending === a.id}
                               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium disabled:opacity-50"
-                              title="Bolim boshligiga yuborish"
+                              title="Bo'lim boshlig'iga yuborish"
                             >
                               {sending === a.id
                                 ? <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -255,10 +284,10 @@ export default function DailyActivityPage() {
                               Yuborish
                             </button>
                           )}
-                          {/* Yuborildi belgisi */}
-                          {a.status === 'sent' && (
-                            <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                              <ICONS.check className="text-xs" /> Yuborildi
+                          {/* Yuborilgan / Qabul qilingan holat belgisi */}
+                          {isAlreadySent && (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
+                              <ICONS.check className="text-xs" /> {a.status === 'accepted' ? 'Qabul qilindi' : 'Yuborilgan'}
                             </span>
                           )}
                         </div>
@@ -335,28 +364,70 @@ export default function DailyActivityPage() {
           onClose={() => setShowDetail(null)}
           title={`${formatDate(showDetail.date)} — Kunlik hisobot`}
           size="sm"
-          footer={
-            <div className="flex gap-2 w-full">
-              {/* Modaldan turib ham yuborish */}
-              {isRole(ROLES.KUTUBXONA_XODIMI) && showDetail.userId === currentUser?.id && showDetail.status !== 'sent' && (
-                <Button
-                  onClick={() => { handleSend(showDetail); setShowDetail(null); }}
-                  disabled={sending === showDetail.id}
-                >
-                  <ICONS.paperPlane /> Bolim boshligiga yuborish
-                </Button>
-              )}
-              <Button variant="secondary" onClick={() => setShowDetail(null)}>Yopish</Button>
-            </div>
-          }
+          footer={(() => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isDetailSent = showDetail.status === 'sent' || showDetail.status === 'accepted' || showDetail.status === 'completed' || (showDetail.date && showDetail.date < todayStr);
+            return (
+              <div className="flex items-center justify-between gap-2 w-full">
+                {/* Modaldan turib ham yuborish — faqat yuborilmagan bo'lsa */}
+                {isRole(ROLES.KUTUBXONA_XODIMI) && showDetail.userId === currentUser?.id && !isDetailSent ? (
+                  <Button
+                    onClick={() => { handleSend(showDetail); setShowDetail(null); }}
+                    disabled={sending === showDetail.id}
+                  >
+                    <ICONS.paperPlane /> Bo'lim boshlig'iga yuborish
+                  </Button>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-green-700 font-semibold bg-green-50 px-2.5 py-1.5 rounded-lg border border-green-200">
+                    <ICONS.check className="text-xs text-green-600" /> {showDetail.status === 'accepted' ? 'Qabul qilingan' : 'Yuborilgan'}
+                  </span>
+                )}
+                <Button variant="secondary" onClick={() => setShowDetail(null)}>Yopish</Button>
+              </div>
+            );
+          })()}
         >
-          <div className="space-y-2">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-400">Holat</span>
-              <Badge color={STATUS_COLORS[showDetail.status] || 'gray'}>
-                {STATUS_LABELS[showDetail.status] || showDetail.status}
-              </Badge>
-            </div>
+          <div className="space-y-3">
+            {/* Sender card */}
+            {(() => {
+              const sender = allUsers.find(u => u.id === showDetail.userId);
+              const lib = libraries.find(l => l.id === showDetail.libraryId || l.id === sender?.libraryId);
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isDetailSent = showDetail.status === 'sent' || showDetail.status === 'accepted' || showDetail.status === 'completed' || (showDetail.date && showDetail.date < todayStr);
+              const badgeStatus = isDetailSent && showDetail.status !== 'accepted' ? 'sent' : showDetail.status;
+
+              return (
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                      <ICONS.user className="text-xs" /> Yuboruvchi xodim
+                    </span>
+                    <Badge color={STATUS_COLORS[badgeStatus] || 'green'}>
+                      {STATUS_LABELS[badgeStatus] || 'Yuborilgan'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-base">
+                      {sender?.fullName?.charAt(0) || 'X'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-extrabold text-slate-900 text-sm leading-tight">{sender?.fullName || '—'}</p>
+                      <p className="text-xs text-blue-600 font-medium mt-0.5">
+                        {sender?.role === ROLES.KUTUBXONA_XODIMI ? 'Kutubxona xodimi' : (sender?.role || 'Xodim')}
+                      </p>
+                      {lib && (
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <ICONS.library className="text-[10px] text-slate-400 shrink-0" />
+                          <span className="truncate">{lib.name}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-1">Bajarilgan ishlar</p>
             {Object.entries(parseData(showDetail)).map(([key, val]) => (
               <div key={key} className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 border border-gray-100">
                 <span className="text-sm text-gray-600">{ACTIVITY_TYPE_LABELS[key] || key}</span>
@@ -370,9 +441,6 @@ export default function DailyActivityPage() {
                 <span className="font-medium text-amber-700">Izoh: </span>{showDetail.description}
               </div>
             )}
-            <div className="text-xs text-gray-400 pt-1 text-center">
-              {allUsers.find(u => u.id === showDetail.userId)?.fullName || '—'} tomonidan
-            </div>
           </div>
         </Modal>
       )}

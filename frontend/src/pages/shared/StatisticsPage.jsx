@@ -16,11 +16,10 @@ const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b
 export default function StatisticsPage() {
   const { currentUser, getCollection, isRole } = useApp();
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
-  const books = useMemo(() => getCollection(STORAGE_KEYS.BOOKS), [getCollection]);
-  const readers = useMemo(() => getCollection(STORAGE_KEYS.READERS), [getCollection]);
   const activities = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
   const events = useMemo(() => getCollection(STORAGE_KEYS.EVENTS), [getCollection]);
   const reports = useMemo(() => getCollection(STORAGE_KEYS.REPORTS), [getCollection]);
+  const tasks = useMemo(() => getCollection(STORAGE_KEYS.TASKS), [getCollection]);
 
   const scopedLibIds = useMemo(() => {
     if (isRole(ROLES.SUPER_ADMIN)) return libraries.map(l => l.id);
@@ -28,10 +27,10 @@ export default function StatisticsPage() {
     return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId).map(l => l.id);
   }, [libraries, currentUser, isRole]);
 
-  const scopedBooks = books.filter(b => scopedLibIds.includes(b.libraryId));
-  const scopedReaders = readers.filter(r => scopedLibIds.includes(r.libraryId));
   const scopedActivities = activities.filter(a => scopedLibIds.includes(a.libraryId));
   const scopedEvents = events.filter(e => scopedLibIds.includes(e.libraryId));
+  const scopedReports = reports.filter(r => scopedLibIds.includes(r.libraryId));
+  const scopedTasks = tasks.filter(t => scopedLibIds.includes(t.libraryId));
 
   // Monthly activity trend
   const monthlyTrend = useMemo(() => {
@@ -39,7 +38,7 @@ export default function StatisticsPage() {
     return months.map((m, i) => ({
       name: m,
       tashrif: 200 + Math.floor(Math.random() * 400) + i * 30,
-      kitobxon: 15 + Math.floor(Math.random() * 40) + i * 5,
+      ijro: 15 + Math.floor(Math.random() * 40) + i * 5,
       tadbir: Math.floor(Math.random() * 8) + 1,
     }));
   }, []);
@@ -55,19 +54,19 @@ export default function StatisticsPage() {
   const libComparison = useMemo(() => {
     return libraries.filter(l => scopedLibIds.includes(l.id)).map(l => ({
       name: l.name.length > 15 ? l.name.slice(0, 15) + '...' : l.name,
-      kitoblar: books.filter(b => b.libraryId === l.id).length,
-      kitobxonlar: readers.filter(r => r.libraryId === l.id).length,
+      faoliyat: activities.filter(a => a.libraryId === l.id).length,
+      hisobotlar: reports.filter(r => r.libraryId === l.id).length,
     }));
-  }, [libraries, books, readers, scopedLibIds]);
+  }, [libraries, activities, reports, scopedLibIds]);
 
   return (
     <div>
       <PageHeader title="Statistika" subtitle="Kutubxona faoliyati statistik ko'rsatkichlari" icon={ICONS.statistics} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Jami tashriflar" value={formatNumber(scopedActivities.length)} icon={ICONS.activity} color="blue" trend={12} />
-        <StatCard title="Faol kitobxonlar" value={formatNumber(scopedReaders.length)} icon={ICONS.readers} color="green" trend={8} />
-        <StatCard title="Kitob fondi" value={formatNumber(scopedBooks.length)} icon={ICONS.books} color="amber" trend={5} />
+        <StatCard title="Jami faoliyatlar" value={formatNumber(scopedActivities.length)} icon={ICONS.activity} color="blue" trend={12} />
+        <StatCard title="Hisobotlar" value={formatNumber(scopedReports.length)} icon={ICONS.reports} color="purple" trend={8} />
+        <StatCard title="Topshiriqlar" value={formatNumber(scopedTasks.length)} icon={ICONS.tasks} color="amber" trend={5} />
         <StatCard title="Tadbirlar" value={formatNumber(scopedEvents.length)} icon={ICONS.events} color="indigo" trend={3} />
       </div>
 
@@ -81,7 +80,7 @@ export default function StatisticsPage() {
               <Tooltip />
               <Legend />
               <Area type="monotone" dataKey="tashrif" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} name="Tashriflar" />
-              <Area type="monotone" dataKey="kitobxon" stroke="#10b981" fill="#10b981" fillOpacity={0.2} name="Yangi kitobxonlar" />
+              <Area type="monotone" dataKey="ijro" stroke="#10b981" fill="#10b981" fillOpacity={0.2} name="Ijro ko'rsatkichi" />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -107,8 +106,8 @@ export default function StatisticsPage() {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="kitoblar" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Kitoblar" />
-              <Bar dataKey="kitobxonlar" fill="#10b981" radius={[4, 4, 0, 0]} name="Kitobxonlar" />
+              <Bar dataKey="faoliyat" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Faoliyatlar" />
+              <Bar dataKey="hisobotlar" fill="#10b981" radius={[4, 4, 0, 0]} name="Hisobotlar" />
             </BarChart>
           </ResponsiveContainer>
         </Card>

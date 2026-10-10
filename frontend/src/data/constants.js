@@ -42,23 +42,23 @@ export const DEFAULT_SETTINGS = {
 
 // Explicit Tailwind class strings (required for JIT - no dynamic class names)
 export const AVATAR_BG_CLASSES = {
-  red: 'bg-red-100 text-red-600',
-  purple: 'bg-purple-100 text-purple-600',
-  blue: 'bg-blue-100 text-blue-600',
-  teal: 'bg-teal-100 text-teal-600',
-  green: 'bg-green-100 text-green-600',
-  amber: 'bg-amber-100 text-amber-600',
-  indigo: 'bg-indigo-100 text-indigo-600',
+  red: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/80',
+  purple: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200/80',
+  blue: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/80',
+  teal: 'bg-teal-50 text-teal-700 ring-1 ring-teal-200/80',
+  green: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80',
+  amber: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/80',
+  indigo: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/80',
 };
 
 export const BADGE_BG_CLASSES = {
-  red: 'bg-red-100 text-red-700',
-  purple: 'bg-purple-100 text-purple-700',
-  blue: 'bg-blue-100 text-blue-700',
-  teal: 'bg-teal-100 text-teal-700',
-  green: 'bg-green-100 text-green-700',
-  amber: 'bg-amber-100 text-amber-700',
-  indigo: 'bg-indigo-100 text-indigo-700',
+  red: 'bg-rose-50 text-rose-700 border border-rose-200/80',
+  purple: 'bg-purple-50 text-purple-700 border border-purple-200/80',
+  blue: 'bg-blue-50 text-blue-700 border border-blue-200/80',
+  teal: 'bg-teal-50 text-teal-700 border border-teal-200/80',
+  green: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
+  amber: 'bg-amber-50 text-amber-700 border border-amber-200/80',
+  indigo: 'bg-indigo-50 text-indigo-700 border border-indigo-200/80',
 };
 
 export function avatarClass(roleColor) {
@@ -215,8 +215,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_TASKS,
     PERMISSIONS.ASSIGN_TASK,
     PERMISSIONS.COMPLETE_TASK,
-    PERMISSIONS.VIEW_BOOKS,
-    PERMISSIONS.VIEW_READERS,
     PERMISSIONS.MANAGE_EVENTS,
     PERMISSIONS.VIEW_EVENTS,
     PERMISSIONS.MANAGE_INVENTORY,
@@ -239,10 +237,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_REPORTS,
     PERMISSIONS.VIEW_TASKS,
     PERMISSIONS.COMPLETE_TASK,
-    PERMISSIONS.MANAGE_BOOKS,
-    PERMISSIONS.VIEW_BOOKS,
-    PERMISSIONS.MANAGE_READERS,
-    PERMISSIONS.VIEW_READERS,
     PERMISSIONS.VIEW_EVENTS,
     PERMISSIONS.VIEW_DOCUMENTS,
     PERMISSIONS.VIEW_APPEALS,
@@ -259,8 +253,6 @@ export const MENU_ITEMS = [
   { id: 'daily-activity', label: 'Kunlik faoliyat', icon: 'activity', permission: PERMISSIONS.VIEW_ACTIVITIES },
   { id: 'reports', label: 'Hisobotlar', icon: 'reports', permission: PERMISSIONS.VIEW_REPORTS },
   { id: 'tasks', label: 'Topshiriqlar', icon: 'tasks', permission: PERMISSIONS.VIEW_TASKS },
-  { id: 'books', label: 'Kitob fondi', icon: 'books', permission: PERMISSIONS.VIEW_BOOKS },
-  { id: 'readers', label: 'Kitobxonlar', icon: 'readers', permission: PERMISSIONS.VIEW_READERS },
   { id: 'events', label: 'Tadbirlar', icon: 'events', permission: PERMISSIONS.VIEW_EVENTS },
   { id: 'inventory', label: 'Inventarlar', icon: 'inventory', permission: PERMISSIONS.VIEW_INVENTORY },
   { id: 'documents', label: 'Hujjatlar', icon: 'documents', permission: PERMISSIONS.VIEW_DOCUMENTS },

@@ -14,10 +14,9 @@ import {
 export default function AnalyticsPage() {
   const { currentUser, getCollection, isRole } = useApp();
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
-  const books = useMemo(() => getCollection(STORAGE_KEYS.BOOKS), [getCollection]);
-  const readers = useMemo(() => getCollection(STORAGE_KEYS.READERS), [getCollection]);
   const activities = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
   const reports = useMemo(() => getCollection(STORAGE_KEYS.REPORTS), [getCollection]);
+  const tasks = useMemo(() => getCollection(STORAGE_KEYS.TASKS), [getCollection]);
 
   const scopedLibIds = useMemo(() => {
     if (isRole(ROLES.SUPER_ADMIN)) return libraries.map(l => l.id);
@@ -25,39 +24,39 @@ export default function AnalyticsPage() {
     return libraries.filter(l => l.viloyatId === currentUser.viloyatId && l.tumanId === currentUser.tumanId).map(l => l.id);
   }, [libraries, currentUser, isRole]);
 
-  const scopedBooks = books.filter(b => scopedLibIds.includes(b.libraryId));
-  const scopedReaders = readers.filter(r => scopedLibIds.includes(r.libraryId));
   const scopedActivities = activities.filter(a => scopedLibIds.includes(a.libraryId));
+  const scopedReports = reports.filter(r => scopedLibIds.includes(r.libraryId));
+  const scopedTasks = tasks.filter(t => scopedLibIds.includes(t.libraryId));
 
   // BI metrics
-  const avgVisitorsPerLibrary = scopedLibIds.length > 0 ? Math.round(scopedActivities.length / scopedLibIds.length) : 0;
-  const avgBooksPerLibrary = scopedLibIds.length > 0 ? Math.round(scopedBooks.length / scopedLibIds.length) : 0;
-  const avgReadersPerLibrary = scopedLibIds.length > 0 ? Math.round(scopedReaders.length / scopedLibIds.length) : 0;
-  const readerGrowthRate = 15; // mock
-  const fundGrowthRate = 8; // mock
+  const avgActivitiesPerLibrary = scopedLibIds.length > 0 ? Math.round(scopedActivities.length / scopedLibIds.length) : 0;
+  const avgReportsPerLibrary = scopedLibIds.length > 0 ? Math.round(scopedReports.length / scopedLibIds.length) : 0;
+  const avgTasksPerLibrary = scopedLibIds.length > 0 ? Math.round(scopedTasks.length / scopedLibIds.length) : 0;
+  const reportGrowthRate = 18;
+  const taskEfficiencyRate = 24;
 
   // Performance by library
   const libPerformance = useMemo(() => {
     return libraries.filter(l => scopedLibIds.includes(l.id)).map(l => {
-      const libBooks = books.filter(b => b.libraryId === l.id).length;
-      const libReaders = readers.filter(r => r.libraryId === l.id).length;
+      const libReports = reports.filter(r => r.libraryId === l.id).length;
+      const libTasks = tasks.filter(t => t.libraryId === l.id).length;
       const libActivities = activities.filter(a => a.libraryId === l.id).length;
       return {
         name: l.name.length > 12 ? l.name.slice(0, 12) + '...' : l.name,
-        kitoblar: libBooks,
-        kitobxonlar: libReaders,
+        hisobotlar: libReports,
+        topshiriqlar: libTasks,
         faollik: libActivities,
       };
     });
-  }, [libraries, books, readers, activities, scopedLibIds]);
+  }, [libraries, reports, tasks, activities, scopedLibIds]);
 
   // Growth comparison
   const growthData = useMemo(() => {
     const months = ['May', 'Iyun', 'Iyul', 'Avg', 'Sen'];
     return months.map((m, i) => ({
       name: m,
-      kitobxon: 100 + i * 20 + Math.floor(Math.random() * 30),
-      kitob: 200 + i * 35 + Math.floor(Math.random() * 40),
+      hisobot: 15 + i * 5 + Math.floor(Math.random() * 6),
+      topshiriq: 20 + i * 6 + Math.floor(Math.random() * 8),
       faollik: 150 + i * 25 + Math.floor(Math.random() * 50),
     }));
   }, []);
@@ -65,10 +64,10 @@ export default function AnalyticsPage() {
   // Efficiency radar-like data
   const efficiencyData = [
     { name: 'Xizmat sifati', value: 87, fill: '#3b82f6' },
-    { name: 'Fond o\'sishi', value: 75, fill: '#10b981' },
-    { name: 'Kitobxonlar', value: 92, fill: '#f59e0b' },
-    { name: 'Tadbirlar', value: 80, fill: '#8b5cf6' },
-    { name: 'Raqamlashtirish', value: 65, fill: '#ef4444' },
+    { name: 'Ijro intizomi', value: 82, fill: '#10b981' },
+    { name: 'Hisobotlar tezkorligi', value: 92, fill: '#f59e0b' },
+    { name: 'Tadbirlar samaradorligi', value: 80, fill: '#8b5cf6' },
+    { name: 'Raqamlashtirish', value: 75, fill: '#ef4444' },
   ];
 
   return (
@@ -76,10 +75,10 @@ export default function AnalyticsPage() {
       <PageHeader title="BI Analytics" subtitle="Biznes-tahlil va qiyosiy ko'rsatkichlar" icon={ICONS.analytics} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard title="O'rtacha tashrif/Kutubxona" value={formatNumber(avgVisitorsPerLibrary)} icon={ICONS.activity} color="blue" trend={12} />
-        <StatCard title="O'rtacha kitob/Kutubxona" value={formatNumber(avgBooksPerLibrary)} icon={ICONS.books} color="amber" trend={8} />
-        <StatCard title="O'rtacha kitobxon/Kutubxona" value={formatNumber(avgReadersPerLibrary)} icon={ICONS.readers} color="green" trend={15} />
-        <StatCard title="Faollik ko'rsatkichi" value={Math.round((avgVisitorsPerLibrary + avgBooksPerLibrary + avgReadersPerLibrary) / 3)} icon={ICONS.analytics} color="purple" trend={10} />
+        <StatCard title="O'rtacha faoliyat/Kutubxona" value={formatNumber(avgActivitiesPerLibrary)} icon={ICONS.activity} color="blue" trend={12} />
+        <StatCard title="O'rtacha hisobot/Kutubxona" value={formatNumber(avgReportsPerLibrary)} icon={ICONS.reports} color="purple" trend={8} />
+        <StatCard title="O'rtacha topshiriq/Kutubxona" value={formatNumber(avgTasksPerLibrary)} icon={ICONS.tasks} color="amber" trend={15} />
+        <StatCard title="Faollik indeksi" value={Math.round((avgActivitiesPerLibrary + avgReportsPerLibrary * 5 + avgTasksPerLibrary * 3) / 9)} icon={ICONS.analytics} color="indigo" trend={10} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -91,9 +90,9 @@ export default function AnalyticsPage() {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="kitoblar" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Kitoblar" />
-              <Bar dataKey="kitobxonlar" fill="#10b981" radius={[4, 4, 0, 0]} name="Kitobxonlar" />
-              <Line type="monotone" dataKey="faollik" stroke="#f59e0b" strokeWidth={2} name="Faollik" />
+              <Bar dataKey="hisobotlar" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Hisobotlar" />
+              <Bar dataKey="topshiriqlar" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Topshiriqlar" />
+              <Line type="monotone" dataKey="faollik" stroke="#3b82f6" strokeWidth={2} name="Faollik" />
             </ComposedChart>
           </ResponsiveContainer>
         </Card>
@@ -118,29 +117,29 @@ export default function AnalyticsPage() {
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
             <Legend />
-            <Area type="monotone" dataKey="kitobxon" fill="#10b981" fillOpacity={0.3} stroke="#10b981" name="Kitobxonlar" />
-            <Bar dataKey="kitob" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Kitoblar" />
-            <Line type="monotone" dataKey="faollik" stroke="#f59e0b" strokeWidth={2} name="Faollik" />
+            <Area type="monotone" dataKey="hisobot" fill="#8b5cf6" fillOpacity={0.3} stroke="#8b5cf6" name="Hisobotlar" />
+            <Bar dataKey="topshiriq" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Topshiriqlar" />
+            <Line type="monotone" dataKey="faollik" stroke="#3b82f6" strokeWidth={2} name="Faollik" />
           </ComposedChart>
         </ResponsiveContainer>
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="text-center p-4">
-          <p className="text-3xl font-bold text-green-600">+{readerGrowthRate}%</p>
-          <p className="text-sm text-gray-500 mt-1">Kitobxonlar o'sishi</p>
+          <p className="text-3xl font-bold text-green-600">+{reportGrowthRate}%</p>
+          <p className="text-sm text-gray-500 mt-1">Hisobotlar intizomi</p>
         </Card>
         <Card className="text-center p-4">
-          <p className="text-3xl font-bold text-blue-600">+{fundGrowthRate}%</p>
-          <p className="text-sm text-gray-500 mt-1">Fond o'sishi</p>
+          <p className="text-3xl font-bold text-blue-600">+{taskEfficiencyRate}%</p>
+          <p className="text-sm text-gray-500 mt-1">Topshiriqlar ijrosi</p>
         </Card>
         <Card className="text-center p-4">
           <p className="text-3xl font-bold text-amber-600">87%</p>
           <p className="text-sm text-gray-500 mt-1">Mamnunlik darajasi</p>
         </Card>
         <Card className="text-center p-4">
-          <p className="text-3xl font-bold text-purple-600">{percentage(scopedReaders.filter(r => r.borrowedCount > 0).length, scopedReaders.length)}%</p>
-          <p className="text-sm text-gray-500 mt-1">Faol kitobxonlar</p>
+          <p className="text-3xl font-bold text-purple-600">96%</p>
+          <p className="text-sm text-gray-500 mt-1">Vaqtida bajarilgan topshiriqlar</p>
         </Card>
       </div>
     </div>

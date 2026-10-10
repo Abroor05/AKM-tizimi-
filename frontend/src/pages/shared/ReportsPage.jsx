@@ -10,11 +10,12 @@ import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import ICONS from '../../components/icons.jsx';
-import { REPORT_TYPES, REPORT_TYPE_LABELS, REPORT_STATUS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS, ROLES } from '../../data/constants.js';
+import { REPORT_TYPES, REPORT_TYPE_LABELS, REPORT_STATUS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS, ROLES, ROLE_LABELS, STORAGE_KEYS } from '../../data/constants.js';
 import { formatDate, formatMoney } from '../../utils/helpers.js';
+import { getViloyatName, getTumanName } from '../../data/regions.js';
 
 export default function ReportsPage() {
-  const { currentUser, getReports, createReport, submitReport, reviewReport, isRole, hasPermission } = useApp();
+  const { currentUser, getReports, createReport, submitReport, reviewReport, isRole, hasPermission, getCollection } = useApp();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -25,6 +26,8 @@ export default function ReportsPage() {
   const [form, setForm] = useState({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, newReaders: 0, booksGiven: 0, booksReturned: 0, events: 0, revenue: 0, expenses: 0 });
 
   const allReports = useMemo(() => getReports(), [getReports]);
+  const allUsers   = useMemo(() => getCollection(STORAGE_KEYS.USERS) || [],     [getCollection]);
+  const libraries  = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
 
   // Scope reports based on role
   const reports = useMemo(() => {
@@ -101,33 +104,57 @@ export default function ReportsPage() {
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Sarlavha</th>
+                  <th className="text-left px-4 py-3 font-medium">Yuboruvchi / Tashkilot</th>
                   <th className="text-left px-4 py-3 font-medium">Turi</th>
                   <th className="text-left px-4 py-3 font-medium">Davr</th>
                   <th className="text-left px-4 py-3 font-medium">Sana</th>
                   <th className="text-left px-4 py-3 font-medium">Holat</th>
-                  <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3 text-center font-medium">Amallar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map(r => (
-                  <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetailItem(r); setReviewMode(false); }}>
-                    <td className="px-4 py-3 font-medium text-gray-800">{r.title}</td>
-                    <td className="px-4 py-3"><Badge color="blue">{REPORT_TYPE_LABELS[r.type]}</Badge></td>
-                    <td className="px-4 py-3 text-gray-600">{r.period}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{r.submittedAt || 'Qoralama'}</td>
-                    <td className="px-4 py-3"><Badge color={REPORT_STATUS_COLORS[r.status]}>{REPORT_STATUS_LABELS[r.status]}</Badge></td>
-                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
-                        {canCreate && r.status === REPORT_STATUS.DRAFT && (
-                          <button onClick={() => handleSubmit(r.id)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Yuborish"><ICONS.paperPlane className="text-sm" /></button>
-                        )}
-                        {canReview && (r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW) && (
-                          <button onClick={() => { setDetailItem(r); setReviewMode(true); }} className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Ko'rib chiqish"><ICONS.eye className="text-sm" /></button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(r => {
+                  const author = allUsers.find(u => u.id === r.userId || u.id === r.createdBy);
+                  const lib = libraries.find(l => l.id === r.libraryId || l.id === author?.libraryId);
+                  return (
+                    <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetailItem(r); setReviewMode(false); }}>
+                      <td className="px-4 py-3 font-medium text-gray-800">
+                        <div>
+                          <p className="font-semibold text-slate-900">{r.title}</p>
+                          {r.description && <p className="text-xs text-slate-400 line-clamp-1">{r.description}</p>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
+                            {author?.fullName?.charAt(0) || 'U'}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-800 leading-tight">{author?.fullName || 'Noma\'lum xodim'}</p>
+                            <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                              <ICONS.library className="text-[10px] shrink-0 text-slate-400" />
+                              <span className="truncate max-w-[160px]">{lib?.name || 'Kutubxona'}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><Badge color="blue">{REPORT_TYPE_LABELS[r.type]}</Badge></td>
+                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">{r.period}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{r.submittedAt ? formatDate(r.submittedAt) : (r.createdAt ? formatDate(r.createdAt) : 'Qoralama')}</td>
+                      <td className="px-4 py-3"><Badge color={REPORT_STATUS_COLORS[r.status]}>{REPORT_STATUS_LABELS[r.status]}</Badge></td>
+                      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          {canCreate && r.status === REPORT_STATUS.DRAFT && (
+                            <button onClick={() => handleSubmit(r.id)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Yuborish"><ICONS.paperPlane className="text-sm" /></button>
+                          )}
+                          {canReview && (r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW) && (
+                            <button onClick={() => { setDetailItem(r); setReviewMode(true); }} className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Ko'rib chiqish"><ICONS.eye className="text-sm" /></button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -150,10 +177,6 @@ export default function ReportsPage() {
               <Input label="Tashriflar" type="number" value={form.visitors} onChange={e => {
                 const raw = e.target.value;
                 setForm({ ...form, visitors: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
-              }} />
-              <Input label="Yangi kitobxonlar" type="number" value={form.newReaders} onChange={e => {
-                const raw = e.target.value;
-                setForm({ ...form, newReaders: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
               }} />
               <Input label="Berilgan kitoblar" type="number" value={form.booksGiven} onChange={e => {
                 const raw = e.target.value;
@@ -187,14 +210,50 @@ export default function ReportsPage() {
             </>
           ) : <Button variant="secondary" onClick={() => { setDetailItem(null); }}>Yopish</Button>}>
           <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800">{detailItem.title}</h3>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <Badge color="blue">{REPORT_TYPE_LABELS[detailItem.type]}</Badge>
-                <Badge color={REPORT_STATUS_COLORS[detailItem.status]}>{REPORT_STATUS_LABELS[detailItem.status]}</Badge>
-                <span className="text-sm text-gray-500">Davr: {detailItem.period}</span>
-              </div>
-            </div>
+            {/* Sender / Submitter info banner */}
+            {(() => {
+              const detailAuthor = allUsers.find(u => u.id === detailItem.userId || u.id === detailItem.createdBy);
+              const detailLib = libraries.find(l => l.id === detailItem.libraryId || l.id === detailAuthor?.libraryId);
+              return (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-blue-100">
+                  <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <ICONS.user className="text-xs" /> Yuboruvchi xodim ma'lumotlari
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center shrink-0 shadow-sm shadow-blue-600/30 text-base">
+                        {detailAuthor?.fullName?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <p className="font-extrabold text-slate-900 leading-tight text-sm sm:text-base">{detailAuthor?.fullName || 'Noma\'lum xodim'}</p>
+                        <p className="text-xs text-blue-600 font-semibold mt-0.5">
+                          {ROLE_LABELS[detailAuthor?.role] || detailAuthor?.role || 'Xodim'}
+                        </p>
+                        {detailAuthor?.phone && (
+                          <p className="text-[11px] text-slate-500 font-mono mt-0.5">Tel: {detailAuthor.phone}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-xs text-slate-600 sm:border-l sm:border-slate-200/80 sm:pl-3">
+                      <p className="flex items-center gap-1.5 font-medium text-slate-800">
+                        <ICONS.library className="text-blue-500 shrink-0 text-sm" />
+                        <span>{detailLib?.name || "Kutubxona biriktirilmagan"}</span>
+                      </p>
+                      <p className="flex items-center gap-1.5 text-slate-600">
+                        <ICONS.map className="text-slate-400 shrink-0 text-sm" />
+                        <span>
+                          {detailAuthor?.viloyatId ? getViloyatName(detailAuthor.viloyatId) : ''}
+                          {detailAuthor?.tumanId ? ` / ${getTumanName(detailAuthor.viloyatId, detailAuthor.tumanId)}` : ''}
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Yuborilgan vaqt: <span className="font-semibold text-slate-700">{detailItem.submittedAt ? formatDate(detailItem.submittedAt) : (detailItem.createdAt ? formatDate(detailItem.createdAt) : 'Qoralama')}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             {detailItem.description && <p className="text-sm text-gray-600">{detailItem.description}</p>}
             {(detailItem.visitors !== undefined || detailItem.newReaders !== undefined || detailItem.booksGiven !== undefined) && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

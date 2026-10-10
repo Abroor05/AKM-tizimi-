@@ -64,7 +64,7 @@ export function createCrudRouter(apiPath, tableName) {
     // Remove camelCase duplicates that will be converted
     delete obj.createdAt;
     const row = objectToRow(tableName, obj);
-    const keys = Object.keys(row);
+    const keys = Object.keys(row).filter(k => tableColumns.has(k));
     const placeholders = keys.map(() => '?').join(', ');
     const values = keys.map(k => row[k]);
     db.prepare(`INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
