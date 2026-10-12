@@ -242,15 +242,29 @@ export default function UsersPage() {
           <Input label={editItem ? "Parol (o'zgartirmaslik uchun bo'sh qoldiring)" : "Parol"} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
           <Input label="Telefon" value={form.phone} onChange={e => setForm({ ...form, phone: formatUzPhone(e.target.value) })} />
           <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value.trim().toLowerCase() })} />
-          <Select label="Holat" value={form.active ? 'true' : 'false'} onChange={e => setForm({ ...form, active: e.target.value === 'true' })} options={[{ value: 'true', label: 'Faol' }, { value: 'false', label: 'Nofaol' }]} />
+          <Select label="Holat" value={form.active ? 'true' : 'false'} onChange={e => setForm({ ...form, active: e.target.value === 'true' })} options={[{ value: 'true', label: 'Faol' }, { value: 'false', label: 'Nofaol' }]} placeholder="" />
 
           {/* Faqat super admin uchun qo'shimcha maydonlar */}
           {!isXodimlarBoshligi && (
             <>
-              <Select label="Rol" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} options={roleOptions} required disabled={!isRole(ROLES.SUPER_ADMIN)} />
+              <Select label="Rol" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} options={roleOptions} required disabled={!isRole(ROLES.SUPER_ADMIN)} placeholder="" />
               <Select label="Viloyat" value={isDistrictScopedUser ? currentUser?.viloyatId || '' : form.viloyatId} onChange={e => setForm({ ...form, viloyatId: e.target.value, tumanId: '', libraryId: '' })} options={[{ value: '', label: 'Barcha hudud' }, ...VILOYATLAR.map(v => ({ value: v.id, label: v.name }))]} disabled={isDistrictScopedUser} />
-              <Select label="Tuman/Shahar" value={isDistrictScopedUser ? currentUser?.tumanId || '' : form.tumanId} onChange={e => setForm({ ...form, tumanId: e.target.value, libraryId: '' })} options={[{ value: '', label: 'Barcha tuman' }, ...(selectedViloyat?.tumanlar || []).map(t => ({ value: t.id, label: t.name }))]} disabled={isDistrictScopedUser} />
-              <Select label="Kutubxona" value={form.libraryId} onChange={e => setForm({ ...form, libraryId: e.target.value })} options={[{ value: '', label: "Tanlanmagan" }, ...scopedLibraries.map(l => ({ value: l.id, label: l.name }))]} disabled={isDistrictScopedUser} />
+              <Select
+                label="Tuman/Shahar"
+                value={isDistrictScopedUser ? currentUser?.tumanId || '' : form.tumanId}
+                onChange={e => setForm({ ...form, tumanId: e.target.value, libraryId: '' })}
+                options={[{ value: '', label: 'Barcha tuman' }, ...(selectedViloyat?.tumanlar || []).map(t => ({ value: t.id, label: t.name }))]}
+                disabled={isDistrictScopedUser || (!isDistrictScopedUser && !form.viloyatId)}
+                placeholder={!form.viloyatId && !isDistrictScopedUser ? "Avval viloyatni tanlang..." : "Tanlang..."}
+              />
+              <Select
+                label="Kutubxona"
+                value={form.libraryId}
+                onChange={e => setForm({ ...form, libraryId: e.target.value })}
+                options={scopedLibraries.map(l => ({ value: l.id, label: l.name }))}
+                disabled={isDistrictScopedUser || (!isDistrictScopedUser && !form.viloyatId)}
+                placeholder={!form.viloyatId && !isDistrictScopedUser ? "Avval viloyatni tanlang..." : "Tanlang..."}
+              />
             </>
           )}
         </div>

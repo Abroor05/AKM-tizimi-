@@ -27,8 +27,6 @@ export function AppProvider({ children }) {
     const endpoints = [
       [STORAGE_KEYS.USERS, 'users'],
       [STORAGE_KEYS.LIBRARIES, 'libraries'],
-      [STORAGE_KEYS.BOOKS, 'books'],
-      [STORAGE_KEYS.READERS, 'readers'],
       [STORAGE_KEYS.ACTIVITIES, 'activities'],
       [STORAGE_KEYS.REPORTS, 'reports'],
       [STORAGE_KEYS.TASKS, 'tasks'],
@@ -371,58 +369,180 @@ export function AppProvider({ children }) {
 
   const createReport = useCallback(async (report) => {
     try {
+      const isSubmitted = report.status === 'submitted';
+      const targetRecipients = report.targetRecipients || ['super_admin', 'viloyat_admin'];
+      const dataPayload = {
+        ...(typeof report.data === 'object' ? report.data : {}),
+        targetRecipients,
+        sentToText: report.sentToText || (
+          targetRecipients.includes('super_admin') && targetRecipients.includes('viloyat_admin')
+            ? 'Super Admin va Viloyat Admini'
+            : targetRecipients.includes('super_admin')
+            ? 'Super Admin'
+            : 'Viloyat Admini'
+        ),
+      };
+
       const newReport = await api.create('reports', {
         ...report,
+        data: dataPayload,
+        targetRole: targetRecipients.join(','),
         userId: currentUser?.id,
         viloyatId: currentUser?.viloyatId,
         tumanId: currentUser?.tumanId,
         libraryId: currentUser?.libraryId,
       });
-      updateCollection(STORAGE_KEYS.REPORTS, (reports) => [newReport, ...(reports || [])]);
-      // Notify admins about new report
-      await createNotification({
-        type: 'report',
-        title: 'Yangi hisobot yaratildi',
-        message: `"${newReport.title || 'Nomsiz'}" hisoboti ${currentUser?.fullName || ''} tomonidan yaratildi`,
-        targetRole: 'super_admin',
-      });
-      return newReport;
+
+      const formatted = {
+        ...newReport,
+        data: dataPayload,
+        targetRecipients,
+      };
+
+      updateCollection(STORAGE_KEYS.REPORTS, (reports) => [formatted, ...(reports || [])]);
+
+      // Notify recipient admins
+      const libraries = collectionsRef.current[STORAGE_KEYS.LIBRARIES] || [];
+      const myLib = libraries.find(l => l.id === currentUser?.libraryId);
+      const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const libText = myLib?.name ? ` (${myLib.name})` : '';
+      const authorName = currentUser?.fullName || 'Bo\'lim boshlig\'i';
+
+      if (isSubmitted) {
+        if (targetRecipients.includes('super_admin')) {
+          await createNotification({
+            type: 'report',
+            title: 'Yangi hisobot keldi (Bo\'lim boshlig\'idan)',
+            message: `${authorName}${libText} tomonidan "${formatted.title || 'Hisobot'}" ko'rib chiqish uchun yuborildi`,
+            targetRole: 'super_admin',
+          });
+        }
+        if (targetRecipients.includes('viloyat_admin')) {
+          const viloyatAdmins = allUsers.filter(u =>
+            u.role === 'viloyat_admin' &&
+            u.viloyatId === currentUser?.viloyatId
+          );
+          if (viloyatAdmins.length > 0) {
+            for (const va of viloyatAdmins) {
+              await createNotification({
+                type: 'report',
+                title: 'Yangi hisobot keldi (Bo\'lim boshlig\'idan)',
+                message: `${authorName}${libText} tomonidan "${formatted.title || 'Hisobot'}" ko'rib chiqish uchun yuborildi`,
+                targetUserId: va.id,
+                targetRole: 'viloyat_admin',
+              });
+            }
+          } else {
+            await createNotification({
+              type: 'report',
+              title: 'Yangi hisobot keldi (Bo\'lim boshlig\'idan)',
+              message: `${authorName}${libText} tomonidan "${formatted.title || 'Hisobot'}" ko'rib chiqish uchun yuborildi`,
+              targetRole: 'viloyat_admin',
+            });
+          }
+        }
+      } else {
+        await createNotification({
+          type: 'report',
+          title: 'Yangi hisobot yaratildi (qoralama)',
+          message: `"${formatted.title || 'Nomsiz'}" hisoboti ${authorName} tomonidan qoralama sifatida saqlandi`,
+          targetUserId: currentUser?.id,
+        });
+      }
+
+      return formatted;
     } catch (err) {
       console.error('Create report failed:', err);
       throw err;
     }
   }, [currentUser, updateCollection, createNotification]);
 
-  const submitReport = useCallback(async (id) => {
+  const submitReport = useCallback(async (id, options = {}) => {
     try {
-      const updated = await api.action('reports', id, 'submit');
+      const existingReport = (collectionsRef.current[STORAGE_KEYS.REPORTS] || []).find(r => r.id === id);
+      let existingData = {};
+      try {
+        existingData = typeof existingReport?.data === 'object' && existingReport?.data
+          ? existingReport.data
+          : JSON.parse(existingReport?.data || '{}');
+      } catch { existingData = {}; }
+
+      const targetRecipients = options.targetRecipients || existingData.targetRecipients || ['super_admin', 'viloyat_admin'];
+      const mergedData = {
+        ...existingData,
+        ...options.data,
+        targetRecipients,
+        sentToText: options.sentToText || (
+          targetRecipients.includes('super_admin') && targetRecipients.includes('viloyat_admin')
+            ? 'Super Admin va Viloyat Admini'
+            : targetRecipients.includes('super_admin')
+            ? 'Super Admin'
+            : 'Viloyat Admini'
+        ),
+      };
+
+      const updated = await api.action('reports', id, 'submit', {
+        data: mergedData,
+        targetRole: targetRecipients.join(','),
+      });
+
+      const formattedUpdated = {
+        ...updated,
+        data: mergedData,
+        targetRole: targetRecipients.join(','),
+        targetRecipients,
+      };
+
       updateCollection(STORAGE_KEYS.REPORTS, (reports) =>
-        (reports || []).map(r => r.id === id ? updated : r)
+        (reports || []).map(r => r.id === id ? { ...r, ...formattedUpdated } : r)
       );
-      // Notify admins about submitted report
+
       const libraries = collectionsRef.current[STORAGE_KEYS.LIBRARIES] || [];
       const myLib = libraries.find(l => l.id === currentUser?.libraryId);
       const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
-      const tumanAdmin = allUsers.find(u =>
-        u.role === 'tuman_admin' &&
-        u.tumanId === currentUser?.tumanId &&
-        u.viloyatId === currentUser?.viloyatId
-      );
       const libText = myLib?.name ? ` (${myLib.name})` : '';
+      const authorName = currentUser?.fullName || 'Bo\'lim boshlig\'i';
 
-      await createNotification({
-        type: 'report',
-        title: 'Yangi hisobot yuborildi',
-        message: `${currentUser?.fullName || 'Foydalanuvchi'}${libText} tomonidan "${updated.title || 'Nomsuz'}" hisoboti ko'rib chiqish uchun yuborildi`,
-        targetUserId: tumanAdmin?.id || null,
-        targetRole:   tumanAdmin ? null : 'super_admin',
-      });
-      return updated;
+      if (targetRecipients.includes('super_admin')) {
+        await createNotification({
+          type: 'report',
+          title: 'Yangi hisobot keldi (Bo\'lim boshlig\'idan)',
+          message: `${authorName}${libText} tomonidan "${updated.title || 'Hisobot'}" ko'rib chiqish uchun yuborildi`,
+          targetRole: 'super_admin',
+        });
+      }
+
+      if (targetRecipients.includes('viloyat_admin')) {
+        const viloyatAdmins = allUsers.filter(u =>
+          u.role === 'viloyat_admin' &&
+          u.viloyatId === (currentUser?.viloyatId || existingReport?.viloyatId)
+        );
+        if (viloyatAdmins.length > 0) {
+          for (const va of viloyatAdmins) {
+            await createNotification({
+              type: 'report',
+              title: 'Yangi hisobot keldi (Bo\'lim boshlig\'idan)',
+              message: `${authorName}${libText} tomonidan "${updated.title || 'Hisobot'}" ko'rib chiqish uchun yuborildi`,
+              targetUserId: va.id,
+              targetRole: 'viloyat_admin',
+            });
+          }
+        } else {
+          await createNotification({
+            type: 'report',
+            title: 'Yangi hisobot keldi (Bo\'lim boshlig\'idan)',
+            message: `${authorName}${libText} tomonidan "${updated.title || 'Hisobot'}" ko'rib chiqish uchun yuborildi`,
+            targetRole: 'viloyat_admin',
+          });
+        }
+      }
+
+      return formattedUpdated;
     } catch (err) {
       console.error('Submit report failed:', err);
       throw err;
     }
-  }, [updateCollection, createNotification]);
+  }, [currentUser, updateCollection, createNotification]);
 
   const reviewReport = useCallback(async (id, action, comment = '') => {
     try {
@@ -498,7 +618,8 @@ export function AppProvider({ children }) {
     return all.filter(n =>
       (!n.targetUserId && !n.targetRole) ||          // broadcast to everyone
       n.targetUserId === currentUser.id ||            // targeted at this user
-      n.targetRole === currentUser.role               // targeted at this role
+      n.targetRole === currentUser.role ||            // targeted at this role
+      (n.targetRole && n.targetRole.split(',').map(s => s.trim()).includes(currentUser.role))
     );
   }, [currentUser, getCollection]);
 

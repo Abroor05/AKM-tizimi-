@@ -243,6 +243,15 @@ CREATE TABLE IF NOT EXISTS settings (
 // --- Execute schema ---
 db.exec(SCHEMA);
 
+try {
+  const repCols = db.prepare("PRAGMA table_info(reports)").all().map(c => c.name);
+  if (!repCols.includes('target_role')) {
+    db.prepare("ALTER TABLE reports ADD COLUMN target_role TEXT").run();
+  }
+} catch (e) {
+  // column already exists or table busy
+}
+
 const usersWithMissingLibrary = db.prepare("SELECT * FROM users WHERE role IN ('kutubxona_xodimi', 'xodimlar_boshligi') AND (library_id IS NULL OR library_id = '')").all();
 for (const user of usersWithMissingLibrary) {
   let library = db.prepare(

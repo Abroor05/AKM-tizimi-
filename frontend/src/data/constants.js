@@ -28,7 +28,7 @@ export const ROLE_COLORS = {
 };
 
 export const DEFAULT_SETTINGS = {
-  systemName: 'Kutubxona Boshqaruv Tizimi',
+  systemName: 'Xodimlar Ish Tartibi va Boshqaruv Tizimi',
   systemVersion: '1.0.0',
   organization: '',
   language: 'uz',
@@ -100,14 +100,6 @@ export const PERMISSIONS = {
   ASSIGN_TASK: 'assign_task',
   COMPLETE_TASK: 'complete_task',
 
-  // Books
-  MANAGE_BOOKS: 'manage_books',
-  VIEW_BOOKS: 'view_books',
-
-  // Readers
-  MANAGE_READERS: 'manage_readers',
-  VIEW_READERS: 'view_readers',
-
   // Events
   MANAGE_EVENTS: 'manage_events',
   VIEW_EVENTS: 'view_events',
@@ -163,18 +155,9 @@ export const PERMISSIONS = {
 
 // --- ROLE-PERMISSION MATRIX ---
 export const ROLE_PERMISSIONS = {
-  [ROLES.SUPER_ADMIN]: Object.values(PERMISSIONS).filter(p =>
-    p !== PERMISSIONS.VIEW_BOOKS &&
-    p !== PERMISSIONS.MANAGE_BOOKS &&
-    p !== PERMISSIONS.VIEW_READERS &&
-    p !== PERMISSIONS.MANAGE_READERS
-  ),
+  [ROLES.SUPER_ADMIN]: Object.values(PERMISSIONS),
 
   [ROLES.VILOYAT_ADMIN]: Object.values(PERMISSIONS).filter(p =>
-    p !== PERMISSIONS.VIEW_BOOKS &&
-    p !== PERMISSIONS.MANAGE_BOOKS &&
-    p !== PERMISSIONS.VIEW_READERS &&
-    p !== PERMISSIONS.MANAGE_READERS &&
     p !== PERMISSIONS.MANAGE_ROLES &&
     p !== PERMISSIONS.MANAGE_SECURITY
   ),
@@ -249,7 +232,7 @@ export const ROLE_PERMISSIONS = {
 // --- SIDEBAR MENU ---
 export const MENU_ITEMS = [
   { id: 'dashboard', label: 'Boshqaruv paneli', icon: 'dashboard', permission: PERMISSIONS.VIEW_DASHBOARD },
-  { id: 'libraries', label: 'AKM / Kutubxonalar', icon: 'library', permission: PERMISSIONS.VIEW_LIBRARIES },
+  { id: 'libraries', label: 'AKM / Bo\'limlar', icon: 'library', permission: PERMISSIONS.VIEW_LIBRARIES },
   { id: 'daily-activity', label: 'Kunlik faoliyat', icon: 'activity', permission: PERMISSIONS.VIEW_ACTIVITIES },
   { id: 'reports', label: 'Hisobotlar', icon: 'reports', permission: PERMISSIONS.VIEW_REPORTS },
   { id: 'tasks', label: 'Topshiriqlar', icon: 'tasks', permission: PERMISSIONS.VIEW_TASKS },
@@ -445,8 +428,8 @@ export const EVENT_TYPES = {
 };
 
 export const EVENT_TYPE_LABELS = {
-  [EVENT_TYPES.BOOK_PRESENTATION]: 'Kitob taqdimoti',
-  [EVENT_TYPES.READING_HOUR]: "O'qish soati",
+  [EVENT_TYPES.BOOK_PRESENTATION]: 'Yig\'ilish va hisobot',
+  [EVENT_TYPES.READING_HOUR]: "O'quv va malaka oshirish",
   [EVENT_TYPES.MEETING]: 'Uchrashuv',
   [EVENT_TYPES.EXHIBITION]: 'Ko\'rgazma',
   [EVENT_TYPES.COMPETITION]: 'Tanlov',
@@ -487,12 +470,12 @@ export const ACTIVITY_TYPES = {
 };
 
 export const ACTIVITY_TYPE_LABELS = {
-  kitob_skanerlash: 'Kitob skanerlash',
-  kitob_pdf:        'Kitob PDF qilish',
+  kitob_skanerlash: 'Skanerlash ishlari (sahifa)',
+  kitob_pdf:        'Elektronlashtirish / PDF (fayl)',
   texnik_xizmat:    'Texnik xizmat',
-  jihozlash:        'Jihozlash / Kabellar',
-  tuzatish:         "Ta'mirlash / Tuzatish",
-  boshqa:           'Boshqa',
+  jihozlash:        'Jihozlash va tarmoq',
+  tuzatish:         "Ta'mirlash va sozlash",
+  boshqa:           'Boshqa ish tartibi vazifalari',
 };
 
 export const ACTIVITY_TYPE_COLORS = {
@@ -528,7 +511,7 @@ export const INVENTORY_TYPE_LABELS = {
   [INVENTORY_TYPES.FURNITURE]: 'Mebel',
   [INVENTORY_TYPES.EQUIPMENT]: 'Uskunalar',
   [INVENTORY_TYPES.COMPUTER]: 'Kompyuter texnikasi',
-  [INVENTORY_TYPES.BOOKSHELF]: 'Kitob javonlari',
+  [INVENTORY_TYPES.BOOKSHELF]: 'Hujjat va jihoz javonlari',
   [INVENTORY_TYPES.OTHER]: 'Boshqa',
 };
 
@@ -565,8 +548,8 @@ export const KPI_CATEGORIES = {
 
 export const KPI_CATEGORY_LABELS = {
   [KPI_CATEGORIES.SERVICE_QUALITY]: 'Xizmat ko\'rsatish sifati',
-  [KPI_CATEGORIES.FUND_GROWTH]: 'Fond o\'sishi',
-  [KPI_CATEGORIES.READER_GROWTH]: 'Kitobxonlar o\'sishi',
+  [KPI_CATEGORIES.FUND_GROWTH]: 'Resurs va hujjatlar bazasi',
+  [KPI_CATEGORIES.READER_GROWTH]: 'Xodimlar ish unumdorligi',
   [KPI_CATEGORIES.EVENT_ACTIVITIES]: 'Tadbir faolligi',
   [KPI_CATEGORIES.DIGITAL_SERVICES]: 'Raqamli xizmatlar',
 };
@@ -576,8 +559,6 @@ export const STORAGE_KEYS = {
   USERS: 'kbt_users',
   CURRENT_USER: 'kbt_current_user',
   LIBRARIES: 'kbt_libraries',
-  BOOKS: 'kbt_books',
-  READERS: 'kbt_readers',
   ACTIVITIES: 'kbt_activities',
   REPORTS: 'kbt_reports',
   TASKS: 'kbt_tasks',

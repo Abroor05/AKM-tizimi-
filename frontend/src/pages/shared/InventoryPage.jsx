@@ -124,7 +124,7 @@ export default function InventoryPage() {
         footer={<><Button variant="secondary" onClick={() => setShowModal(false)}>Bekor</Button><Button onClick={handleSave}><ICONS.save /> Saqlash</Button></>}>
         <div className="space-y-4">
           <Input label="Nomi" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
-          <Select label="Turi" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={Object.entries(INVENTORY_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
+          <Select label="Turi" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={Object.entries(INVENTORY_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} placeholder="" />
           <div className="grid grid-cols-2 gap-4">
             <Input label="Miqdori" type="number" value={form.quantity} onChange={e => {
               const raw = e.target.value;
@@ -136,7 +136,7 @@ export default function InventoryPage() {
             }} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Holat" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} options={Object.entries(INVENTORY_STATUS_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
+            <Select label="Holat" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} options={Object.entries(INVENTORY_STATUS_LABELS).map(([k, v]) => ({ value: k, label: v }))} placeholder="" />
             <Input label="Sotib olingan sana" type="date" value={form.purchaseDate} onChange={e => setForm({ ...form, purchaseDate: e.target.value })} />
           </div>
           <Input label="Seriya raqami" value={form.serialNumber} onChange={e => setForm({ ...form, serialNumber: e.target.value })} />

@@ -23,7 +23,7 @@ export default function ReportsPage() {
   const [detailItem, setDetailItem] = useState(null);
   const [reviewMode, setReviewMode] = useState(false);
   const [reviewComment, setReviewComment] = useState('');
-  const [form, setForm] = useState({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, newReaders: 0, booksGiven: 0, booksReturned: 0, events: 0, revenue: 0, expenses: 0 });
+  const [form, setForm] = useState({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
 
   const allReports = useMemo(() => getReports(), [getReports]);
   const allUsers   = useMemo(() => getCollection(STORAGE_KEYS.USERS) || [],     [getCollection]);
@@ -52,7 +52,7 @@ export default function ReportsPage() {
     if (!form.title || !form.type || !form.period) return;
     createReport(form);
     setShowModal(false);
-    setForm({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, newReaders: 0, booksGiven: 0, booksReturned: 0, events: 0, revenue: 0, expenses: 0 });
+    setForm({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
   };
 
   const handleSubmit = (id) => {
@@ -122,6 +122,25 @@ export default function ReportsPage() {
                         <div>
                           <p className="font-semibold text-slate-900">{r.title}</p>
                           {r.description && <p className="text-xs text-slate-400 line-clamp-1">{r.description}</p>}
+                          {(() => {
+                            let repData = {};
+                            try { repData = typeof r.data === 'object' && r.data ? r.data : JSON.parse(r.data || '{}'); } catch {}
+                            const targetText = repData.sentToText || (
+                              r.targetRole?.includes('super_admin') && r.targetRole?.includes('viloyat_admin')
+                                ? 'Super Admin & Viloyat Admini'
+                                : r.targetRole === 'super_admin' ? 'Super Admin'
+                                : r.targetRole === 'viloyat_admin' ? 'Viloyat Admini'
+                                : null
+                            );
+                            if (targetText) {
+                              return (
+                                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                                  <ICONS.paperPlane className="text-[9px]" /> {targetText}ga
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -178,14 +197,6 @@ export default function ReportsPage() {
                 const raw = e.target.value;
                 setForm({ ...form, visitors: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
               }} />
-              <Input label="Berilgan kitoblar" type="number" value={form.booksGiven} onChange={e => {
-                const raw = e.target.value;
-                setForm({ ...form, booksGiven: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
-              }} />
-              <Input label="Qaytarilgan kitoblar" type="number" value={form.booksReturned} onChange={e => {
-                const raw = e.target.value;
-                setForm({ ...form, booksReturned: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
-              }} />
               <Input label="Tadbirlar" type="number" value={form.events} onChange={e => {
                 const raw = e.target.value;
                 setForm({ ...form, events: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
@@ -193,6 +204,10 @@ export default function ReportsPage() {
               <Input label="Daromad (so'm)" type="number" value={form.revenue} onChange={e => {
                 const raw = e.target.value;
                 setForm({ ...form, revenue: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              }} />
+              <Input label="Xarajatlar (so'm)" type="number" value={form.expenses} onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, expenses: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
               }} />
             </div>
           </div>
@@ -255,12 +270,97 @@ export default function ReportsPage() {
               );
             })()}
             {detailItem.description && <p className="text-sm text-gray-600">{detailItem.description}</p>}
-            {(detailItem.visitors !== undefined || detailItem.newReaders !== undefined || detailItem.booksGiven !== undefined) && (
+
+            {(() => {
+              let parsedData = {};
+              try { parsedData = typeof detailItem.data === 'object' && detailItem.data ? detailItem.data : JSON.parse(detailItem.data || '{}'); } catch {}
+              const totals = parsedData.totals || {};
+              const hasTotals = Object.values(totals).some(v => Number(v) > 0);
+              const targetText = parsedData.sentToText || (
+                detailItem.targetRole?.includes('super_admin') && detailItem.targetRole?.includes('viloyat_admin')
+                  ? 'Super Admin va Viloyat Admini'
+                  : detailItem.targetRole === 'super_admin' ? 'Super Admin'
+                  : detailItem.targetRole === 'viloyat_admin' ? 'Viloyat Admini'
+                  : null
+              );
+
+              return (
+                <div className="space-y-3">
+                  {targetText && (
+                    <div className="p-2.5 rounded-lg bg-purple-50 border border-purple-200 text-xs text-purple-900 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <ICONS.paperPlane className="text-xs text-purple-600" />
+                        Qabul qiluvchi adminlar:
+                      </span>
+                      <span className="font-extrabold text-purple-800">{targetText}</span>
+                    </div>
+                  )}
+
+                  {hasTotals && (
+                    <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50">
+                      <p className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5">
+                        Bo'lim faoliyati ko'rsatkichlari (Jamlangan)
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                        {totals.kitob_skanerlash !== undefined && (
+                          <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                            <span className="text-slate-500 block">Skanerlash:</span>
+                            <span className="font-extrabold text-blue-700 text-sm">{formatNumber(totals.kitob_skanerlash)} sahifa</span>
+                          </div>
+                        )}
+                        {totals.kitob_pdf !== undefined && (
+                          <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                            <span className="text-slate-500 block">PDF / Elektron:</span>
+                            <span className="font-extrabold text-indigo-700 text-sm">{formatNumber(totals.kitob_pdf)} fayl</span>
+                          </div>
+                        )}
+                        {totals.texnik_xizmat !== undefined && (
+                          <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                            <span className="text-slate-500 block">Texnik xizmat:</span>
+                            <span className="font-extrabold text-teal-700 text-sm">{formatNumber(totals.texnik_xizmat)} ta</span>
+                          </div>
+                        )}
+                        {totals.jihozlash !== undefined && (
+                          <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                            <span className="text-slate-500 block">Jihozlash:</span>
+                            <span className="font-extrabold text-amber-700 text-sm">{formatNumber(totals.jihozlash)} ta</span>
+                          </div>
+                        )}
+                        {totals.tuzatish !== undefined && (
+                          <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                            <span className="text-slate-500 block">Ta'mirlash:</span>
+                            <span className="font-extrabold text-purple-700 text-sm">{formatNumber(totals.tuzatish)} ta</span>
+                          </div>
+                        )}
+                        {totals.boshqa !== undefined && (
+                          <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                            <span className="text-slate-500 block">Boshqa ishlar:</span>
+                            <span className="font-extrabold text-slate-700 text-sm">{formatNumber(totals.boshqa)} ta</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {parsedData.staffContributions && Object.keys(parsedData.staffContributions).length > 0 && (
+                    <div className="border border-slate-200 rounded-lg p-3 bg-white text-xs">
+                      <p className="font-bold text-slate-700 mb-1.5 uppercase text-[11px]">Xodimlar hissasi:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(parsedData.staffContributions).map(([name, sum]) => (
+                          <span key={name} className="px-2 py-1 rounded bg-teal-50 text-teal-800 border border-teal-200 text-xs font-semibold">
+                            {name}: {formatNumber(sum)} ta
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {(detailItem.visitors !== undefined || detailItem.events !== undefined || detailItem.revenue !== undefined) && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {detailItem.visitors !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Tashriflar</p><p className="text-lg font-bold text-gray-800">{detailItem.visitors}</p></div>}
-                {detailItem.newReaders !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Yangi kitobxonlar</p><p className="text-lg font-bold text-gray-800">{detailItem.newReaders}</p></div>}
-                {detailItem.booksGiven !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Berilgan kitoblar</p><p className="text-lg font-bold text-gray-800">{detailItem.booksGiven}</p></div>}
-                {detailItem.booksReturned !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Qaytarilgan</p><p className="text-lg font-bold text-gray-800">{detailItem.booksReturned}</p></div>}
                 {detailItem.events !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Tadbirlar</p><p className="text-lg font-bold text-gray-800">{detailItem.events}</p></div>}
                 {detailItem.revenue !== undefined && <div className="p-3 rounded-lg bg-gray-50"><p className="text-xs text-gray-500">Daromad</p><p className="text-lg font-bold text-gray-800">{formatMoney(detailItem.revenue)}</p></div>}
               </div>

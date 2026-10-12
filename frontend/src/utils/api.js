@@ -195,8 +195,6 @@ import { STORAGE_KEYS } from '../data/constants.js';
 export const STORAGE_TO_API = {
   [STORAGE_KEYS.USERS]: 'users',
   [STORAGE_KEYS.LIBRARIES]: 'libraries',
-  [STORAGE_KEYS.BOOKS]: 'books',
-  [STORAGE_KEYS.READERS]: 'readers',
   [STORAGE_KEYS.ACTIVITIES]: 'activities',
   [STORAGE_KEYS.REPORTS]: 'reports',
   [STORAGE_KEYS.TASKS]: 'tasks',

@@ -3,6 +3,7 @@
 // Xodimlardan kelgan hisobotlarni qabul qilish va oylik jami
 // ============================================================
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import Card from '../../components/ui/Card.jsx';
@@ -66,6 +67,7 @@ function buildEmptyForm() {
 }
 
 export default function XBDailyActivity() {
+  const navigate = useNavigate();
   const { currentUser, getCollection, createEntity, acceptActivity } = useApp();
 
   const allActs   = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
@@ -214,6 +216,13 @@ export default function XBDailyActivity() {
                 {pendingCount} ta kutilmoqda
               </span>
             )}
+            <Button
+              variant="secondary"
+              onClick={() => navigate('/reports')}
+              className="bg-white border-teal-200 text-teal-800 hover:bg-teal-50"
+            >
+              <ICONS.reports className="text-teal-600" /> Oylik & Yillik Hisobotlar
+            </Button>
             <Button onClick={() => setShowModal(true)}>
               <ICONS.plus /> O'z hisobotim
             </Button>
@@ -329,14 +338,22 @@ export default function XBDailyActivity() {
       {/* ── TAB: Oylik jami ── */}
       {activeTab === 'monthly' && (
         <>
-          <div className="flex gap-3 mb-5 flex-wrap">
-            <input type="month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-              className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white" />
-            <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)}
-              className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white">
-              <option value="all">Barcha xodimlar</option>
-              {myStaff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-            </select>
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+            <div className="flex gap-3 flex-wrap">
+              <input type="month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+                className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white" />
+              <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)}
+                className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white">
+                <option value="all">Barcha xodimlar</option>
+                {myStaff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+              </select>
+            </div>
+            <Button
+              onClick={() => navigate('/reports')}
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              <ICONS.paperPlane /> Oylik hisobotni Super & Viloyat Adminga jo'natish
+            </Button>
           </div>
 
           {/* Oylik jami kartalar */}

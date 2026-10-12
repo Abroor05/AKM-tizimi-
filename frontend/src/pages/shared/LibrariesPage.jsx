@@ -213,11 +213,12 @@ export default function LibrariesPage() {
             value={form.type}
             onChange={e => setForm({ ...form, type: e.target.value })}
             options={[{ value: 'markaz', label: 'Markaz (AKM)' }, { value: 'filial', label: 'Filial' }]}
+            placeholder=""
           />
           <Select
             label="Viloyat"
             value={isDistrictScopedUser ? currentUser?.viloyatId || '' : form.viloyatId}
-            onChange={e => setForm({ ...form, viloyatId: e.target.value, tumanId: '' })}
+            onChange={e => setForm({ ...form, viloyatId: e.target.value, tumanId: '', latitude: '', longitude: '' })}
             options={VILOYATLAR.map(v => ({ value: v.id, label: v.name }))}
             required
             disabled={isDistrictScopedUser}
@@ -237,7 +238,8 @@ export default function LibrariesPage() {
             }}
             options={(selectedViloyat?.tumanlar || []).map(t => ({ value: t.id, label: t.name }))}
             required
-            disabled={isDistrictScopedUser}
+            disabled={isDistrictScopedUser || !(isDistrictScopedUser ? currentUser?.viloyatId : form.viloyatId)}
+            placeholder={!(isDistrictScopedUser ? currentUser?.viloyatId : form.viloyatId) ? "Avval viloyatni tanlang..." : "Tanlang..."}
           />
           <Input label="Manzil" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="sm:col-span-2" />
           <Input label="Kenglik (lat)" type="number" step="0.000001" value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} />

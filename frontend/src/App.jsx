@@ -30,6 +30,7 @@ import ProfilePage from './pages/shared/ProfilePage.jsx';
 // Xodimlar boshligi — dedicated pages
 import XBDashboard from './pages/xodimlar-boshligi/XBDashboard.jsx';
 import XBDailyActivity from './pages/xodimlar-boshligi/XBDailyActivity.jsx';
+import XBReports from './pages/xodimlar-boshligi/XBReports.jsx';
 import { ROLES } from './data/constants.js';
 
 const MODULES = [
@@ -122,7 +123,21 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {MODULES.filter(m => m.path !== 'daily-activity').map(m => (
+      {/* Reports — Xodimlar boshligi gets dedicated report center */}
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute requiredPermission="view_reports">
+            <Layout>
+              {currentUser?.role === ROLES.XODIMLAR_BOSHLIGI
+                ? <XBReports />
+                : <ReportsPage />
+              }
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      {MODULES.filter(m => m.path !== 'daily-activity' && m.path !== 'reports').map(m => (
         <Route
           key={m.path}
           path={`/${m.path}`}

@@ -298,7 +298,7 @@ reportsRouter.post('/', authMiddleware, (req, res) => {
     tuman_id: body.tumanId || req.user.tuman_id || null,
     status: body.status || 'draft',
     period: body.period || todayStr.slice(0, 7),
-    submitted_at: null,
+    submitted_at: body.status === 'submitted' ? (body.submittedAt || todayStr) : null,
     reviewed_at: null,
     reviewed_by: null,
     review_comment: null,
@@ -306,6 +306,9 @@ reportsRouter.post('/', authMiddleware, (req, res) => {
     description: body.description || '',
     created_at: new Date().toISOString(),
   };
+  if (body.targetRole || body.target_role) {
+    obj.target_role = body.targetRole || body.target_role;
+  }
   const keys = Object.keys(obj);
   const placeholders = keys.map(() => '?').join(', ');
   const values = keys.map(k => obj[k]);
@@ -341,7 +344,15 @@ reportsRouter.post('/:id/submit', authMiddleware, (req, res) => {
   const existing = getById('reports', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Topilmadi' });
   const todayStr = new Date().toISOString().split('T')[0];
-  const updated = updateRow('reports', req.params.id, { status: 'submitted', submitted_at: todayStr });
+  const updates = { status: 'submitted', submitted_at: todayStr };
+  if (req.body) {
+    if (req.body.data) {
+      updates.data = typeof req.body.data === 'object' ? JSON.stringify(req.body.data) : req.body.data;
+    }
+    if (req.body.targetRole) updates.target_role = req.body.targetRole;
+    if (req.body.target_role) updates.target_role = req.body.target_role;
+  }
+  const updated = updateRow('reports', req.params.id, updates);
   addAuditLog(req.user.id, 'submit', 'reports', `Hisobot yuborildi: ${req.params.id}`, req);
   res.json(updated);
 });
@@ -553,8 +564,6 @@ const dashboardRouter = Router();
 dashboardRouter.get('/stats', authMiddleware, (req, res) => {
   const stats = {
     totalLibraries: db.prepare('SELECT COUNT(*) as c FROM libraries').get().c,
-    totalBooks: db.prepare('SELECT COUNT(*) as c FROM books').get().c,
-    totalReaders: db.prepare('SELECT COUNT(*) as c FROM readers').get().c,
     totalActivities: db.prepare('SELECT COUNT(*) as c FROM activities').get().c,
     totalReports: db.prepare('SELECT COUNT(*) as c FROM reports').get().c,
     pendingReports: db.prepare("SELECT COUNT(*) as c FROM reports WHERE status IN ('draft','submitted','under_review')").get().c,
@@ -567,13 +576,8 @@ dashboardRouter.get('/stats', authMiddleware, (req, res) => {
     newAppeals: db.prepare("SELECT COUNT(*) as c FROM appeals WHERE status = 'new'").get().c,
     totalUsers: db.prepare('SELECT COUNT(*) as c FROM users').get().c,
     // Charts data
-    booksByCategory: db.prepare("SELECT category, COUNT(*) as count FROM books GROUP BY category").all(),
-    readersByStatus: db.prepare("SELECT status, COUNT(*) as count FROM readers GROUP BY status").all(),
     reportsByStatus: db.prepare("SELECT status, COUNT(*) as count FROM reports GROUP BY status").all(),
     tasksByStatus: db.prepare("SELECT status, COUNT(*) as count FROM tasks GROUP BY status").all(),
-    // Library-level data
-    booksByLibrary: db.prepare("SELECT library_id, COUNT(*) as count FROM books GROUP BY library_id").all(),
-    readersByLibrary: db.prepare("SELECT library_id, COUNT(*) as count FROM readers GROUP BY library_id").all(),
   };
 
   // Unread notifications for current user

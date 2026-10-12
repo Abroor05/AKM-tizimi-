@@ -29,7 +29,9 @@ export default function Select({
           focus:outline-none`}
         {...rest}
       >
-        <option value="">{placeholder}</option>
+        {placeholder && !options.some(opt => opt.value === '') ? (
+          <option value="">{placeholder}</option>
+        ) : null}
         {options.map(opt => (
           <option key={opt.value} value={opt.value}>
             {opt.label}

@@ -11,7 +11,7 @@ export default function Logo({
   size = 'md',
   theme = 'light', // 'light' (for dark backgrounds) or 'dark' (for light backgrounds)
   showText = true,
-  subtitle = 'Axborot-kutubxona markazi',
+  subtitle = 'Xodimlar ish tartibi tizimi',
   className = '',
 }) {
   const currentSize = SIZES[size] || SIZES.md;

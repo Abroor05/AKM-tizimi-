@@ -14,7 +14,7 @@ const MENU_SECTIONS = [
     ids: ['dashboard', 'map', 'statistics', 'analytics'],
   },
   {
-    title: 'Kutubxona & Faoliyat',
+    title: 'Faoliyat & Ish tartibi',
     ids: ['libraries', 'daily-activity', 'events', 'inventory'],
   },
   {
