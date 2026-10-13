@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { api, authApi, getToken, setToken, getCachedUser, setCachedUser, STORAGE_TO_API } from '../utils/api.js';
 import { generateId, formatDate } from '../utils/helpers.js';
-import { STORAGE_KEYS, ROLE_PERMISSIONS, DEFAULT_SETTINGS } from '../data/constants.js';
+import { STORAGE_KEYS, ROLE_PERMISSIONS, DEFAULT_SETTINGS, REPORT_TYPES, REPORT_STATUS } from '../data/constants.js';
 
 const AppContext = createContext(null);
 
@@ -547,19 +547,28 @@ export function AppProvider({ children }) {
   const reviewReport = useCallback(async (id, action, comment = '') => {
     try {
       const updated = await api.action('reports', id, 'review', { action, comment });
+      let parsedData = updated?.data;
+      if (typeof parsedData === 'string') {
+        try { parsedData = JSON.parse(parsedData); } catch {}
+      }
+      const formattedUpdated = {
+        ...updated,
+        ...(parsedData ? { data: parsedData } : {}),
+      };
+
       updateCollection(STORAGE_KEYS.REPORTS, (reports) =>
-        (reports || []).map(r => r.id === id ? updated : r)
+        (reports || []).map(r => r.id === id ? { ...r, ...formattedUpdated, ...(r.data && !parsedData ? { data: r.data } : {}) } : r)
       );
       // Notify report creator about review result
       if (updated.userId) {
         await createNotification({
           type: action === 'approve' ? 'success' : 'warning',
           title: action === 'approve' ? 'Hisobot tasdiqlandi' : 'Hisobot rad etildi',
-          message: `"${updated.title || 'Nomsuz'}" hisobingiz ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}${comment ? ': ' + comment : ''}`,
+          message: `"${updated.title || 'Nomsiz'}" hisobingiz ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}${comment ? ': ' + comment : ''}`,
           targetUserId: updated.userId,
         });
       }
-      return updated;
+      return formattedUpdated;
     } catch (err) {
       console.error('Review report failed:', err);
       throw err;
@@ -762,6 +771,216 @@ export function AppProvider({ children }) {
   }, [currentUser, updateCollection, createNotification]);
 
 
+  // Bolim boshligi — kunlik faoliyatni Super Admin va Viloyat Adminiga rasmiy jo'natish
+  const forwardDailyActivityToAdmins = useCallback(async (activityOrDate, targetRecipients = ['super_admin', 'viloyat_admin']) => {
+    try {
+      const allActs = collectionsRef.current[STORAGE_KEYS.ACTIVITIES] || [];
+      const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const libraries = collectionsRef.current[STORAGE_KEYS.LIBRARIES] || [];
+      const myLib = libraries.find(l => l.id === currentUser?.libraryId);
+      const authorName = currentUser?.fullName || "Bo'lim boshlig'i";
+
+      let targetDate = '';
+      let actsToInclude = [];
+
+      if (typeof activityOrDate === 'string') {
+        targetDate = activityOrDate;
+        actsToInclude = allActs.filter(a =>
+          a.type === 'daily_report' &&
+          (a.libraryId === currentUser?.libraryId || a.userId === currentUser?.id) &&
+          a.date === targetDate
+        );
+      } else if (activityOrDate && typeof activityOrDate === 'object') {
+        targetDate = activityOrDate.date || new Date().toISOString().split('T')[0];
+        actsToInclude = [activityOrDate];
+      }
+
+      const totals = {
+        kitob_skanerlash: 0,
+        kitob_pdf: 0,
+        texnik_xizmat: 0,
+        jihozlash: 0,
+        tuzatish: 0,
+        boshqa: 0,
+      };
+      const staffContributions = {};
+
+      actsToInclude.forEach(a => {
+        let d = {};
+        try { d = typeof a.data === 'object' && a.data ? a.data : JSON.parse(a.data || '{}'); } catch { /**/ }
+        Object.keys(totals).forEach(k => {
+          totals[k] += Number(d[k] || 0);
+        });
+        const u = allUsers.find(user => user.id === a.userId);
+        const name = u?.fullName || "Noma'lum xodim";
+        const sum = Object.values(d).reduce((s, v) => s + Number(v || 0), 0);
+        staffContributions[name] = (staffContributions[name] || 0) + sum;
+      });
+
+      const grandTotal = Object.values(totals).reduce((s, v) => s + v, 0);
+      const recipientText = targetRecipients.includes('super_admin') && targetRecipients.includes('viloyat_admin')
+        ? 'Super Admin va Viloyat Admini'
+        : targetRecipients.includes('super_admin')
+        ? 'Super Admin'
+        : 'Viloyat Admini';
+
+      const staffText = Object.entries(staffContributions).map(([n, s]) => `${n}: ${s} ta`).join(', ');
+      const title = `${formatDate(targetDate)} kunlik hisoboti — ${myLib?.name || 'AKM Kutubxonasi'}`;
+      const description = `${formatDate(targetDate)} kunida kutubxona xodimlari tomonidan jami ${grandTotal} ta ish bajarildi. Xodimlar: ${staffText || authorName}.`;
+
+      const reportPayload = {
+        title,
+        type: REPORT_TYPES.DAILY || 'daily',
+        period: targetDate,
+        description,
+        status: REPORT_STATUS.SUBMITTED,
+        submittedAt: targetDate,
+        targetRecipients,
+        data: {
+          totals,
+          grandTotal,
+          staffContributions,
+          actsCount: actsToInclude.length,
+          targetRecipients,
+          sentToText: recipientText,
+          authorName,
+          authorRole: 'xodimlar_boshligi',
+          libraryName: myLib?.name || '',
+          viloyatId: currentUser?.viloyatId,
+          tumanId: currentUser?.tumanId,
+        },
+      };
+
+      const createdReport = await createReport(reportPayload);
+
+      // Faoliyatlarni status='accepted' qilish
+      for (const a of actsToInclude) {
+        if (a.status !== 'accepted') {
+          api.update('activities', a.id, { status: 'accepted' }).catch(() => {});
+        }
+      }
+
+      updateCollection(STORAGE_KEYS.ACTIVITIES, (items) =>
+        (items || []).map(item => actsToInclude.some(a => a.id === item.id) ? { ...item, status: 'accepted' } : item)
+      );
+
+      return createdReport;
+    } catch (err) {
+      console.error('Forward daily activity failed:', err);
+      throw err;
+    }
+  }, [currentUser, updateCollection, createReport]);
+
+  // Bolim boshligi — oylik yig'ma hisobotni Super Admin va Viloyat Adminiga rasmiy jo'natish
+  const forwardMonthlyReportToAdmins = useCallback(async (monthStr, targetRecipients = ['super_admin', 'viloyat_admin']) => {
+    try {
+      const targetMonth = monthStr || new Date().toISOString().slice(0, 7);
+      const allActs = collectionsRef.current[STORAGE_KEYS.ACTIVITIES] || [];
+      const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const libraries = collectionsRef.current[STORAGE_KEYS.LIBRARIES] || [];
+      const existingReports = collectionsRef.current[STORAGE_KEYS.REPORTS] || [];
+      const myLib = libraries.find(l => l.id === currentUser?.libraryId);
+      const authorName = currentUser?.fullName || "Bo'lim boshlig'i";
+
+      // Shu oyga tegishli faoliyatlar
+      const monthActs = allActs.filter(a =>
+        a.type === 'daily_report' &&
+        (a.libraryId === currentUser?.libraryId || a.userId === currentUser?.id || a.viloyatId === currentUser?.viloyatId) &&
+        a.date?.startsWith(targetMonth)
+      );
+
+      const totals = {
+        kitob_skanerlash: 0,
+        kitob_pdf: 0,
+        texnik_xizmat: 0,
+        jihozlash: 0,
+        tuzatish: 0,
+        boshqa: 0,
+      };
+      const staffContributions = {};
+
+      monthActs.forEach(a => {
+        let d = {};
+        try { d = typeof a.data === 'object' && a.data ? a.data : JSON.parse(a.data || '{}'); } catch { /**/ }
+        Object.keys(totals).forEach(k => {
+          totals[k] += Number(d[k] || 0);
+        });
+        const u = allUsers.find(user => user.id === a.userId);
+        const name = u?.fullName || "Noma'lum xodim";
+        const sum = Object.values(d).reduce((s, v) => s + Number(v || 0), 0);
+        staffContributions[name] = (staffContributions[name] || 0) + sum;
+      });
+
+      const grandTotal = Object.values(totals).reduce((s, v) => s + v, 0);
+      const recipientText = targetRecipients.includes('super_admin') && targetRecipients.includes('viloyat_admin')
+        ? 'Super Admin va Viloyat Admini'
+        : targetRecipients.includes('super_admin')
+        ? 'Super Admin'
+        : 'Viloyat Admini';
+
+      const monthLabel = (() => {
+        const [y, m] = targetMonth.split('-');
+        const months = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+        return `${months[+m - 1] || targetMonth} ${y || ''}`.trim();
+      })();
+
+      const staffText = Object.entries(staffContributions).map(([n, s]) => `${n}: ${s} ta`).join(', ');
+      const title = `${monthLabel} oylik yig'ma hisoboti — ${myLib?.name || 'AKM Kutubxonasi'}`;
+      const description = `${monthLabel} davrida kutubxona xodimlari tomonidan jami ${grandTotal} ta ish (${monthActs.length} ta hisobot) amalga oshirildi. Xodimlar hissasi: ${staffText || authorName}.`;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Mavjud oylik hisobotni tekshirish
+      const existingReport = existingReports.find(r =>
+        r.type === (REPORT_TYPES.MONTHLY || 'monthly') &&
+        r.period === targetMonth &&
+        (r.libraryId === currentUser?.libraryId || r.userId === currentUser?.id)
+      );
+
+      const reportData = {
+        totals,
+        grandTotal,
+        staffContributions,
+        actsCount: monthActs.length,
+        daysCount: new Set(monthActs.map(a => a.date)).size,
+        targetRecipients,
+        sentToText: recipientText,
+        authorName,
+        authorRole: 'xodimlar_boshligi',
+        libraryName: myLib?.name || '',
+        viloyatId: currentUser?.viloyatId,
+        tumanId: currentUser?.tumanId,
+      };
+
+      let finalReport = null;
+
+      if (existingReport) {
+        finalReport = await submitReport(existingReport.id, {
+          title,
+          description,
+          targetRecipients,
+          sentToText: recipientText,
+          data: reportData,
+        });
+      } else {
+        finalReport = await createReport({
+          title,
+          type: REPORT_TYPES.MONTHLY || 'monthly',
+          period: targetMonth,
+          description,
+          status: REPORT_STATUS.SUBMITTED,
+          submittedAt: todayStr,
+          targetRecipients,
+          data: reportData,
+        });
+      }
+
+      return { success: true, report: finalReport };
+    } catch (err) {
+      console.error('Forward monthly report failed:', err);
+      throw err;
+    }
+  }, [currentUser, createReport, submitReport]);
+
   const getSettings = useCallback(() => settings, [settings]);
 
   const updateSettings = useCallback(async (updates) => {
@@ -831,6 +1050,8 @@ export function AppProvider({ children }) {
     // Activities
     submitActivity,
     acceptActivity,
+    forwardDailyActivityToAdmins,
+    forwardMonthlyReportToAdmins,
 
     // Notifications
     getNotifications,

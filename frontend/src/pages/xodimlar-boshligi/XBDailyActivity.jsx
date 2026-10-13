@@ -68,7 +68,7 @@ function buildEmptyForm() {
 
 export default function XBDailyActivity() {
   const navigate = useNavigate();
-  const { currentUser, getCollection, createEntity, acceptActivity } = useApp();
+  const { currentUser, getCollection, createEntity, acceptActivity, forwardDailyActivityToAdmins, forwardMonthlyReportToAdmins } = useApp();
 
   const allActs   = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
   const allUsers  = useMemo(() => getCollection(STORAGE_KEYS.USERS),      [getCollection]);
@@ -89,6 +89,7 @@ export default function XBDailyActivity() {
   const [showModal,   setShowModal]   = useState(false);
   const [showDetail,  setShowDetail]  = useState(null);
   const [accepting,   setAccepting]   = useState(null);
+  const [sendingAdmin, setSendingAdmin] = useState(false);
   const [monthFilter, setMonthFilter] = useState(today.slice(0, 7));
   const [yearFilter,  setYearFilter]  = useState(today.slice(0, 4));
   const [staffFilter, setStaffFilter] = useState('all');
@@ -198,6 +199,48 @@ export default function XBDailyActivity() {
     setForm(buildEmptyForm());
   };
 
+  const handleSendDailyToAdmins = async (target) => {
+    const targetDate = typeof target === 'string' ? target : target?.date || today;
+    const confirmText = target?.id
+      ? `${formatDate(targetDate)} dagi ushbu hisobotni Super Admin va Viloyat Adminga jo'natasizmi?`
+      : `${formatDate(targetDate)} kungi barcha xodimlar hisoboti jamlanmasini Super Admin va Viloyat Adminga jo'natasizmi?`;
+    if (!confirm(confirmText)) return;
+
+    setSendingAdmin(true);
+    try {
+      const res = await forwardDailyActivityToAdmins(target || targetDate, ['super_admin', 'viloyat_admin']);
+      if (res?.success) {
+        alert("Kunlik hisobot Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!");
+      } else {
+        alert(res?.error || "Jo'natishda xatolik yuz berdi");
+      }
+    } catch (err) {
+      alert("Xatolik: " + (err.message || 'Nomaʼlum xatolik'));
+    } finally {
+      setSendingAdmin(false);
+    }
+  };
+
+  const handleSendMonthlyToAdmins = async (monthStr) => {
+    const targetMonth = monthStr || monthFilter || today.slice(0, 7);
+    const label = getMonthLabel(targetMonth);
+    if (!confirm(`${label} oylik yig'ma hisobotini Super Admin va Viloyat Adminga jo'natasizmi?`)) return;
+
+    setSendingAdmin(true);
+    try {
+      const res = await forwardMonthlyReportToAdmins(targetMonth, ['super_admin', 'viloyat_admin']);
+      if (res?.success) {
+        alert(`${label} oylik hisoboti Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!`);
+      } else {
+        alert(res?.error || "Jo'natishda xatolik yuz berdi");
+      }
+    } catch (err) {
+      alert("Xatolik: " + (err.message || 'Nomaʼlum xatolik'));
+    } finally {
+      setSendingAdmin(false);
+    }
+  };
+
   const yearOptions = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
   // Pending (kelgan, qabul qilinmagan) soni
@@ -216,6 +259,15 @@ export default function XBDailyActivity() {
                 {pendingCount} ta kutilmoqda
               </span>
             )}
+            <Button
+              variant="secondary"
+              onClick={() => handleSendDailyToAdmins(today)}
+              disabled={sendingAdmin}
+              className="bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100"
+            >
+              <ICONS.paperPlane className="text-emerald-600" />
+              {sendingAdmin ? "Jo'natilmoqda..." : "Super & Viloyat Adminga yuborish"}
+            </Button>
             <Button
               variant="secondary"
               onClick={() => navigate('/reports')}
@@ -348,12 +400,23 @@ export default function XBDailyActivity() {
                 {myStaff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </select>
             </div>
-            <Button
-              onClick={() => navigate('/reports')}
-              className="bg-teal-600 hover:bg-teal-700 text-white"
-            >
-              <ICONS.paperPlane /> Oylik hisobotni Super & Viloyat Adminga jo'natish
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                onClick={() => handleSendMonthlyToAdmins(monthFilter)}
+                disabled={sendingAdmin}
+                className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
+              >
+                <ICONS.paperPlane />
+                {sendingAdmin ? "Jo'natilmoqda..." : `${getMonthLabel(monthFilter)} hisobotini Adminga jo'natish`}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/reports')}
+                className="bg-white border-teal-200 text-teal-800 hover:bg-teal-50"
+              >
+                <ICONS.reports className="text-teal-600" /> Barcha hisobotlar
+              </Button>
+            </div>
           </div>
 
           {/* Oylik jami kartalar */}
@@ -589,6 +652,15 @@ export default function XBDailyActivity() {
           size="sm"
           footer={
             <div className="flex gap-2 w-full justify-end">
+              <Button
+                variant="outline"
+                onClick={() => handleSendDailyToAdmins(showDetail)}
+                disabled={sendingAdmin}
+                className="text-teal-700 border-teal-300 hover:bg-teal-50"
+              >
+                <ICONS.paperPlane />
+                {sendingAdmin ? "Jo'natilmoqda..." : "Adminga jo'natish"}
+              </Button>
               {showDetail.status === 'sent' && (
                 <Button onClick={() => handleAccept(showDetail)} disabled={accepting === showDetail.id}>
                   {accepting === showDetail.id

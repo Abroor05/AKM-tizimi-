@@ -255,6 +255,7 @@ export const MENU_ITEMS = [
 
 // --- REPORT TYPES ---
 export const REPORT_TYPES = {
+  DAILY: 'daily',
   MONTHLY: 'monthly',
   QUARTERLY: 'quarterly',
   ANNUAL: 'annual',
@@ -264,6 +265,7 @@ export const REPORT_TYPES = {
 };
 
 export const REPORT_TYPE_LABELS = {
+  [REPORT_TYPES.DAILY]: 'Kunlik hisobot',
   [REPORT_TYPES.MONTHLY]: 'Oylik hisobot',
   [REPORT_TYPES.QUARTERLY]: 'Choraklik hisobot',
   [REPORT_TYPES.ANNUAL]: 'Yillik hisobot',

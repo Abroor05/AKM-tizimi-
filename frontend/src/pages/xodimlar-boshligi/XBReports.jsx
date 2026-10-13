@@ -76,6 +76,8 @@ export default function XBReports() {
     getCollection,
     createEntity,
     acceptActivity,
+    forwardDailyActivityToAdmins,
+    forwardMonthlyReportToAdmins,
   } = useApp();
 
   const allReports = useMemo(() => getReports() || [], [getReports]);
@@ -331,10 +333,11 @@ export default function XBReports() {
   // ─── AUTO-CALCULATE FROM DAILY FOR FORM ─────────────────────
   const autoAggregateForForm = useCallback((periodStr, type) => {
     const isYear = type === REPORT_TYPES.ANNUAL;
-    const acts = myLibActs.filter(a =>
-      a.date?.startsWith(periodStr) &&
-      (a.status === 'accepted' || a.status === 'sent')
-    );
+    const isDaily = type === REPORT_TYPES.DAILY;
+    const acts = myLibActs.filter(a => {
+      if (isDaily) return a.date === periodStr && (a.status === 'accepted' || a.status === 'sent');
+      return a.date?.startsWith(periodStr) && (a.status === 'accepted' || a.status === 'sent');
+    });
 
     const counts = {
       kitob_skanerlash: 0,
@@ -367,9 +370,13 @@ export default function XBReports() {
       .join(', ');
 
     const libName = myLibrary?.name || 'AKM Kutubxonasi';
-    const periodLabel = isYear ? `${periodStr}-yil` : getMonthName(periodStr);
-    const defaultTitle = `${periodLabel} ${isYear ? 'yillik' : 'oylik'} yig'ma hisoboti — ${libName}`;
-    const desc = `${periodLabel} davrida kutubxona xodimlari tomonidan jami ${acts.length} ta kunlik hisobot topshirildi. Xodimlar hissasi: ${staffSummaryText || 'mavjud emas'}.`;
+    const periodLabel = isDaily ? formatDate(periodStr) : isYear ? `${periodStr}-yil` : getMonthName(periodStr);
+    const defaultTitle = isDaily
+      ? `${periodLabel} kunlik hisoboti — ${libName}`
+      : `${periodLabel} ${isYear ? 'yillik' : 'oylik'} yig'ma hisoboti — ${libName}`;
+    const desc = isDaily
+      ? `${periodLabel} kuni kutubxona xodimlari tomonidan jami ${acts.length} ta faoliyat amalga oshirildi. Xodimlar: ${staffSummaryText || 'mavjud emas'}.`
+      : `${periodLabel} davrida kutubxona xodimlari tomonidan jami ${acts.length} ta kunlik hisobot topshirildi. Xodimlar hissasi: ${staffSummaryText || 'mavjud emas'}.`;
 
     return {
       title: defaultTitle,
@@ -383,7 +390,7 @@ export default function XBReports() {
 
   // Yangi hisobot yaratish modalini ochish
   const handleOpenCreateModal = (type = REPORT_TYPES.MONTHLY, targetPeriod = null) => {
-    const period = targetPeriod || (type === REPORT_TYPES.ANNUAL ? currentYearStr : currentMonthStr);
+    const period = targetPeriod || (type === REPORT_TYPES.ANNUAL ? currentYearStr : type === REPORT_TYPES.DAILY ? today : currentMonthStr);
     setCreateType(type);
     const aggregated = autoAggregateForForm(period, type);
     setForm({
@@ -414,6 +421,44 @@ export default function XBReports() {
       actsCount: aggregated.actsCount,
       daysCount: aggregated.daysCount,
     }));
+  };
+
+  // Kunlik hisobotni Super Admin va Viloyat Adminiga jo'natish
+  const handleSendDailyToAdmins = async (actOrDate) => {
+    const dateStr = typeof actOrDate === 'string' ? actOrDate : actOrDate.date;
+    const repTitle = `${formatDate(dateStr)} kunlik hisoboti`;
+    if (!confirm(`"${repTitle}"ni Super Admin va Viloyat Adminiga jo'natmoqchimisiz?`)) return;
+
+    setIsSubmitting(true);
+    try {
+      await forwardDailyActivityToAdmins(actOrDate, ['super_admin', 'viloyat_admin']);
+      alert(`"${repTitle}" Super Admin va Viloyat Adminiga muvaffaqiyatli jo'natildi!`);
+    } catch (err) {
+      alert("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Oylik hisobotni Super Admin va Viloyat Adminiga to'g'ridan-to'g'ri jo'natish
+  const handleSendMonthlyToAdmins = async (monthStr) => {
+    const targetMonth = monthStr || selectedMonth || currentMonthStr;
+    const label = getMonthName(targetMonth);
+    if (!confirm(`${label} oylik yig'ma hisobotini Super Admin va Viloyat Adminiga jo'natmoqchimisiz?`)) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await forwardMonthlyReportToAdmins(targetMonth, ['super_admin', 'viloyat_admin']);
+      if (res?.success) {
+        alert(`${label} oylik hisoboti Super Admin va Viloyat Adminiga muvaffaqiyatli jo'natildi!`);
+      } else {
+        alert(res?.error || "Jo'natishda xatolik yuz berdi");
+      }
+    } catch (err) {
+      alert("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Hisobotni saqlash yoki darhol Super & Viloyat Adminga jo'natish
@@ -681,13 +726,24 @@ export default function XBReports() {
                 <strong> Super Admin va Viloyat Adminiga</strong> rasmiy hisobot sifatida yuborishingiz mumkin.
               </p>
             </div>
-            <Button
-              onClick={() => handleOpenCreateModal(REPORT_TYPES.MONTHLY)}
-              size="sm"
-              className="bg-teal-700 hover:bg-teal-800 text-white shrink-0"
-            >
-              <ICONS.plus /> Yangi oylik hisobot shakllantirish
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                onClick={() => handleSendMonthlyToAdmins(currentMonthStr)}
+                disabled={isSubmitting}
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-sm"
+              >
+                <ICONS.paperPlane /> {getMonthName(currentMonthStr)} hisobotini Adminga jo'natish
+              </Button>
+              <Button
+                onClick={() => handleOpenCreateModal(REPORT_TYPES.MONTHLY)}
+                size="sm"
+                variant="secondary"
+                className="bg-white border-teal-200 text-teal-800 hover:bg-teal-50 shrink-0"
+              >
+                <ICONS.plus /> Yangi oylik hisobot shakllantirish
+              </Button>
+            </div>
           </div>
 
           {/* Oylik kartochkalar ro'yxati */}
@@ -740,33 +796,37 @@ export default function XBReports() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {rep ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setDetailReport(rep)}
-                            className="text-xs"
-                          >
-                            <ICONS.eye className="text-xs" /> Ko'rish
-                          </Button>
-                          {rep.status === REPORT_STATUS.DRAFT && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleDirectSubmit(rep.id, ['super_admin', 'viloyat_admin'])}
-                              className="text-xs bg-teal-600 hover:bg-teal-700 text-white"
-                            >
-                              <ICONS.paperPlane className="text-xs" /> Super & Viloyat Adminga jo'natish
-                            </Button>
-                          )}
-                        </>
-                      ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleSendMonthlyToAdmins(item.month)}
+                        disabled={isSubmitting}
+                        className={`text-xs shadow-sm text-white ${
+                          isSent ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-teal-600 hover:bg-teal-700'
+                        }`}
+                      >
+                        <ICONS.paperPlane className="text-xs" />
+                        {isSent ? "Qayta Adminga jo'natish" : "Super & Viloyat Adminga jo'natish"}
+                      </Button>
+
+                      {rep && (
                         <Button
                           size="sm"
-                          onClick={() => handleOpenCreateModal(REPORT_TYPES.MONTHLY, item.month)}
-                          className="text-xs bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white shadow-sm"
+                          variant="secondary"
+                          onClick={() => setDetailReport(rep)}
+                          className="text-xs"
                         >
-                          <ICONS.plus className="text-xs" /> Hisobot yaratish va jo'natish
+                          <ICONS.eye className="text-xs" /> Ko'rish
+                        </Button>
+                      )}
+
+                      {!rep && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleOpenCreateModal(REPORT_TYPES.MONTHLY, item.month)}
+                          className="text-xs text-slate-700 border-slate-300 hover:bg-slate-50"
+                        >
+                          <ICONS.plus className="text-xs" /> Tahrirlash
                         </Button>
                       )}
                     </div>
@@ -1003,12 +1063,22 @@ export default function XBReports() {
               </div>
             </div>
 
-            <Button
-              onClick={() => setShowDailyAddModal(true)}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              <ICONS.plus /> O'z kunlik faoliyatimni kiritish
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                onClick={() => handleSendDailyToAdmins(today)}
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white shadow-sm text-xs"
+              >
+                <ICONS.paperPlane /> Bugungi jamlanmani Super & Viloyat Adminga yuborish
+              </Button>
+
+              <Button
+                onClick={() => setShowDailyAddModal(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white text-xs"
+              >
+                <ICONS.plus /> O'z kunlik faoliyatimni kiritish
+              </Button>
+            </div>
           </div>
 
           {filteredDailyActs.length === 0 ? (
@@ -1038,6 +1108,11 @@ export default function XBReports() {
                       const d = parseData(act);
                       const u = allUsers.find(user => user.id === act.userId);
                       const isHead = act.userId === currentUser?.id;
+                      const isSentToAdmin = myReports.some(r =>
+                        (r.type === 'daily' || r.type === REPORT_TYPES.DAILY) &&
+                        r.period === act.date &&
+                        r.status === REPORT_STATUS.SUBMITTED
+                      );
 
                       return (
                         <tr key={act.id} className="hover:bg-slate-50">
@@ -1086,7 +1161,22 @@ export default function XBReports() {
                                 Qabul qilish
                               </button>
                             ) : (
-                              <span className="text-xs text-slate-400">Qabul qilingan</span>
+                              <div className="flex items-center justify-center gap-1.5">
+                                {isSentToAdmin ? (
+                                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                                    Adminga yuborilgan
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleSendDailyToAdmins(act)}
+                                    disabled={isSubmitting}
+                                    className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1"
+                                    title="Super Admin va Viloyat Adminiga jo'natish"
+                                  >
+                                    <ICONS.paperPlane className="text-[10px]" /> Adminga jo'natish
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -1232,6 +1322,7 @@ export default function XBReports() {
                   }}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold bg-white"
                 >
+                  <option value={REPORT_TYPES.DAILY}>Kunlik hisobot</option>
                   <option value={REPORT_TYPES.MONTHLY}>Oylik hisobot</option>
                   <option value={REPORT_TYPES.ANNUAL}>Yillik hisobot</option>
                 </select>
@@ -1239,7 +1330,7 @@ export default function XBReports() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Davr ({createType === REPORT_TYPES.ANNUAL ? 'Yil' : 'Oy'}):
+                  Davr ({createType === REPORT_TYPES.ANNUAL ? 'Yil' : createType === REPORT_TYPES.DAILY ? 'Sana' : 'Oy'}):
                 </label>
                 {createType === REPORT_TYPES.ANNUAL ? (
                   <select
@@ -1251,6 +1342,13 @@ export default function XBReports() {
                       <option key={y} value={y}>{y}-yil</option>
                     ))}
                   </select>
+                ) : createType === REPORT_TYPES.DAILY ? (
+                  <input
+                    type="date"
+                    value={form.period}
+                    onChange={e => handlePeriodChange(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold bg-white"
+                  />
                 ) : (
                   <input
                     type="month"

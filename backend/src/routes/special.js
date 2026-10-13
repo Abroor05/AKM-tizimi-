@@ -292,17 +292,17 @@ reportsRouter.post('/', authMiddleware, (req, res) => {
     id,
     type: body.type || 'monthly',
     title: body.title || '',
-    library_id: body.libraryId || req.user.library_id || null,
+    library_id: body.libraryId || body.library_id || req.user.libraryId || req.user.library_id || null,
     user_id: req.user.id,
-    viloyat_id: body.viloyatId || req.user.viloyat_id || null,
-    tuman_id: body.tumanId || req.user.tuman_id || null,
+    viloyat_id: body.viloyatId || body.viloyat_id || req.user.viloyatId || req.user.viloyat_id || null,
+    tuman_id: body.tumanId || body.tuman_id || req.user.tumanId || req.user.tuman_id || null,
     status: body.status || 'draft',
     period: body.period || todayStr.slice(0, 7),
     submitted_at: body.status === 'submitted' ? (body.submittedAt || todayStr) : null,
     reviewed_at: null,
     reviewed_by: null,
     review_comment: null,
-    data: JSON.stringify(body.data || {}),
+    data: typeof body.data === 'object' ? JSON.stringify(body.data || {}) : (body.data || '{}'),
     description: body.description || '',
     created_at: new Date().toISOString(),
   };
@@ -345,7 +345,18 @@ reportsRouter.post('/:id/submit', authMiddleware, (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Topilmadi' });
   const todayStr = new Date().toISOString().split('T')[0];
   const updates = { status: 'submitted', submitted_at: todayStr };
+  if (!existing.viloyatId && !existing.viloyat_id && (req.user.viloyatId || req.user.viloyat_id)) {
+    updates.viloyat_id = req.user.viloyatId || req.user.viloyat_id;
+  }
+  if (!existing.tumanId && !existing.tuman_id && (req.user.tumanId || req.user.tuman_id)) {
+    updates.tuman_id = req.user.tumanId || req.user.tuman_id;
+  }
+  if (!existing.libraryId && !existing.library_id && (req.user.libraryId || req.user.library_id)) {
+    updates.library_id = req.user.libraryId || req.user.library_id;
+  }
   if (req.body) {
+    if (req.body.title) updates.title = req.body.title;
+    if (req.body.description) updates.description = req.body.description;
     if (req.body.data) {
       updates.data = typeof req.body.data === 'object' ? JSON.stringify(req.body.data) : req.body.data;
     }
@@ -456,13 +467,34 @@ const notificationsRouter = Router();
 notificationsRouter.get('/', authMiddleware, (req, res) => {
   // Return notifications for current user
   const all = getAll('notifications');
-  const mine = all.filter(n => n.targetUserId === req.user.id || n.targetRole === req.user.role);
+  const userRole = req.user.role;
+  const userId = req.user.id;
+  const mine = all.filter(n => {
+    if (!n.targetUserId && !n.targetRole) return true;
+    if (n.targetUserId === userId) return true;
+    if (n.targetRole) {
+      const roles = String(n.targetRole).split(',').map(s => s.trim());
+      if (roles.includes(userRole)) return true;
+    }
+    return false;
+  });
   res.json(mine);
 });
 
 notificationsRouter.get('/unread-count', authMiddleware, (req, res) => {
   const all = getAll('notifications');
-  const mine = all.filter(n => (n.targetUserId === req.user.id || n.targetRole === req.user.role) && !n.read);
+  const userRole = req.user.role;
+  const userId = req.user.id;
+  const mine = all.filter(n => {
+    if (n.read) return false;
+    if (!n.targetUserId && !n.targetRole) return true;
+    if (n.targetUserId === userId) return true;
+    if (n.targetRole) {
+      const roles = String(n.targetRole).split(',').map(s => s.trim());
+      if (roles.includes(userRole)) return true;
+    }
+    return false;
+  });
   res.json({ count: mine.length });
 });
 
@@ -473,9 +505,14 @@ notificationsRouter.post('/:id/read', authMiddleware, (req, res) => {
 
 notificationsRouter.post('/read-all', authMiddleware, (req, res) => {
   const all = getAll('notifications');
+  const userRole = req.user.role;
+  const userId = req.user.id;
   for (const n of all) {
-    if (n.targetUserId === req.user.id || n.targetRole === req.user.role) {
-      if (!n.read) updateRow('notifications', n.id, { read: 1 });
+    const isTarget = (!n.targetUserId && !n.targetRole) ||
+      n.targetUserId === userId ||
+      (n.targetRole && String(n.targetRole).split(',').map(s => s.trim()).includes(userRole));
+    if (isTarget && !n.read) {
+      updateRow('notifications', n.id, { read: 1 });
     }
   }
   res.json({ success: true });

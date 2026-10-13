@@ -76,9 +76,9 @@ export default function Dashboard() {
 
   const scopedReports = useMemo(() => {
     if (isSuperAdmin) return reports;
-    if (isViloyatAdmin) return reports.filter(r => r.viloyatId === currentUser?.viloyatId);
+    if (isViloyatAdmin) return reports.filter(r => !r.viloyatId || r.viloyatId === currentUser?.viloyatId || (r.targetRole && r.targetRole.includes('viloyat_admin')));
     if (isTumanAdmin) return reports.filter(r => r.viloyatId === currentUser?.viloyatId && r.tumanId === currentUser?.tumanId);
-    if (isXodimBoshligi || isXodim) return reports.filter(r => r.libraryId === currentUser?.libraryId || r.createdBy === currentUser?.id);
+    if (isXodimBoshligi || isXodim) return reports.filter(r => r.libraryId === currentUser?.libraryId || r.createdBy === currentUser?.id || r.userId === currentUser?.id);
     return reports;
   }, [reports, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
