@@ -112,9 +112,9 @@ export default function XBReports() {
   // Bo'lim boshlig'i hisobotlari
   const myReports = useMemo(() =>
     allReports.filter(r =>
-      r.libraryId === currentUser?.libraryId ||
-      r.userId === currentUser?.id ||
-      r.createdBy === currentUser?.id
+      (currentUser?.libraryId && (r.libraryId === currentUser?.libraryId || r.library_id === currentUser?.libraryId)) ||
+      (currentUser?.id && (r.userId === currentUser?.id || r.user_id === currentUser?.id || r.createdBy === currentUser?.id)) ||
+      (currentUser?.viloyatId && currentUser?.tumanId && (r.viloyatId === currentUser?.viloyatId || r.viloyat_id === currentUser?.viloyatId) && (r.tumanId === currentUser?.tumanId || r.tuman_id === currentUser?.tumanId))
     ).sort((a, b) => new Date(b.submittedAt || b.createdAt || 0) - new Date(a.submittedAt || a.createdAt || 0)),
     [allReports, currentUser]
   );
@@ -449,7 +449,7 @@ export default function XBReports() {
     setIsSubmitting(true);
     try {
       const res = await forwardMonthlyReportToAdmins(targetMonth, ['super_admin', 'viloyat_admin']);
-      if (res?.success) {
+      if (res?.success || res?.id || res?.report) {
         alert(`${label} oylik hisoboti Super Admin va Viloyat Adminiga muvaffaqiyatli jo'natildi!`);
       } else {
         alert(res?.error || "Jo'natishda xatolik yuz berdi");

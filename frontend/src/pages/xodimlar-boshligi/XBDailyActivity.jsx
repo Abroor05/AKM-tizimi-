@@ -209,7 +209,7 @@ export default function XBDailyActivity() {
     setSendingAdmin(true);
     try {
       const res = await forwardDailyActivityToAdmins(target || targetDate, ['super_admin', 'viloyat_admin']);
-      if (res?.success) {
+      if (res?.success || res?.id || res?.report) {
         alert("Kunlik hisobot Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!");
       } else {
         alert(res?.error || "Jo'natishda xatolik yuz berdi");
@@ -229,7 +229,7 @@ export default function XBDailyActivity() {
     setSendingAdmin(true);
     try {
       const res = await forwardMonthlyReportToAdmins(targetMonth, ['super_admin', 'viloyat_admin']);
-      if (res?.success) {
+      if (res?.success || res?.id || res?.report) {
         alert(`${label} oylik hisoboti Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!`);
       } else {
         alert(res?.error || "Jo'natishda xatolik yuz berdi");

@@ -864,7 +864,7 @@ export function AppProvider({ children }) {
         (items || []).map(item => actsToInclude.some(a => a.id === item.id) ? { ...item, status: 'accepted' } : item)
       );
 
-      return createdReport;
+      return { success: true, report: createdReport };
     } catch (err) {
       console.error('Forward daily activity failed:', err);
       throw err;

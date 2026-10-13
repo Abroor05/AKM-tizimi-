@@ -42,6 +42,8 @@ const ICON_MAP = {
   audit: FaShieldHalved,
   security: FaLock,
   settings: FaGear,
+  chart: FaChartBar,
+  shield: FaShieldHalved,
 
   // Action icons
   logout: FaRightFromBracket,
