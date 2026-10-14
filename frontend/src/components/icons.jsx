@@ -94,6 +94,28 @@ const ICON_MAP = {
   paperPlane: FaPaperPlane,
   rotate: FaRotateRight,
   table: FaTableList,
+  document: FaFileLines,
+  file: FaFileLines,
 };
 
-export default ICON_MAP;
+// Fallback component if an icon name is requested but not found
+const FallbackIcon = ({ className = '', ...props }) => (
+  <span className={`inline-block ${className}`} {...props} />
+);
+
+// Proxy to guarantee an icon access never returns undefined and crashes React render
+const SafeIcons = new Proxy(ICON_MAP, {
+  get(target, prop) {
+    if (prop in target) {
+      return target[prop];
+    }
+    if (typeof prop === 'string' && prop !== 'prototype' && prop !== 'default') {
+      console.warn(`[ICONS] Icon "${String(prop)}" is not found in ICON_MAP. Using fallback.`);
+      return FallbackIcon;
+    }
+    return target[prop];
+  },
+});
+
+export default SafeIcons;
+
