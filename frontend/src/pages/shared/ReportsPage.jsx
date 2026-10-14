@@ -295,8 +295,39 @@ export default function ReportsPage() {
         <div className="space-y-4">
           <Input label="Sarlavha" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select label="Turi" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={Object.entries(REPORT_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} required />
-            <Input label="Davr (YYYY-MM yoki YYYY-Qn)" value={form.period} onChange={e => setForm({ ...form, period: e.target.value })} placeholder="2024-09 yoki 2024-Q3" required />
+            <Select
+              label="Turi"
+              value={form.type}
+              onChange={e => {
+                const nextType = e.target.value;
+                const todayStr = new Date().toISOString().split('T')[0];
+                const defaultPeriod = nextType === REPORT_TYPES.DAILY
+                  ? todayStr
+                  : nextType === REPORT_TYPES.ANNUAL
+                  ? todayStr.slice(0, 4)
+                  : todayStr.slice(0, 7);
+                setForm({ ...form, type: nextType, period: defaultPeriod });
+              }}
+              options={Object.entries(REPORT_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))}
+              required
+            />
+            {form.type === REPORT_TYPES.DAILY ? (
+              <Input
+                label="Davr (Sana)"
+                type="date"
+                value={form.period}
+                onChange={e => setForm({ ...form, period: e.target.value })}
+                required
+              />
+            ) : (
+              <Input
+                label="Davr (YYYY-MM yoki YYYY-Qn)"
+                value={form.period}
+                onChange={e => setForm({ ...form, period: e.target.value })}
+                placeholder="2026-10 yoki 2026-Q4"
+                required
+              />
+            )}
           </div>
           <TextArea label="Tavsif" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} />
           <div className="border-t pt-4">

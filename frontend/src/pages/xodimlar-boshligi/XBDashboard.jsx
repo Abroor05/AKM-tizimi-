@@ -137,9 +137,11 @@ export default function XBDashboard() {
 
   const handleSaveAct = () => {
     if (!actForm.type || !actForm.date) return;
+    const isNumeric = actForm.type === 'kitob_skanerlash' || actForm.type === 'kitob_pdf';
+    const finalCount = isNumeric ? (actForm.count ? Number(actForm.count) : null) : 1;
     createEntity(STORAGE_KEYS.ACTIVITIES, {
       ...actForm,
-      count: actForm.count ? Number(actForm.count) : null,
+      count: finalCount,
       libraryId: currentUser?.libraryId,
       userId: currentUser?.id,
       status: 'completed',
@@ -447,20 +449,37 @@ export default function XBDashboard() {
             options={Object.entries(ACTIVITY_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))}
             required
           />
-          <Input
-            label="Soni (ixtiyoriy)"
-            type="number"
-            min="0"
-            value={actForm.count}
-            onChange={e => setActForm({ ...actForm, count: e.target.value })}
-            placeholder="Masalan: 25"
-          />
+          {actForm.type === 'kitob_skanerlash' || actForm.type === 'kitob_pdf' ? (
+            <Input
+              label={`Soni (${actForm.type === 'kitob_skanerlash' ? 'sahifa' : 'fayl'})`}
+              type="number"
+              min="1"
+              value={actForm.count}
+              onChange={e => setActForm({ ...actForm, count: e.target.value })}
+              placeholder={actForm.type === 'kitob_skanerlash' ? "Masalan: 45 sahifa" : "Masalan: 10 fayl"}
+            />
+          ) : (
+            <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200 text-xs text-teal-900">
+              <span className="font-bold block mb-0.5 flex items-center gap-1.5">
+                <ICONS.check className="text-teal-600 text-xs" /> Belgilangan xizmat:
+              </span>
+              Ushbu xizmat turi uchun son kiritish shart emas. Bajarilgan ish tafsilotini quyidagi izoh maydoniga yozing.
+            </div>
+          )}
           <TextArea
             label="Izoh"
             value={actForm.description}
             onChange={e => setActForm({ ...actForm, description: e.target.value })}
             rows={3}
-            placeholder="Bajarilgan ish haqida qisqacha ma'lumot..."
+            placeholder={
+              actForm.type === 'texnik_xizmat'
+                ? "Qanday texnik xizmat ko'rsatildi? (Masalan: kompyuterlar profilaktika qilindi, drayverlar yangilandi)..."
+                : actForm.type === 'jihozlash'
+                ? "Tarmoq yoki jihoz sozlash haqida izoh (Masalan: Wi-Fi router sozlandi, kabel ulandi)..."
+                : actForm.type === 'tuzatish'
+                ? "Ta'mirlash haqida izoh (Masalan: Printer kartriji to'ldirildi, rolik almashtirildi)..."
+                : "Bajarilgan ish haqida qisqacha ma'lumot..."
+            }
           />
           <div className="grid grid-cols-2 gap-4">
             <Input

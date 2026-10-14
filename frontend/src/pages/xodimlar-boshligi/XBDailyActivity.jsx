@@ -56,13 +56,54 @@ const TABS = [
   { id: 'yearly',   label: 'Yillik'              },
 ];
 
+const TASK_ACTIVITY_CONFIG = [
+  {
+    key: 'texnik_xizmat',
+    label: "Texnik xizmat ko'rsatish",
+    subtitle: "Kompyuterlar, dasturiy ta'minot va qurilmalar profilaktikasi",
+    placeholder: "Qanday texnik xizmat ko'rsatildi? (Masalan: kompyuterlar profilaktika qilindi, drayverlar yangilandi)...",
+  },
+  {
+    key: 'jihozlash',
+    label: "Jihozlash va tarmoq sozlash",
+    subtitle: "Lokal tarmoq (LAN/Wi-Fi), server, kabel va jihozlarni sozlash",
+    placeholder: "Tarmoq yoki jihoz sozlash haqida izoh (Masalan: Wi-Fi router sozlandi, kabel ulandi)...",
+  },
+  {
+    key: 'tuzatish',
+    label: "Ta'mirlash va sozlash",
+    subtitle: "Nosoz qurilmalar, printer, skaner va uskunalarni ta'mirlash",
+    placeholder: "Ta'mirlash haqida izoh (Masalan: Printer kartriji to'ldirildi, rolik almashtirildi)...",
+  },
+  {
+    key: 'boshqa',
+    label: "Boshqa ish tartibi vazifalari",
+    subtitle: "Rejadan tashqari boshqa amaliy va tashkiliy vazifalar",
+    placeholder: "Bajarilgan vazifa haqida izoh...",
+  },
+];
+
 function buildEmptyForm() {
-  const counts = {};
-  Object.keys(ACTIVITY_TYPE_LABELS).forEach(k => { counts[k] = ''; });
   return {
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().slice(0, 5),
-    counts,
+    counts: {
+      kitob_skanerlash: '',
+      kitob_pdf: '',
+    },
+    tasks: {
+      texnik_xizmat: false,
+      jihozlash: false,
+      tuzatish: false,
+      boshqa: false,
+    },
+    notes: {
+      texnik_xizmat: '',
+      jihozlash: '',
+      tuzatish: '',
+      boshqa: '',
+    },
+    description: '',
   };
 }
 
@@ -76,7 +117,7 @@ export default function XBDailyActivity() {
 
   // Faqat o'z kutubxonasidagi daily_report lar
   const myLibActs = useMemo(() =>
-    allActs.filter(a => a.libraryId === currentUser?.libraryId && a.type === 'daily_report'),
+    allActs.filter(a => ((currentUser?.libraryId && a.libraryId === currentUser?.libraryId) || a.userId === currentUser?.id) && a.type === 'daily_report'),
     [allActs, currentUser]);
 
   // Xodimlar
@@ -124,7 +165,11 @@ export default function XBDailyActivity() {
     Object.keys(ACTIVITY_TYPE_LABELS).forEach(k => { t[k] = 0; });
     monthActs.forEach(a => {
       const d = parseData(a);
-      Object.entries(d).forEach(([k, v]) => { t[k] = (t[k] || 0) + Number(v); });
+      Object.entries(d).forEach(([k, v]) => {
+        if (k !== 'notes') {
+          t[k] = (t[k] || 0) + Number(v || 0);
+        }
+      });
     });
     return t;
   }, [monthActs]);
@@ -137,7 +182,11 @@ export default function XBDailyActivity() {
       Object.keys(ACTIVITY_TYPE_LABELS).forEach(k => { totals[k] = 0; });
       acts.forEach(a => {
         const d = parseData(a);
-        Object.entries(d).forEach(([k, v]) => { totals[k] = (totals[k] || 0) + Number(v); });
+        Object.entries(d).forEach(([k, v]) => {
+          if (k !== 'notes') {
+            totals[k] = (totals[k] || 0) + Number(v || 0);
+          }
+        });
       });
       const grand = Object.values(totals).reduce((s, v) => s + v, 0);
       return { staff: s, totals, grand, count: acts.length };
@@ -182,21 +231,56 @@ export default function XBDailyActivity() {
 
   // O'zi ham hisobot qo'sha oladi
   const handleSave = () => {
-    const hasAny = Object.values(form.counts).some(v => Number(v) > 0);
-    if (!hasAny) { alert('Kamida bitta faoliyat uchun son kiriting'); return; }
+    const hasNumeric = (Number(form.counts.kitob_skanerlash) > 0) || (Number(form.counts.kitob_pdf) > 0);
+    const hasTasks = Object.values(form.tasks).some(Boolean);
+    if (!hasNumeric && !hasTasks) {
+      alert("Kamida bitta faoliyat turini belgilang yoki sonini kiriting");
+      return;
+    }
     const data = {};
-    Object.entries(form.counts).forEach(([k, v]) => { if (Number(v) > 0) data[k] = Number(v); });
-    createEntity(STORAGE_KEYS.ACTIVITIES, {
-      type:      'daily_report',
-      data:      JSON.stringify(data),
-      date:      form.date,
-      time:      form.time,
-      libraryId: currentUser?.libraryId,
-      userId:    currentUser?.id,
-      status:    'accepted', // Boshliq o'zi qo'shsa — to'g'ridan qabul qilingan
+    if (Number(form.counts.kitob_skanerlash) > 0) {
+      data.kitob_skanerlash = Number(form.counts.kitob_skanerlash);
+    }
+    if (Number(form.counts.kitob_pdf) > 0) {
+      data.kitob_pdf = Number(form.counts.kitob_pdf);
+    }
+    const taskNotes = {};
+    TASK_ACTIVITY_CONFIG.forEach(item => {
+      if (form.tasks[item.key]) {
+        data[item.key] = 1;
+        if (form.notes[item.key]?.trim()) {
+          taskNotes[item.key] = form.notes[item.key].trim();
+        }
+      }
     });
-    setShowModal(false);
-    setForm(buildEmptyForm());
+    if (Object.keys(taskNotes).length > 0) {
+      data.notes = taskNotes;
+    }
+
+    const descParts = [];
+    if (form.description?.trim()) descParts.push(form.description.trim());
+    Object.entries(taskNotes).forEach(([k, note]) => {
+      const label = ACTIVITY_TYPE_LABELS[k] || k;
+      descParts.push(`${label}: ${note}`);
+    });
+
+    try {
+      createEntity(STORAGE_KEYS.ACTIVITIES, {
+        type:      'daily_report',
+        data:      JSON.stringify(data),
+        description: descParts.join(' | ') || form.description,
+        date:      form.date,
+        time:      form.time,
+        libraryId: currentUser?.libraryId || (libraries && libraries[0]?.id) || null,
+        userId:    currentUser?.id,
+        status:    'accepted', // Boshliq o'zi qo'shsa — to'g'ridan qabul qilingan
+      });
+      setShowModal(false);
+      setForm(buildEmptyForm());
+      alert("Kunlik hisobot muvaffaqiyatli saqlandi!");
+    } catch (err) {
+      alert("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
+    }
   };
 
   const handleSendDailyToAdmins = async (target) => {
@@ -352,11 +436,33 @@ export default function XBDailyActivity() {
                               </div>
                             </div>
                           </td>
-                          {Object.keys(TYPE_SHORT).map(k => (
-                            <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
-                              {data[k] ? formatNumber(data[k]) : <span className="text-gray-300">—</span>}
-                            </td>
-                          ))}
+                          {Object.keys(TYPE_SHORT).map(k => {
+                            const val = data[k];
+                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf';
+                            if (isNumeric) {
+                              return (
+                                <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
+                                  {val ? formatNumber(val) : <span className="text-gray-300">—</span>}
+                                </td>
+                              );
+                            }
+                            const isDone = Boolean(val && Number(val) > 0);
+                            const note = data?.notes?.[k];
+                            return (
+                              <td key={k} className="text-center px-3 py-3">
+                                {isDone ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200"
+                                    title={note ? `Izoh: ${note}` : "Bajarildi"}
+                                  >
+                                    <ICONS.check className="text-[10px]" /> Bajarildi
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td className="text-center px-4 py-3">
                             <div className="flex items-center justify-center gap-2">
                               <button onClick={() => setShowDetail(a)}
@@ -421,12 +527,19 @@ export default function XBDailyActivity() {
 
           {/* Oylik jami kartalar */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-            {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => (
-              <Card key={key} className="text-center">
-                <p className="text-2xl font-bold text-teal-600">{formatNumber(monthTotals[key] || 0)}</p>
-                <p className="text-xs text-gray-500 mt-1 leading-tight">{label}</p>
-              </Card>
-            ))}
+            {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => {
+              const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf';
+              const unit = key === 'kitob_skanerlash' ? 'sahifa' : key === 'kitob_pdf' ? 'fayl' : 'marta';
+              return (
+                <Card key={key} className="text-center">
+                  <p className="text-2xl font-bold text-teal-600">
+                    {formatNumber(monthTotals[key] || 0)}
+                    <span className="text-xs font-normal text-gray-400 ml-1">{unit}</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1 leading-tight">{label}</p>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Xodim bo'yicha jadval */}
@@ -496,11 +609,33 @@ export default function XBDailyActivity() {
                         <tr key={a.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{formatDate(a.date)}</td>
                           <td className="px-4 py-3 text-gray-600 text-xs">{owner?.fullName || '—'}</td>
-                          {Object.keys(TYPE_SHORT).map(k => (
-                            <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
-                              {data[k] ? formatNumber(data[k]) : <span className="text-gray-300">—</span>}
-                            </td>
-                          ))}
+                          {Object.keys(TYPE_SHORT).map(k => {
+                            const val = data[k];
+                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf';
+                            if (isNumeric) {
+                              return (
+                                <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
+                                  {val ? formatNumber(val) : <span className="text-gray-300">—</span>}
+                                </td>
+                              );
+                            }
+                            const isDone = Boolean(val && Number(val) > 0);
+                            const note = data?.notes?.[k];
+                            return (
+                              <td key={k} className="text-center px-3 py-3">
+                                {isDone ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200"
+                                    title={note ? `Izoh: ${note}` : "Bajarildi"}
+                                  >
+                                    <ICONS.check className="text-[10px]" /> Bajarildi
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td className="px-4 py-3">
                             <Badge color={ACT_STATUS_COLORS[a.status] || 'gray'}>
                               {ACT_STATUS_LABELS[a.status] || a.status}
@@ -594,7 +729,7 @@ export default function XBDailyActivity() {
         isOpen={showModal}
         onClose={() => { setShowModal(false); setForm(buildEmptyForm()); }}
         title="O'zim bajargan ishlar hisoboti"
-        size="md"
+        size="lg"
         footer={
           <>
             <Button variant="secondary" onClick={() => { setShowModal(false); setForm(buildEmptyForm()); }}>Bekor</Button>
@@ -602,43 +737,181 @@ export default function XBDailyActivity() {
           </>
         }
       >
-        <div className="space-y-2 mb-4">
-          {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => {
-            const val = form.counts[key];
-            const active = Number(val) > 0;
-            return (
-              <div key={key}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
-                  active ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                  active ? 'border-green-500 bg-green-500' : 'border-gray-300'
-                }`}>
-                  {active && <ICONS.check className="text-white text-[9px]" />}
+        <div className="space-y-4 max-h-[72vh] overflow-y-auto pr-1">
+          {/* Section 1: Skanerlash va elektronlashtirish (son kiritish) */}
+          <div>
+            <div className="flex items-center gap-2 mb-2 pb-1 border-b border-gray-100">
+              <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-teal-800">
+                Skanerlash va Raqamlashtirish (Son kiritish)
+              </h4>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Skanerlash */}
+              <div className={`p-3.5 rounded-xl border transition-all ${
+                Number(form.counts.kitob_skanerlash) > 0 ? 'border-teal-400 bg-teal-50/60 shadow-xs' : 'border-gray-200 bg-white'
+              }`}>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-bold">
+                      <ICONS.document className="text-sm" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">Skanerlash ishlari</p>
+                      <p className="text-[11px] text-gray-400">Kitob va materiallar</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-teal-600 bg-teal-100/70 px-2 py-0.5 rounded-md">sahifa</span>
                 </div>
-                <span className={`text-sm flex-1 ${active ? 'text-green-700 font-medium' : 'text-gray-600'}`}>{label}</span>
-                <input
-                  type="number" min="0" value={val}
-                  onChange={e => setForm(f => ({ ...f, counts: { ...f.counts, [key]: e.target.value } }))}
-                  placeholder="0"
-                  className="w-20 text-center px-2 py-1.5 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200"
-                />
-                <span className="text-xs text-gray-400 w-4 shrink-0">ta</span>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.counts.kitob_skanerlash}
+                    onChange={e => setForm(f => ({ ...f, counts: { ...f.counts, kitob_skanerlash: e.target.value } }))}
+                    placeholder="Masalan: 45"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-teal-300"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-gray-400 pointer-events-none">sahifa</span>
+                </div>
               </div>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Sana</label>
-            <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200" />
+
+              {/* Elektronlashtirish / PDF */}
+              <div className={`p-3.5 rounded-xl border transition-all ${
+                Number(form.counts.kitob_pdf) > 0 ? 'border-indigo-400 bg-indigo-50/60 shadow-xs' : 'border-gray-200 bg-white'
+              }`}>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                      <ICONS.upload className="text-sm" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">Elektronlashtirish / PDF</p>
+                      <p className="text-[11px] text-gray-400">PDF shaklga keltirilgan</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-md">fayl</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.counts.kitob_pdf}
+                    onChange={e => setForm(f => ({ ...f, counts: { ...f.counts, kitob_pdf: e.target.value } }))}
+                    placeholder="Masalan: 8"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-gray-400 pointer-events-none">fayl</span>
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Section 2: Texnik xizmat, jihoz va tarmoqlar (Checkbox + Faol bo'lsa Izoh) */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Vaqt</label>
-            <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200" />
+            <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-teal-800">
+                  Texnik xizmat, jihoz va ta'mirlash (Belgilash & Izoh)
+                </h4>
+              </div>
+              <span className="text-[11px] text-gray-400">Bajarilgan ishlarni belgilang</span>
+            </div>
+
+            <div className="space-y-2.5">
+              {TASK_ACTIVITY_CONFIG.map(item => {
+                const isChecked = Boolean(form.tasks[item.key]);
+                return (
+                  <div
+                    key={item.key}
+                    className={`p-3 rounded-xl border transition-all ${
+                      isChecked
+                        ? 'border-teal-300 bg-teal-50/40 shadow-xs'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none pt-0.5 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            setForm(f => ({
+                              ...f,
+                              tasks: { ...f.tasks, [item.key]: checked },
+                            }));
+                          }}
+                          className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-gray-300 cursor-pointer accent-teal-600 shrink-0"
+                        />
+                        <div>
+                          <p className={`text-xs font-bold leading-tight ${isChecked ? 'text-teal-900' : 'text-gray-800'}`}>
+                            {item.label}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                            {item.subtitle}
+                          </p>
+                        </div>
+                      </label>
+                      <div className="ml-auto shrink-0">
+                        {isChecked ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                            <ICONS.check className="text-[10px]" /> Faol
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-gray-400 font-medium">Bajarilmagan</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Izoh inputi: Agarda checkbox faol bo'lsa ishlashi kerak */}
+                    <div className="mt-2.5 pl-6">
+                      <input
+                        type="text"
+                        disabled={!isChecked}
+                        value={form.notes[item.key] || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setForm(f => ({
+                            ...f,
+                            notes: { ...f.notes, [item.key]: val },
+                          }));
+                        }}
+                        placeholder={isChecked ? item.placeholder : "Izoh kiritish uchun yuqoridagi katakchani belgilang"}
+                        className={`w-full px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                          isChecked
+                            ? 'border-teal-300 bg-white text-gray-800 focus:ring-2 focus:ring-teal-300 focus:outline-none placeholder-gray-400'
+                            : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed placeholder-gray-300'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 3: Sana va Vaqt */}
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Sana</label>
+              <input
+                type="date"
+                value={form.date}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Vaqt</label>
+              <input
+                type="time"
+                value={form.time}
+                onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200"
+              />
+            </div>
           </div>
         </div>
       </Modal>
@@ -712,14 +985,52 @@ export default function XBDailyActivity() {
                 </div>
               );
             })()}
-            {Object.entries(parseData(showDetail)).map(([key, val]) => (
-              <div key={key} className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 border border-gray-100">
-                <span className="text-sm text-gray-600">{ACTIVITY_TYPE_LABELS[key] || key}</span>
-                <span className="text-lg font-bold text-teal-700">
-                  {formatNumber(val)} <span className="text-xs font-normal text-gray-400">ta</span>
-                </span>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-1 mb-2">Bajarilgan ishlar</p>
+            {(() => {
+              const d = parseData(showDetail);
+              const notes = d.notes || {};
+              const entries = Object.entries(d).filter(([k]) => k !== 'notes' && ACTIVITY_TYPE_LABELS[k] && Number(d[k]) > 0);
+              if (entries.length === 0) {
+                return (
+                  <p className="text-xs text-gray-400 italic py-2">Hech qanday faoliyat qayd etilmagan</p>
+                );
+              }
+              return (
+                <div className="space-y-2">
+                  {entries.map(([key, val]) => {
+                    const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf';
+                    const unit = key === 'kitob_skanerlash' ? 'sahifa' : 'fayl';
+                    const note = notes[key];
+                    return (
+                      <div key={key} className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-700">{ACTIVITY_TYPE_LABELS[key] || key}</span>
+                          {isNumeric ? (
+                            <span className="text-base font-bold text-teal-700">
+                              {formatNumber(val)} <span className="text-xs font-normal text-gray-400">{unit}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                              <ICONS.check className="text-[10px]" /> Bajarildi
+                            </span>
+                          )}
+                        </div>
+                        {note && (
+                          <div className="mt-2 pt-2 border-t border-gray-200/60 text-xs text-gray-600">
+                            <span className="font-semibold text-gray-700">Izoh: </span>{note}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            {showDetail.description && (
+              <div className="px-4 py-3 rounded-lg bg-amber-50 border border-amber-100 text-sm text-gray-600 mt-2">
+                <span className="font-medium text-amber-700">Qo'shimcha izoh: </span>{showDetail.description}
               </div>
-            ))}
+            )}
           </div>
         </Modal>
       )}

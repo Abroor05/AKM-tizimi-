@@ -159,7 +159,23 @@ export default function XBReports() {
   const [dailyForm, setDailyForm] = useState({
     date: today,
     time: new Date().toTimeString().slice(0, 5),
-    counts: Object.keys(ACTIVITY_TYPE_LABELS).reduce((acc, k) => ({ ...acc, [k]: '' }), {}),
+    counts: {
+      kitob_skanerlash: '',
+      kitob_pdf: '',
+    },
+    tasks: {
+      texnik_xizmat: false,
+      jihozlash: false,
+      tuzatish: false,
+      boshqa: false,
+    },
+    notes: {
+      texnik_xizmat: '',
+      jihozlash: '',
+      tuzatish: '',
+      boshqa: '',
+    },
+    description: '',
   });
 
   // ─── 1. OYLIK JAMLANMA HISOBI (Har bir oy uchun) ────────────
@@ -561,33 +577,64 @@ export default function XBReports() {
 
   // O'z kunlik hisobotini kiritish
   const handleSaveHeadDaily = () => {
-    const hasAny = Object.values(dailyForm.counts).some(v => Number(v) > 0);
-    if (!hasAny) {
-      alert('Kamida bitta faoliyat uchun son kiriting');
+    const hasNumeric = (Number(dailyForm.counts.kitob_skanerlash) > 0) || (Number(dailyForm.counts.kitob_pdf) > 0);
+    const hasTasks = Object.values(dailyForm.tasks).some(Boolean);
+    if (!hasNumeric && !hasTasks) {
+      alert("Kamida bitta faoliyat turini belgilang yoki sonini kiriting");
       return;
     }
     const data = {};
-    Object.entries(dailyForm.counts).forEach(([k, v]) => {
-      if (Number(v) > 0) data[k] = Number(v);
+    if (Number(dailyForm.counts.kitob_skanerlash) > 0) {
+      data.kitob_skanerlash = Number(dailyForm.counts.kitob_skanerlash);
+    }
+    if (Number(dailyForm.counts.kitob_pdf) > 0) {
+      data.kitob_pdf = Number(dailyForm.counts.kitob_pdf);
+    }
+    const taskNotes = {};
+    ['texnik_xizmat', 'jihozlash', 'tuzatish', 'boshqa'].forEach(key => {
+      if (dailyForm.tasks[key]) {
+        data[key] = 1;
+        if (dailyForm.notes[key]?.trim()) {
+          taskNotes[key] = dailyForm.notes[key].trim();
+        }
+      }
+    });
+    if (Object.keys(taskNotes).length > 0) {
+      data.notes = taskNotes;
+    }
+
+    const descParts = [];
+    if (dailyForm.description?.trim()) descParts.push(dailyForm.description.trim());
+    Object.entries(taskNotes).forEach(([k, note]) => {
+      const label = ACTIVITY_TYPE_LABELS[k] || k;
+      descParts.push(`${label}: ${note}`);
     });
 
-    createEntity(STORAGE_KEYS.ACTIVITIES, {
-      type: 'daily_report',
-      data: JSON.stringify(data),
-      date: dailyForm.date,
-      time: dailyForm.time,
-      libraryId: currentUser?.libraryId,
-      userId: currentUser?.id,
-      status: 'accepted',
-    });
+    try {
+      createEntity(STORAGE_KEYS.ACTIVITIES, {
+        type: 'daily_report',
+        data: JSON.stringify(data),
+        description: descParts.join(' | ') || dailyForm.description,
+        date: dailyForm.date,
+        time: dailyForm.time,
+        libraryId: currentUser?.libraryId || myLibrary?.id || (libraries && libraries[0]?.id) || null,
+        userId: currentUser?.id,
+        status: 'accepted',
+      });
 
-    setShowDailyAddModal(false);
-    setDailyForm({
-      date: today,
-      time: new Date().toTimeString().slice(0, 5),
-      counts: Object.keys(ACTIVITY_TYPE_LABELS).reduce((acc, k) => ({ ...acc, [k]: '' }), {}),
-    });
-    alert('Kunlik faoliyat qayd etildi!');
+      setShowDailyAddModal(false);
+      setDailyForm({
+        date: today,
+        time: new Date().toTimeString().slice(0, 5),
+        counts: { kitob_skanerlash: '', kitob_pdf: '' },
+        tasks: { texnik_xizmat: false, jihozlash: false, tuzatish: false, boshqa: false },
+        notes: { texnik_xizmat: '', jihozlash: '', tuzatish: '', boshqa: '' },
+        description: '',
+      });
+      alert("Kunlik hisobot muvaffaqiyatli saqlandi!");
+    } catch (err) {
+      alert("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
+    }
   };
 
   return (
@@ -1317,7 +1364,7 @@ export default function XBReports() {
                   onChange={e => {
                     const nextType = e.target.value;
                     setCreateType(nextType);
-                    const targetP = nextType === REPORT_TYPES.ANNUAL ? currentYearStr : currentMonthStr;
+                    const targetP = nextType === REPORT_TYPES.ANNUAL ? currentYearStr : nextType === REPORT_TYPES.DAILY ? today : currentMonthStr;
                     handlePeriodChange(targetP);
                   }}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold bg-white"
@@ -1666,7 +1713,7 @@ export default function XBReports() {
           isOpen={showDailyAddModal}
           onClose={() => setShowDailyAddModal(false)}
           title="O'zim bajargan kunlik faoliyatni kiritish"
-          size="md"
+          size="lg"
           footer={
             <>
               <Button variant="secondary" onClick={() => setShowDailyAddModal(false)}>Bekor qilish</Button>
@@ -1674,48 +1721,206 @@ export default function XBReports() {
             </>
           }
         >
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 mb-2">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Sana:</label>
-                <input
-                  type="date"
-                  value={dailyForm.date}
-                  onChange={e => setDailyForm({ ...dailyForm, date: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold"
-                />
+          <div className="space-y-4 max-h-[72vh] overflow-y-auto pr-1">
+            {/* Section 1: Skanerlash va elektronlashtirish (son kiritish) */}
+            <div>
+              <div className="flex items-center gap-2 mb-2 pb-1 border-b border-slate-100">
+                <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-teal-800">
+                  Skanerlash va Raqamlashtirish (Son kiritish)
+                </h4>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Vaqt:</label>
-                <input
-                  type="time"
-                  value={dailyForm.time}
-                  onChange={e => setDailyForm({ ...dailyForm, time: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                  <span className="text-xs font-medium text-slate-700">{label}</span>
-                  <div className="flex items-center gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Skanerlash */}
+                <div className={`p-3.5 rounded-xl border transition-all ${
+                  Number(dailyForm.counts.kitob_skanerlash) > 0 ? 'border-teal-400 bg-teal-50/60 shadow-xs' : 'border-slate-200 bg-white'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-bold">
+                        <ICONS.document className="text-sm" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">Skanerlash ishlari</p>
+                        <p className="text-[11px] text-slate-400">Kitob va materiallar</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-semibold text-teal-600 bg-teal-100/70 px-2 py-0.5 rounded-md">sahifa</span>
+                  </div>
+                  <div className="relative">
                     <input
                       type="number"
                       min="0"
-                      value={dailyForm.counts[key]}
-                      onChange={e => setDailyForm({
-                        ...dailyForm,
-                        counts: { ...dailyForm.counts, [key]: e.target.value }
-                      })}
-                      placeholder="0"
-                      className="w-20 px-2 py-1 text-center rounded border border-slate-300 text-sm font-bold bg-white"
+                      value={dailyForm.counts.kitob_skanerlash}
+                      onChange={e => setDailyForm(f => ({ ...f, counts: { ...f.counts, kitob_skanerlash: e.target.value } }))}
+                      placeholder="Masalan: 45"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-teal-300"
                     />
-                    <span className="text-xs text-slate-400">ta</span>
+                    <span className="absolute right-3 top-2.5 text-xs text-slate-400 pointer-events-none">sahifa</span>
                   </div>
                 </div>
-              ))}
+
+                {/* Elektronlashtirish / PDF */}
+                <div className={`p-3.5 rounded-xl border transition-all ${
+                  Number(dailyForm.counts.kitob_pdf) > 0 ? 'border-indigo-400 bg-indigo-50/60 shadow-xs' : 'border-slate-200 bg-white'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                        <ICONS.upload className="text-sm" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">Elektronlashtirish / PDF</p>
+                        <p className="text-[11px] text-slate-400">PDF shaklga keltirilgan</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-md">fayl</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      value={dailyForm.counts.kitob_pdf}
+                      onChange={e => setDailyForm(f => ({ ...f, counts: { ...f.counts, kitob_pdf: e.target.value } }))}
+                      placeholder="Masalan: 8"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-slate-400 pointer-events-none">fayl</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Texnik xizmat, jihoz va tarmoqlar (Checkbox + Faol bo'lsa Izoh) */}
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-teal-800">
+                    Texnik xizmat, jihoz va ta'mirlash (Belgilash & Izoh)
+                  </h4>
+                </div>
+                <span className="text-[11px] text-slate-400">Bajarilgan ishlarni belgilang</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {[
+                  {
+                    key: 'texnik_xizmat',
+                    label: "Texnik xizmat ko'rsatish",
+                    subtitle: "Kompyuterlar, dasturiy ta'minot va qurilmalar profilaktikasi",
+                    placeholder: "Qanday texnik xizmat ko'rsatildi? (Masalan: kompyuterlar profilaktika qilindi, drayverlar yangilandi)...",
+                  },
+                  {
+                    key: 'jihozlash',
+                    label: "Jihozlash va tarmoq sozlash",
+                    subtitle: "Lokal tarmoq (LAN/Wi-Fi), server, kabel va jihozlarni sozlash",
+                    placeholder: "Tarmoq yoki jihoz sozlash haqida izoh (Masalan: Wi-Fi router sozlandi, kabel ulandi)...",
+                  },
+                  {
+                    key: 'tuzatish',
+                    label: "Ta'mirlash va sozlash",
+                    subtitle: "Nosoz qurilmalar, printer, skaner va uskunalarni ta'mirlash",
+                    placeholder: "Ta'mirlash haqida izoh (Masalan: Printer kartriji to'ldirildi, rolik almashtirildi)...",
+                  },
+                  {
+                    key: 'boshqa',
+                    label: "Boshqa ish tartibi vazifalari",
+                    subtitle: "Rejadan tashqari boshqa amaliy va tashkiliy vazifalar",
+                    placeholder: "Bajarilgan vazifa haqida izoh...",
+                  },
+                ].map(item => {
+                  const isChecked = Boolean(dailyForm.tasks[item.key]);
+                  return (
+                    <div
+                      key={item.key}
+                      className={`p-3 rounded-xl border transition-all ${
+                        isChecked
+                          ? 'border-teal-300 bg-teal-50/40 shadow-xs'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <label className="flex items-center gap-2.5 cursor-pointer select-none pt-0.5 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={e => {
+                              const checked = e.target.checked;
+                              setDailyForm(f => ({
+                                ...f,
+                                tasks: { ...f.tasks, [item.key]: checked },
+                              }));
+                            }}
+                            className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer accent-teal-600 shrink-0"
+                          />
+                          <div>
+                            <p className={`text-xs font-bold leading-tight ${isChecked ? 'text-teal-900' : 'text-slate-800'}`}>
+                              {item.label}
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                              {item.subtitle}
+                            </p>
+                          </div>
+                        </label>
+                        <div className="ml-auto shrink-0">
+                          {isChecked ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                              <ICONS.check className="text-[10px]" /> Faol
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-medium">Bajarilmagan</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Izoh inputi: Agarda checkbox faol bo'lsa ishlashi kerak */}
+                      <div className="mt-2.5 pl-6">
+                        <input
+                          type="text"
+                          disabled={!isChecked}
+                          value={dailyForm.notes[item.key] || ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setDailyForm(f => ({
+                              ...f,
+                              notes: { ...f.notes, [item.key]: val },
+                            }));
+                          }}
+                          placeholder={isChecked ? item.placeholder : "Izoh kiritish uchun yuqoridagi katakchani belgilang"}
+                          className={`w-full px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                            isChecked
+                              ? 'border-teal-300 bg-white text-slate-800 focus:ring-2 focus:ring-teal-300 focus:outline-none placeholder-slate-400'
+                              : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed placeholder-slate-300'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 3: Sana va Vaqt */}
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Sana</label>
+                <input
+                  type="date"
+                  value={dailyForm.date}
+                  onChange={e => setDailyForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Vaqt</label>
+                <input
+                  type="time"
+                  value={dailyForm.time}
+                  onChange={e => setDailyForm(f => ({ ...f, time: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200"
+                />
+              </div>
             </div>
           </div>
         </Modal>
