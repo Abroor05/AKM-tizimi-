@@ -11,6 +11,7 @@ import Badge from '../../components/ui/Badge.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES, ACTIVITY_TYPE_LABELS } from '../../data/constants.js';
 import { formatDate, formatNumber } from '../../utils/helpers.js';
@@ -222,8 +223,9 @@ export default function XBDailyActivity() {
     try {
       await acceptActivity(a.id);
       setShowDetail(null);
+      toast.success("Xodim hisoboti muvaffaqiyatli qabul qilindi!");
     } catch {
-      alert('Qabul qilishda xato yuz berdi');
+      toast.error('Qabul qilishda xato yuz berdi');
     } finally {
       setAccepting(null);
     }
@@ -234,7 +236,7 @@ export default function XBDailyActivity() {
     const hasNumeric = (Number(form.counts.kitob_skanerlash) > 0) || (Number(form.counts.kitob_pdf) > 0);
     const hasTasks = Object.values(form.tasks).some(Boolean);
     if (!hasNumeric && !hasTasks) {
-      alert("Kamida bitta faoliyat turini belgilang yoki sonini kiriting");
+      toast.warning("Kamida bitta faoliyat turini belgilang yoki sonini kiriting!");
       return;
     }
     const data = {};
@@ -277,9 +279,9 @@ export default function XBDailyActivity() {
       });
       setShowModal(false);
       setForm(buildEmptyForm());
-      alert("Kunlik hisobot muvaffaqiyatli saqlandi!");
+      toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
     } catch (err) {
-      alert("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
+      toast.error("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
     }
   };
 
@@ -294,12 +296,12 @@ export default function XBDailyActivity() {
     try {
       const res = await forwardDailyActivityToAdmins(target || targetDate, ['super_admin', 'viloyat_admin']);
       if (res?.success || res?.id || res?.report) {
-        alert("Kunlik hisobot Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!");
+        toast.success("Kunlik hisobot Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!");
       } else {
-        alert(res?.error || "Jo'natishda xatolik yuz berdi");
+        toast.error(res?.error || "Jo'natishda xatolik yuz berdi");
       }
     } catch (err) {
-      alert("Xatolik: " + (err.message || 'Nomaʼlum xatolik'));
+      toast.error("Xatolik: " + (err.message || 'Nomaʼlum xatolik'));
     } finally {
       setSendingAdmin(false);
     }
@@ -314,12 +316,12 @@ export default function XBDailyActivity() {
     try {
       const res = await forwardMonthlyReportToAdmins(targetMonth, ['super_admin', 'viloyat_admin']);
       if (res?.success || res?.id || res?.report) {
-        alert(`${label} oylik hisoboti Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!`);
+        toast.success(`${label} oylik hisoboti Super Admin va Viloyat Adminga muvaffaqiyatli jo'natildi!`);
       } else {
-        alert(res?.error || "Jo'natishda xatolik yuz berdi");
+        toast.error(res?.error || "Jo'natishda xatolik yuz berdi");
       }
     } catch (err) {
-      alert("Xatolik: " + (err.message || 'Nomaʼlum xatolik'));
+      toast.error("Xatolik: " + (err.message || 'Nomaʼlum xatolik'));
     } finally {
       setSendingAdmin(false);
     }

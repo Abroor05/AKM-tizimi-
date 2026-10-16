@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext.jsx';
+import { ToastProvider } from './context/ToastContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 import { getLastRoute, setLastRoute } from './utils/api.js';
@@ -155,10 +156,16 @@ function AppRoutes() {
   );
 }
 
+import { ThemeProvider } from './context/ThemeContext.jsx';
+
 export default function App() {
   return (
-    <AppProvider>
-      <AppRoutes />
-    </AppProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <AppProvider>
+          <AppRoutes />
+        </AppProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

@@ -13,9 +13,24 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('kbt_theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (stored === 'dark' || (!stored && systemDark) || (stored === 'system' && systemDark)) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.colorScheme = 'dark';
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.style.colorScheme = 'light';
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
-<body class="bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
+<body class="bg-slate-50 dark:bg-[#0b1120] text-slate-900 dark:text-slate-100 antialiased selection:bg-blue-600 selection:text-white">
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

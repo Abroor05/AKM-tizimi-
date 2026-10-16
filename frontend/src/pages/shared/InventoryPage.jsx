@@ -8,6 +8,7 @@ import Input from '../../components/ui/Input.jsx';
 import Select from '../../components/ui/Select.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, INVENTORY_TYPES, INVENTORY_TYPE_LABELS, INVENTORY_STATUS, INVENTORY_STATUS_LABELS, INVENTORY_STATUS_COLORS, ROLES } from '../../data/constants.js';
 import { formatMoney, formatDate } from '../../utils/helpers.js';
@@ -43,11 +44,16 @@ export default function InventoryPage() {
   const totalValue = useMemo(() => inventory.reduce((sum, i) => sum + (i.unitPrice * i.quantity), 0), [inventory]);
 
   const handleSave = () => {
-    if (!form.name || !form.type) return;
+    if (!form.name?.trim()) {
+      toast.warning("Iltimos, jihoz nomini kiriting!");
+      return;
+    }
     if (editItem) {
       updateEntity(STORAGE_KEYS.INVENTORY, editItem.id, form);
+      toast.success("Jihoz ma'lumotlari muvaffaqiyatli yangilandi!");
     } else {
       createEntity(STORAGE_KEYS.INVENTORY, form);
+      toast.success("Yangi inventar muvaffaqiyatli saqlandi!");
     }
     setShowModal(false);
     setEditItem(null);
@@ -109,7 +115,18 @@ export default function InventoryPage() {
                     {canManage && (
                       <td className="px-4 py-3"><div className="flex items-center gap-1">
                         <button onClick={() => { setEditItem(i); setForm(i); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><ICONS.edit className="text-sm" /></button>
-                        <button onClick={() => { if (confirm('O\'chirilsinmi?')) deleteEntity(STORAGE_KEYS.INVENTORY, i.id); }} className="p-1.5 rounded hover:bg-red-50 text-red-600"><ICONS.trash className="text-sm" /></button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`"${i.name}" inventari o'chirilsinmi?`)) {
+                              deleteEntity(STORAGE_KEYS.INVENTORY, i.id);
+                              toast.success("Inventar muvaffaqiyatli o'chirildi!");
+                            }
+                          }}
+                          className="p-1.5 rounded hover:bg-red-50 text-red-600"
+                          title="O'chirish"
+                        >
+                          <ICONS.trash className="text-sm" />
+                        </button>
                       </div></td>
                     )}
                   </tr>

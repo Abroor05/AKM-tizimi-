@@ -9,6 +9,7 @@ import Input from '../../components/ui/Input.jsx';
 import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, APPEAL_STATUS, APPEAL_STATUS_LABELS, APPEAL_STATUS_COLORS, ROLES } from '../../data/constants.js';
 import { formatDate } from '../../utils/helpers.js';
@@ -42,7 +43,10 @@ export default function AppealsPage() {
   const canManage = hasPermission('manage_appeals');
 
   const handleResolve = () => {
-    if (!resolution) return;
+    if (!resolution?.trim()) {
+      toast.warning("Iltimos, javob matnini kiriting!");
+      return;
+    }
     updateEntity(STORAGE_KEYS.APPEALS, resolveItem.id, {
       status: APPEAL_STATUS.RESOLVED,
       resolution,
@@ -51,6 +55,7 @@ export default function AppealsPage() {
     });
     setResolveItem(null);
     setResolution('');
+    toast.success("Murojaat muvaffaqiyatli hal qilindi!");
   };
 
   return (

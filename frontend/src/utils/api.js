@@ -3,7 +3,13 @@
 // ============================================================
 
 // Use deployed backend URL if available, otherwise fall back to Vite proxy (/api)
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+function getApiBase() {
+  const envUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+  if (!envUrl) return '/api';
+  return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+}
+
+const API_BASE = getApiBase();
 const TOKEN_KEY = 'kbt_token';
 const USER_KEY = 'kbt_user';
 const LAST_ROUTE_KEY = 'kbt_last_route';

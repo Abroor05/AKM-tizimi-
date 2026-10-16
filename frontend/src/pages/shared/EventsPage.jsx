@@ -9,6 +9,7 @@ import Select from '../../components/ui/Select.jsx';
 import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, EVENT_TYPES, EVENT_TYPE_LABELS, ROLES } from '../../data/constants.js';
 import { formatDate } from '../../utils/helpers.js';
@@ -41,12 +42,17 @@ export default function EventsPage() {
   const canManage = hasPermission('manage_events');
 
   const handleSave = () => {
-    if (!form.title || !form.type || !form.date) return;
+    if (!form.title?.trim() || !form.type || !form.date) {
+      toast.warning("Iltimos, tadbir nomi, turi va sanasini to'ldiring!");
+      return;
+    }
     const saveForm = { ...form, organizer: currentUser?.id, status: new Date(form.date) > new Date() ? 'upcoming' : 'completed' };
     if (editItem) {
       updateEntity(STORAGE_KEYS.EVENTS, editItem.id, saveForm);
+      toast.success("Tadbir muvaffaqiyatli yangilandi!");
     } else {
       createEntity(STORAGE_KEYS.EVENTS, saveForm);
+      toast.success("Yangi tadbir muvaffaqiyatli saqlandi!");
     }
     setShowModal(false);
     setEditItem(null);
@@ -75,7 +81,21 @@ export default function EventsPage() {
                 <div className="flex items-center gap-1">
                   <Badge color={ev.status === 'completed' ? 'green' : 'amber'}>{ev.status === 'completed' ? "O'tkazilgan" : "Yaqinlashmoqda"}</Badge>
                   {canManage && (
-                    <button onClick={() => { setEditItem(ev); setForm(ev); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><ICONS.edit className="text-sm" /></button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setEditItem(ev); setForm(ev); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Tahrirlash"><ICONS.edit className="text-sm" /></button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`"${ev.title}" tadbiri o'chirilsinmi?`)) {
+                            deleteEntity(STORAGE_KEYS.EVENTS, ev.id);
+                            toast.success("Tadbir muvaffaqiyatli o'chirildi!");
+                          }
+                        }}
+                        className="p-1.5 rounded hover:bg-red-50 text-red-600"
+                        title="O'chirish"
+                      >
+                        <ICONS.trash className="text-sm" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

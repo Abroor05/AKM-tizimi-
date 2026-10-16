@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
@@ -29,9 +31,34 @@
   box-sizing: border-box;
 }
 
+/* Global button and interactive element cursor */
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
 html {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   letter-spacing: -0.011em;
+  transition: color-scheme 0.2s ease;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -41,6 +68,12 @@ body {
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html.dark body {
+  background-color: #0b1120;
+  color: #f1f5f9;
 }
 
 /* Tabular figures for numbers */
@@ -54,6 +87,14 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+html.dark .glass-surface {
+  background: rgba(11, 17, 32, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(30, 41, 59, 0.8);
 }
 
 .glass-surface-dark {
@@ -107,6 +148,14 @@ body {
   background: #94a3b8;
 }
 
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
 /* Dark sidebar scrollbar */
 .dark-scrollbar::-webkit-scrollbar-thumb {
   background: #334155;
@@ -121,3 +170,35 @@ body {
   z-index: 1;
   border-radius: 0.75rem;
 }
+
+/* Toast Animations */
+@keyframes toastSlideIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(60px, -8px, 0) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes toastSlideOut {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(60px, -6px, 0) scale(0.92);
+  }
+}
+
+.toast-enter {
+  animation: toastSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-exit {
+  animation: toastSlideOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+

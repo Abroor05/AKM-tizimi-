@@ -6,6 +6,7 @@ import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import { toast } from "../../components/ui/Toast.jsx";
 import ICONS from "../../components/icons.jsx";
 import {
   STORAGE_KEYS,
@@ -212,7 +213,7 @@ export default function DailyActivityPage() {
     const hasDesc = Boolean(form.description?.trim());
 
     if (!hasNumeric && !hasTasks && !hasDesc) {
-      alert("Kamida bitta faoliyat turini belgilang yoki sonini kiriting");
+      toast.warning("Kamida bitta faoliyat turini belgilang yoki sonini kiriting!");
       return;
     }
     const data = {};
@@ -264,9 +265,9 @@ export default function DailyActivityPage() {
       setViewTab("daily");
       setShowModal(false);
       setForm(buildEmptyForm());
-      alert("Kunlik hisobot muvaffaqiyatli saqlandi!");
+      toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
     } catch (err) {
-      alert("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || "Noma'lum xatolik"));
+      toast.error("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || "Noma'lum xatolik"));
     }
   };
 
@@ -280,8 +281,9 @@ export default function DailyActivityPage() {
     setSending(a.id);
     try {
       await submitActivity(a.id);
+      toast.success("Kunlik hisobot bo'lim boshlig'iga muvaffaqiyatli yuborildi!");
     } catch {
-      alert("Yuborishda xato yuz berdi");
+      toast.error("Yuborishda xato yuz berdi");
     } finally {
       setSending(null);
     }

@@ -10,6 +10,7 @@ import Input from '../../components/ui/Input.jsx';
 import Select from '../../components/ui/Select.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES } from '../../data/constants.js';
 import { VILOYATLAR, getViloyatName, getTumanName, getTumanCoordinates } from '../../data/regions.js';
@@ -62,14 +63,19 @@ export default function LibrariesPage() {
   const canManage = isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN);
 
   const handleSave = () => {
-    if (!form.name || !form.viloyatId) return;
+    if (!form.name?.trim() || !form.viloyatId) {
+      toast.warning("Iltimos, kutubxona nomi va viloyatini tanlang!");
+      return;
+    }
     const safeForm = isDistrictScopedUser
       ? { ...form, phone: form.phone || '+998', viloyatId: currentUser.viloyatId, tumanId: currentUser.tumanId }
       : { ...form, phone: form.phone || '+998' };
     if (editItem) {
       updateEntity(STORAGE_KEYS.LIBRARIES, editItem.id, safeForm);
+      toast.success("Kutubxona ma'lumotlari muvaffaqiyatli yangilandi!");
     } else {
       createEntity(STORAGE_KEYS.LIBRARIES, { ...safeForm, status: 'active' });
+      toast.success("Yangi kutubxona muvaffaqiyatli saqlandi!");
     }
     setShowModal(false);
     setEditItem(null);
@@ -98,7 +104,7 @@ export default function LibrariesPage() {
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Brauzer geolocation xizmatini qo\'llab-quvvatlamaydi');
+      toast.warning('Brauzer geolocation xizmatini qo\'llab-quvvatlamaydi');
       return;
     }
 
@@ -109,9 +115,10 @@ export default function LibrariesPage() {
           latitude: String(coords.latitude),
           longitude: String(coords.longitude),
         }));
+        toast.success("Joriy joylashuv koordinatalari aniqlandi!");
       },
       () => {
-        alert('Joylashuvni aniqlab bo\'lmadi. Iltimos, brauzerga ruxsat bering.');
+        toast.warning('Joylashuvni aniqlab bo\'lmadi. Iltimos, brauzerga ruxsat bering.');
       },
       { enableHighAccuracy: true, timeout: 20000 }
     );

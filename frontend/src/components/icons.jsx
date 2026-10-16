@@ -16,10 +16,16 @@ import {
   FaHandHolding, FaHandHoldingHeart, FaUsersLine, FaLightbulb,
   FaDisplay, FaStar, FaCircle, FaPenToSquare, FaPaperPlane,
   FaRotateRight, FaTableList, FaTriangleExclamation,
+  FaSun, FaMoon, FaCircleHalfStroke,
   FaCircleCheck as CheckIcon, FaCircleXmark as XIcon,
 } from 'react-icons/fa6';
 
 const ICON_MAP = {
+  // Theme icons
+  sun: FaSun,
+  moon: FaMoon,
+  themeAuto: FaCircleHalfStroke,
+
   // Menu icons
   dashboard: FaHouse,
   library: FaBuildingColumns,

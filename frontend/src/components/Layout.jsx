@@ -6,6 +6,7 @@ import { getViloyatName, getTumanName } from '../data/regions.js';
 import ICONS from './icons.jsx';
 import Logo from './ui/Logo.jsx';
 import Badge from './ui/Badge.jsx';
+import ThemeToggle from './common/ThemeToggle.jsx';
 import { NOTIFICATION_TYPES } from '../data/constants.js';
 
 const MENU_SECTIONS = [
@@ -126,7 +127,7 @@ export default function Layout({ children }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-200">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -239,25 +240,25 @@ export default function Layout({ children }) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Modern Glassmorphic Topbar */}
-        <header className="h-18 sticky top-0 z-30 glass-surface border-b border-slate-200/80 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+        <header className="h-18 sticky top-0 z-30 glass-surface border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Left: Mobile Toggle & Context Breadcrumb */}
           <div className="flex items-center gap-3.5 min-w-0">
             <button
-              className="lg:hidden p-2.5 rounded-xl hover:bg-slate-100 text-slate-700 transition-colors"
+              className="lg:hidden p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
               onClick={() => setSidebarOpen(true)}
             >
               <ICONS.bars className="text-xl" />
             </button>
 
             <div className="min-w-0 hidden sm:flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-semibold border border-blue-200/60">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200/60 dark:border-blue-900/50">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                 {currentUser?.viloyatId ? getViloyatName(currentUser.viloyatId) : "O'zbekiston Respublikasi"}
               </span>
               {currentUser?.tumanId && (
                 <>
-                  <span className="text-slate-300">/</span>
-                  <span className="text-slate-600 font-medium">
+                  <span className="text-slate-300 dark:text-slate-600">/</span>
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">
                     {getTumanName(currentUser.viloyatId, currentUser.tumanId)}
                   </span>
                 </>
@@ -265,54 +266,57 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          {/* Right: Date, Notifications & User Menu */}
-          <div className="flex items-center gap-3">
+          {/* Right: Date, Theme Toggle, Notifications & User Menu */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Live date stamp */}
-            <div className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60">
+            <div className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
               <ICONS.calendar className="text-slate-400" />
               <span className="capitalize">{todayStr}</span>
             </div>
+
+            {/* Senior Executive Theme Toggle */}
+            <ThemeToggle />
 
             {/* Notifications Dropdown */}
             <div className="relative" ref={notifRef}>
               <button
                 className={`relative p-2.5 rounded-xl transition-colors ${
-                  notifOpen ? 'bg-slate-100 text-slate-900' : 'hover:bg-slate-100 text-slate-600'
+                  notifOpen ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
                 }`}
                 onClick={() => setNotifOpen(!notifOpen)}
                 title="Bildirishnomalar"
               >
                 <ICONS.notifications className="text-xl" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white animate-pulse">
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-900 animate-pulse">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-2xl shadow-executive-xl border border-slate-200/90 z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-executive-xl border border-slate-200/90 dark:border-slate-800 z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
                     <div>
-                      <h3 className="font-bold text-slate-900 text-sm">Bildirishnomalar</h3>
-                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Bildirishnomalar</h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
                         {unreadCount > 0 ? `${unreadCount} ta yangi bildirishnoma` : 'Barcha xabarlar o\'qilgan'}
                       </p>
                     </div>
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllRead}
-                        className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                       >
                         Hammasini o'qildi
                       </button>
                     )}
                   </div>
 
-                  <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+                  <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                     {notifications.length === 0 ? (
                       <div className="py-12 text-center text-sm text-slate-400">
-                        <ICONS.notifications className="text-3xl mx-auto mb-2 text-slate-300" />
+                        <ICONS.notifications className="text-3xl mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                         Bildirishnomalar mavjud emas
                       </div>
                     ) : (
@@ -320,26 +324,26 @@ export default function Layout({ children }) {
                         <button
                           key={n.id}
                           onClick={() => markNotificationRead(n.id)}
-                          className={`w-full text-left p-4 hover:bg-slate-50 transition-colors flex items-start gap-3 ${
-                            !n.read ? 'bg-blue-50/40' : ''
+                          className={`w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-3 ${
+                            !n.read ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
                           }`}
                         >
                           <div className={`p-2 rounded-xl shrink-0 ${
-                            n.type === NOTIFICATION_TYPES.SUCCESS ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                            n.type === NOTIFICATION_TYPES.WARNING ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                            n.type === NOTIFICATION_TYPES.ERROR ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                            n.type === NOTIFICATION_TYPES.TASK ? 'bg-purple-50 text-purple-600 border border-purple-100' :
-                            n.type === NOTIFICATION_TYPES.REPORT ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' :
-                            'bg-blue-50 text-blue-600 border border-blue-100'
+                            n.type === NOTIFICATION_TYPES.SUCCESS ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50' :
+                            n.type === NOTIFICATION_TYPES.WARNING ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50' :
+                            n.type === NOTIFICATION_TYPES.ERROR ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50' :
+                            n.type === NOTIFICATION_TYPES.TASK ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50' :
+                            n.type === NOTIFICATION_TYPES.REPORT ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50' :
+                            'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50'
                           }`}>
                             <ICONS.info className="text-sm" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-slate-900 leading-snug">{n.title}</p>
-                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
-                            <p className="text-[10px] text-slate-400 mt-1 font-medium">{n.date} {n.time}</p>
+                            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-snug">{n.title}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-medium">{n.date} {n.time}</p>
                           </div>
-                          {!n.read && <div className="w-2 h-2 bg-blue-600 rounded-full shrink-0 mt-1.5" />}
+                          {!n.read && <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full shrink-0 mt-1.5" />}
                         </button>
                       ))
                     )}
@@ -351,24 +355,24 @@ export default function Layout({ children }) {
             {/* User Dropdown */}
             <div className="relative" ref={userMenuRef}>
               <button
-                className="flex items-center gap-2.5 p-1.5 pl-2 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
+                className="flex items-center gap-2.5 p-1.5 pl-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
               >
-                <div className={`w-8 h-8 rounded-lg ${avatarClass(roleColor)} flex items-center justify-center font-bold text-xs ring-1 ring-slate-200`}>
+                <div className={`w-8 h-8 rounded-lg ${avatarClass(roleColor)} flex items-center justify-center font-bold text-xs ring-1 ring-slate-200 dark:ring-slate-700`}>
                   {currentUser?.fullName?.charAt(0) || 'U'}
                 </div>
                 <div className="text-left hidden md:block">
-                  <p className="text-xs font-bold text-slate-900 leading-none">{currentUser?.fullName?.split(' ')[0]}</p>
-                  <p className="text-[10px] text-slate-500 leading-none mt-1 font-medium">{ROLE_LABELS[currentUser?.role]}</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-none">{currentUser?.fullName?.split(' ')[0]}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-none mt-1 font-medium">{ROLE_LABELS[currentUser?.role]}</p>
                 </div>
                 <ICONS.chevronDown className="text-[10px] text-slate-400 hidden sm:block ml-1" />
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 top-12 w-64 bg-white rounded-2xl shadow-executive-xl border border-slate-200/90 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                  <div className="p-4 border-b border-slate-100 bg-slate-50/60">
-                    <p className="text-sm font-bold text-slate-900 truncate">{currentUser?.fullName}</p>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">{currentUser?.email || `@${currentUser?.username}`}</p>
+                <div className="absolute right-0 top-12 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-executive-xl border border-slate-200/90 dark:border-slate-800 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60">
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{currentUser?.fullName}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{currentUser?.email || `@${currentUser?.username}`}</p>
                     <div className="mt-2.5">
                       <Badge color={roleColor} withDot>{ROLE_LABELS[currentUser?.role]}</Badge>
                     </div>
@@ -376,14 +380,14 @@ export default function Layout({ children }) {
                   <div className="p-2 space-y-1">
                     <button
                       onClick={() => { navigate('/profile'); setUserMenuOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                       <ICONS.user className="text-sm text-slate-400" />
                       Profil va Sozlamalar
                     </button>
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                     >
                       <ICONS.logout className="text-sm" />
                       Tizimdan chiqish

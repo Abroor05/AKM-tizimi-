@@ -9,6 +9,7 @@ import Select from '../../components/ui/Select.jsx';
 import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { REPORT_TYPES, REPORT_TYPE_LABELS, REPORT_STATUS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS, ROLES, ROLE_LABELS, STORAGE_KEYS } from '../../data/constants.js';
 import { formatDate, formatMoney, formatNumber } from '../../utils/helpers.js';
@@ -59,13 +60,17 @@ export default function ReportsPage() {
   const canReview = hasPermission('review_report') || isRole(ROLES.SUPER_ADMIN) || isRole(ROLES.VILOYAT_ADMIN);
 
   const handleCreate = async () => {
-    if (!form.title || !form.type || !form.period) return;
+    if (!form.title || !form.type || !form.period) {
+      toast.warning("Iltimos, hisobot sarlavhasi, turi va davrini to'ldiring!");
+      return;
+    }
     try {
       await createReport(form);
       setShowModal(false);
       setForm({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
+      toast.success("Hisobot muvaffaqiyatli yaratildi!");
     } catch (err) {
-      alert("Hisobot yaratishda xatolik: " + (err.message || 'Noma\'lum xatolik'));
+      toast.error("Hisobot yaratishda xatolik: " + (err.message || 'Noma\'lum xatolik'));
     }
   };
 
@@ -73,9 +78,9 @@ export default function ReportsPage() {
     if (window.confirm('Hisobot adminlarga yuborilsinmi?')) {
       try {
         await submitReport(id);
-        alert("Hisobot ko'rib chiqish uchun muvaffaqiyatli yuborildi!");
+        toast.success("Hisobot ko'rib chiqish uchun muvaffaqiyatli yuborildi!");
       } catch (err) {
-        alert("Yuborishda xatolik: " + (err.message || 'Xatolik yuz berdi'));
+        toast.error("Yuborishda xatolik: " + (err.message || 'Xatolik yuz berdi'));
       }
     }
   };
@@ -94,7 +99,7 @@ export default function ReportsPage() {
         }
         comment = promptComment.trim();
         if (!comment) {
-          alert("Iltimos, hisobotni rad etish sababini yozing!");
+          toast.warning("Iltimos, hisobotni rad etish sababini yozing!");
           return;
         }
       }
@@ -125,11 +130,11 @@ export default function ReportsPage() {
       const successMsg = action === 'approve'
         ? "Hisobot muvaffaqiyatli qabul qilindi (tasdiqlandi)!"
         : "Hisobot rad etildi!";
-      alert(successMsg);
+      toast.success(successMsg);
     } catch (err) {
       console.error('Review report error:', err);
       const errMsg = err?.response?.data?.error || err?.message || "Hisobotni ko'rib chiqishda xatolik yuz berdi";
-      alert("Xatolik yuz berdi: " + errMsg);
+      toast.error("Xatolik yuz berdi: " + errMsg);
     } finally {
       setIsReviewing(false);
     }

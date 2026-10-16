@@ -8,6 +8,7 @@ import Input from '../../components/ui/Input.jsx';
 import Select from '../../components/ui/Select.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { ROLES, ROLE_LABELS, ROLE_COLORS, STORAGE_KEYS, avatarClass, badgeClass } from '../../data/constants.js';
 import { VILOYATLAR, getViloyatName, getTumanName } from '../../data/regions.js';
@@ -52,11 +53,14 @@ export default function UsersPage() {
   const selectedViloyat = VILOYATLAR.find(v => v.id === form.viloyatId);
 
   const handleSave = () => {
-    if (!form.fullName || !form.username || !form.role) return;
+    if (!form.fullName || !form.username || !form.role) {
+      toast.warning("Iltimos, barcha majburiy maydonlarni to'ldiring!");
+      return;
+    }
 
     const cleanedEmail = (form.email || '').trim().toLowerCase();
     if (cleanedEmail && allUsers.some(u => u.email && u.email.toLowerCase() === cleanedEmail && u.id !== editItem?.id)) {
-      alert('Bu email allaqachon ro\'yxatdan o\'tgan!');
+      toast.warning('Bu email allaqachon ro\'yxatdan o\'tgan!');
       return;
     }
 
@@ -73,9 +77,14 @@ export default function UsersPage() {
       if (editItem) {
         const { password, ...updates } = finalForm;
         updateUser(editItem.id, updates);
+        toast.success("Xodim ma'lumotlari muvaffaqiyatli yangilandi!");
       } else {
-        if (allUsers.some(u => u.username === finalForm.username)) { alert('Bu login allaqachon mavjud!'); return; }
+        if (allUsers.some(u => u.username === finalForm.username)) {
+          toast.warning('Bu login allaqachon mavjud!');
+          return;
+        }
         createUser(finalForm);
+        toast.success("Yangi xodim muvaffaqiyatli qo'shildi!");
       }
       setShowModal(false);
       setEditItem(null);
@@ -96,16 +105,20 @@ export default function UsersPage() {
     })();
 
     if (!canAssignAdminRole && [ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN].includes(safeForm.role)) {
-      alert('Faqat super admin boshqa admin rolini yaratishi mumkin!'); return;
+      toast.warning('Faqat super admin boshqa admin rolini yaratishi mumkin!');
+      return;
     }
     if (isDistrictScopedUser && safeForm.role !== ROLES.KUTUBXONA_XODIMI) {
-      alert('Tuman admini faqat xodim yaratishi mumkin!'); return;
+      toast.warning('Tuman admini faqat xodim yaratishi mumkin!');
+      return;
     }
     if ((isDistrictScopedUser || isViloyatScopedUser) && safeForm.viloyatId !== currentUser?.viloyatId) {
-      alert('Siz faqat o\'zingizning viloyatidagi foydalanuvchilarni boshqara olasiz!'); return;
+      toast.warning('Siz faqat o\'zingizning viloyatidagi foydalanuvchilarni boshqara olasiz!');
+      return;
     }
     if (isDistrictScopedUser && safeForm.tumanId !== currentUser?.tumanId) {
-      alert('Siz faqat o\'zingizning tumanidagi xodimlarni kiritishingiz mumkin!'); return;
+      toast.warning('Siz faqat o\'zingizning tumanidagi xodimlarni kiritishingiz mumkin!');
+      return;
     }
 
     const libraryAssignment = safeForm.libraryId || (isDistrictScopedUser ? currentUser?.libraryId || scopedLibraries[0]?.id || '' : '');
@@ -114,9 +127,14 @@ export default function UsersPage() {
     if (editItem) {
       const { password, ...updates } = finalForm;
       updateUser(editItem.id, updates);
+      toast.success("Foydalanuvchi ma'lumotlari muvaffaqiyatli yangilandi!");
     } else {
-      if (allUsers.some(u => u.username === finalForm.username)) { alert('Bu login allaqachon mavjud!'); return; }
+      if (allUsers.some(u => u.username === finalForm.username)) {
+        toast.warning('Bu login allaqachon mavjud!');
+        return;
+      }
       createUser(finalForm);
+      toast.success("Yangi foydalanuvchi muvaffaqiyatli yaratildi!");
     }
     setShowModal(false);
     setEditItem(null);
@@ -219,9 +237,32 @@ export default function UsersPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setEditItem(u); setForm({ ...u, password: '' }); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Tahrirlash"><ICONS.edit className="text-sm" /></button>
-                          <button onClick={() => { const np = prompt('Yangi parolni kiriting:'); if (np) resetPassword(u.id, np); }} className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Parolni tiklash"><ICONS.key className="text-sm" /></button>
+                          <button
+                            onClick={() => {
+                              const np = prompt('Yangi parolni kiriting:');
+                              if (np) {
+                                resetPassword(u.id, np);
+                                toast.success("Foydalanuvchi paroli muvaffaqiyatli yangilandi!");
+                              }
+                            }}
+                            className="p-1.5 rounded hover:bg-amber-50 text-amber-600"
+                            title="Parolni tiklash"
+                          >
+                            <ICONS.key className="text-sm" />
+                          </button>
                           {u.id !== currentUser?.id && (
-                            <button onClick={() => { if (confirm(`${u.fullName} o'chirilsinmi?`)) deleteUser(u.id); }} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="O'chirish"><ICONS.trash className="text-sm" /></button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`${u.fullName} o'chirilsinmi?`)) {
+                                  deleteUser(u.id);
+                                  toast.success("Foydalanuvchi muvaffaqiyatli o'chirildi!");
+                                }
+                              }}
+                              className="p-1.5 rounded hover:bg-red-50 text-red-600"
+                              title="O'chirish"
+                            >
+                              <ICONS.trash className="text-sm" />
+                            </button>
                           )}
                         </div>
                       </td>

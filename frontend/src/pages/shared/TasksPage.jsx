@@ -9,6 +9,7 @@ import Select from '../../components/ui/Select.jsx';
 import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { TASK_PRIORITY, TASK_PRIORITY_LABELS, TASK_PRIORITY_COLORS, TASK_STATUS, TASK_STATUS_LABELS, TASK_STATUS_COLORS, ROLE_LABELS, ROLES, STORAGE_KEYS } from '../../data/constants.js';
 import { formatDate, isOverdue, daysUntil } from '../../utils/helpers.js';
@@ -44,14 +45,19 @@ export default function TasksPage() {
   const canComplete = hasPermission('complete_task');
 
   const handleCreate = () => {
-    if (!form.title || !form.assignedTo || !form.dueDate) return;
+    if (!form.title?.trim() || !form.assignedTo || !form.dueDate) {
+      toast.warning("Iltimos, topshiriq sarlavhasi, ijrochi va muddatni to'ldiring!");
+      return;
+    }
     createTask(form);
     setShowModal(false);
     setForm({ title: '', description: '', assignedTo: '', priority: TASK_PRIORITY.MEDIUM, dueDate: '', libraryId: '' });
+    toast.success("Yangi topshiriq muvaffaqiyatli saqlandi!");
   };
 
   const handleStatusChange = (id, status) => {
     updateTaskStatus(id, status);
+    toast.info("Topshiriq holati yangilandi!");
   };
 
   return (

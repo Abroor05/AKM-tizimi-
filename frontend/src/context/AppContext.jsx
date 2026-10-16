@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { api, authApi, getToken, setToken, getCachedUser, setCachedUser, STORAGE_TO_API } from '../utils/api.js';
 import { generateId, formatDate } from '../utils/helpers.js';
 import { STORAGE_KEYS, ROLE_PERMISSIONS, DEFAULT_SETTINGS, REPORT_TYPES, REPORT_STATUS } from '../data/constants.js';
+import { toast } from './ToastContext.jsx';
 
 const AppContext = createContext(null);
 
@@ -54,7 +55,9 @@ export function AppProvider({ children }) {
     // Load settings
     try {
       const settingsData = await api.get('settings');
-      setSettings(settingsData);
+      if (settingsData && typeof settingsData === 'object' && Object.keys(settingsData).length > 0) {
+        setSettings(prev => ({ ...prev, ...settingsData }));
+      }
     } catch { /* keep defaults */ }
   }, []);
 
@@ -1069,6 +1072,10 @@ export function AppProvider({ children }) {
 
     // Reset
     resetAllData,
+
+    // Push Toast Notification
+    toast,
+    showToast: toast,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

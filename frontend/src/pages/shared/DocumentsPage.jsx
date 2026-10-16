@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button.jsx';
 import Input from '../../components/ui/Input.jsx';
 import Select from '../../components/ui/Select.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES } from '../../data/constants.js';
 import { formatDate } from '../../utils/helpers.js';
@@ -47,10 +48,14 @@ export default function DocumentsPage() {
   const canManage = hasPermission('manage_documents');
 
   const handleSave = () => {
-    if (!form.title || !form.type) return;
+    if (!form.title?.trim()) {
+      toast.warning("Iltimos, hujjat sarlavhasini kiriting!");
+      return;
+    }
     createEntity(STORAGE_KEYS.DOCUMENTS, { ...form, uploadedBy: currentUser?.id, date: new Date().toISOString().split('T')[0], size: form.size || '1.0 MB' });
     setShowModal(false);
     setForm({ title: '', type: 'nizom', fileFormat: 'pdf', size: '', description: '', libraryId: scopedLibIds[0] || '' });
+    toast.success("Hujjat muvaffaqiyatli saqlandi!");
   };
 
   return (
@@ -76,7 +81,20 @@ export default function DocumentsPage() {
                 <div className="p-2.5 rounded-lg bg-blue-50 text-blue-600"><ICONS.documents className="text-xl" /></div>
                 <div className="flex items-center gap-1">
                   <Badge color={DOC_TYPE_LABELS[doc.type]?.color || 'gray'}>{DOC_TYPE_LABELS[doc.type]?.label || doc.type}</Badge>
-                  {canManage && <button onClick={() => { if (confirm('O\'chirilsinmi?')) deleteEntity(STORAGE_KEYS.DOCUMENTS, doc.id); }} className="p-1.5 rounded hover:bg-red-50 text-red-600"><ICONS.trash className="text-sm" /></button>}
+                  {canManage && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Hujjat o\'chirilsinmi?')) {
+                          deleteEntity(STORAGE_KEYS.DOCUMENTS, doc.id);
+                          toast.success("Hujjat muvaffaqiyatli o'chirildi!");
+                        }
+                      }}
+                      className="p-1.5 rounded hover:bg-red-50 text-red-600"
+                      title="O'chirish"
+                    >
+                      <ICONS.trash className="text-sm" />
+                    </button>
+                  )}
                 </div>
               </div>
               <h3 className="font-semibold text-gray-800">{doc.title}</h3>

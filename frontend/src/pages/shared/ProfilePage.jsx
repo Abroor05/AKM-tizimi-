@@ -169,8 +169,8 @@ export default function ProfilePage() {
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-gray-800">{currentUser?.fullName}</h2>
-            <p className="text-gray-500 text-sm mt-0.5">@{currentUser?.username}</p>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100">{currentUser?.fullName}</h2>
+            <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">@{currentUser?.username}</p>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Badge color={roleColor}>{roleLabel}</Badge>
               {currentUser?.active
@@ -178,7 +178,7 @@ export default function ProfilePage() {
                 : <Badge color="red">Nofaol</Badge>
               }
             </div>
-            <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
+            <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500 dark:text-slate-400">
               {currentUser?.phone && (
                 <span className="flex items-center gap-1">
                   <ICONS.phone className="text-xs" /> {currentUser.phone}
@@ -223,26 +223,26 @@ export default function ProfilePage() {
 
       {/* Alert messages */}
       {success && (
-        <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+        <div className="mb-4 flex items-center gap-2 bg-green-50 dark:bg-emerald-950/30 border border-green-200 dark:border-emerald-900/50 text-green-700 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm">
           <ICONS.success className="shrink-0" /> {success}
         </div>
       )}
       {error && (
-        <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="mb-4 flex items-center gap-2 bg-red-50 dark:bg-rose-950/30 border border-red-200 dark:border-rose-900/50 text-red-700 dark:text-rose-300 px-4 py-3 rounded-xl text-sm">
           <ICONS.error className="shrink-0" /> {error}
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5 w-fit">
+      <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/80 rounded-xl p-1 mb-5 w-fit">
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); setError(''); setSuccess(''); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
               activeTab === tab.id
-                ? 'bg-white text-blue-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
             }`}
           >
             {tab.label}

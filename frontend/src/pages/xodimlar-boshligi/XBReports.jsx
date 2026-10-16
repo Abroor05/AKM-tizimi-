@@ -11,6 +11,7 @@ import Badge from '../../components/ui/Badge.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import {
   STORAGE_KEYS,
@@ -448,9 +449,9 @@ export default function XBReports() {
     setIsSubmitting(true);
     try {
       await forwardDailyActivityToAdmins(actOrDate, ['super_admin', 'viloyat_admin']);
-      alert(`"${repTitle}" Super Admin va Viloyat Adminiga muvaffaqiyatli jo'natildi!`);
+      toast.success(`"${repTitle}" Super Admin va Viloyat Adminiga muvaffaqiyatli jo'natildi!`);
     } catch (err) {
-      alert("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
+      toast.error("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
     } finally {
       setIsSubmitting(false);
     }
@@ -466,12 +467,12 @@ export default function XBReports() {
     try {
       const res = await forwardMonthlyReportToAdmins(targetMonth, ['super_admin', 'viloyat_admin']);
       if (res?.success || res?.id || res?.report) {
-        alert(`${label} oylik hisoboti Super Admin va Viloyat Adminiga muvaffaqiyatli jo'natildi!`);
+        toast.success(`${label} oylik hisoboti Super Admin va Viloyat Adminiga muvaffaqiyatli jo'natildi!`);
       } else {
-        alert(res?.error || "Jo'natishda xatolik yuz berdi");
+        toast.error(res?.error || "Jo'natishda xatolik yuz berdi");
       }
     } catch (err) {
-      alert("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
+      toast.error("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
     } finally {
       setIsSubmitting(false);
     }
@@ -480,7 +481,7 @@ export default function XBReports() {
   // Hisobotni saqlash yoki darhol Super & Viloyat Adminga jo'natish
   const handleSaveReport = async (submitNow = false) => {
     if (!form.title.trim()) {
-      alert('Iltimos, hisobot sarlavhasini kiriting');
+      toast.warning('Iltimos, hisobot sarlavhasini kiriting!');
       return;
     }
 
@@ -509,7 +510,6 @@ export default function XBReports() {
           visitors: Number(form.visitors) || 0,
           events: Number(form.events) || 0,
           targetRecipients: form.targetRecipients,
-          sentToText: recipientText,
           staffContributions: form.staffContributions || {},
           actsCount: form.actsCount || 0,
           daysCount: form.daysCount || 0,
@@ -523,14 +523,14 @@ export default function XBReports() {
 
       await createReport(reportPayload);
       setShowCreateModal(false);
-      alert(
-        submitNow
-          ? `Hisobot muvaffaqiyatli saqlandi va ${recipientText}ga jo'natildi!`
-          : "Hisobot qoralama sifatida saqlandi."
-      );
+      if (submitNow) {
+        toast.success(`Hisobot muvaffaqiyatli saqlandi va ${recipientText}ga jo'natildi!`);
+      } else {
+        toast.info("Hisobot qoralama sifatida saqlandi.");
+      }
     } catch (err) {
       console.error(err);
-      alert("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
+      toast.error("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
     } finally {
       setIsSubmitting(false);
     }
@@ -553,12 +553,12 @@ export default function XBReports() {
         targetRecipients,
         sentToText: recipientText,
       });
-      alert(`Hisobot ${recipientText}ga yuborildi!`);
+      toast.success(`Hisobot ${recipientText}ga muvaffaqiyatli yuborildi!`);
       if (detailReport?.id === reportId) {
         setDetailReport(prev => ({ ...prev, status: REPORT_STATUS.SUBMITTED, targetRecipients, sentToText: recipientText }));
       }
     } catch (err) {
-      alert("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
+      toast.error("Jo'natishda xatolik yuz berdi: " + (err.message || ''));
     } finally {
       setIsSubmitting(false);
     }
@@ -570,8 +570,9 @@ export default function XBReports() {
     if (!confirm(`${sender?.fullName || 'Xodim'}ning ${formatDate(act.date)} kunlik hisobotini qabul qilasizmi?`)) return;
     try {
       await acceptActivity(act.id);
+      toast.success("Xodimning kunlik hisoboti muvaffaqiyatli qabul qilindi!");
     } catch (err) {
-      alert('Qabul qilishda xatolik: ' + err.message);
+      toast.error('Qabul qilishda xatolik: ' + err.message);
     }
   };
 
@@ -580,7 +581,7 @@ export default function XBReports() {
     const hasNumeric = (Number(dailyForm.counts.kitob_skanerlash) > 0) || (Number(dailyForm.counts.kitob_pdf) > 0);
     const hasTasks = Object.values(dailyForm.tasks).some(Boolean);
     if (!hasNumeric && !hasTasks) {
-      alert("Kamida bitta faoliyat turini belgilang yoki sonini kiriting");
+      toast.warning("Kamida bitta faoliyat turini belgilang yoki sonini kiriting!");
       return;
     }
     const data = {};
@@ -631,9 +632,9 @@ export default function XBReports() {
         notes: { texnik_xizmat: '', jihozlash: '', tuzatish: '', boshqa: '' },
         description: '',
       });
-      alert("Kunlik hisobot muvaffaqiyatli saqlandi!");
+      toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
     } catch (err) {
-      alert("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
+      toast.error("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
     }
   };
 

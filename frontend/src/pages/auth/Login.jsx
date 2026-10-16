@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext.jsx';
 import Logo from '../../components/ui/Logo.jsx';
 import Input from '../../components/ui/Input.jsx';
 import Button from '../../components/ui/Button.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { formatUzPhone } from '../../utils/helpers.js';
 import { getLastRoute } from '../../utils/api.js';
@@ -41,12 +42,15 @@ export default function Login() {
     try {
       const result = await login(username, password);
       if (result.success) {
+        toast.success(`Xush kelibsiz, ${result.user?.fullName || 'Foydalanuvchi'}!`);
         navigate(redirectPath.startsWith('/') ? redirectPath : '/dashboard', { replace: true });
       } else {
         setError(result.message || 'Login yoki parol noto\'g\'ri');
+        toast.error(result.message || 'Login yoki parol noto\'g\'ri');
       }
     } catch (err) {
       setError(err.message || 'Tizimga kirishda xatolik yuz berdi');
+      toast.error(err.message || 'Tizimga kirishda xatolik yuz berdi');
     }
     setLoading(false);
   };
@@ -350,6 +354,7 @@ export default function Login() {
                 onClick={() => {
                   if (confirm("Haqiqatan ham barcha ma'lumotlarni boshlang'ich test holatiga qaytarmoqchimisiz?")) {
                     resetAllData();
+                    toast.info("Ma'lumotlar bazasi boshlang'ich holatga qaytarildi!");
                   }
                 }}
                 className="hover:text-rose-600 transition-colors"
