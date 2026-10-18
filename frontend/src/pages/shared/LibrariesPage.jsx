@@ -82,6 +82,13 @@ export default function LibrariesPage() {
     setForm({ name: '', type: 'markaz', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', address: '', latitude: '', longitude: '', phone: '+998', email: '', staffCount: 1, foundingYear: new Date().getFullYear() });
   };
 
+  const handleDelete = (lib) => {
+    if (window.confirm(`"${lib.name}" kutubxonasi / bo'limini o'chirishni tasdiqlaysizmi?`)) {
+      deleteEntity(STORAGE_KEYS.LIBRARIES, lib.id);
+      toast.success("Kutubxona muvaffaqiyatli o'chirildi!");
+    }
+  };
+
   const openEdit = (item) => {
     setEditItem(item);
     setForm(item);
@@ -136,20 +143,20 @@ export default function LibrariesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="flex-1 relative">
-          <ICONS.search className="absolute left-3 top-3 text-gray-400" />
+          <ICONS.search className="absolute left-3.5 top-3.5 text-slate-400 dark:text-slate-400" />
           <input
             type="text"
             placeholder="Qidirish..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
           />
         </div>
         {isRole(ROLES.SUPER_ADMIN) && (
           <select
             value={viloyatFilter}
             onChange={e => setViloyatFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+            className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs cursor-pointer"
           >
             <option value="">Barcha viloyatlar</option>
             {VILOYATLAR.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -173,9 +180,22 @@ export default function LibrariesPage() {
                     {lib.type === 'markaz' ? 'Markaz' : 'Filial'}
                   </Badge>
                   {canManage && (
-                    <button onClick={() => openEdit(lib)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
-                      <ICONS.edit className="text-sm" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(lib)}
+                        className="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition-colors"
+                        title="Tahrirlash"
+                      >
+                        <ICONS.edit className="text-sm" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(lib)}
+                        className="p-1.5 rounded hover:bg-red-50 text-red-600 transition-colors"
+                        title="O'chirish"
+                      >
+                        <ICONS.trash className="text-sm" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

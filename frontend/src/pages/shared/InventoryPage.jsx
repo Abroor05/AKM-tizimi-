@@ -40,30 +40,61 @@ export default function InventoryPage() {
     });
   }, [inventory, search, typeFilter]);
 
-  const canManage = hasPermission('manage_inventory');
+  const canManage = hasPermission('manage_inventory') || isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN);
   const totalValue = useMemo(() => inventory.reduce((sum, i) => sum + (i.unitPrice * i.quantity), 0), [inventory]);
+
+  const openCreate = () => {
+    setEditItem(null);
+    setForm({
+      name: '',
+      type: INVENTORY_TYPES.FURNITURE,
+      quantity: 1,
+      unitPrice: 0,
+      status: INVENTORY_STATUS.GOOD,
+      purchaseDate: new Date().toISOString().split('T')[0],
+      serialNumber: '',
+      libraryId: scopedLibIds[0] || currentUser?.libraryId || '',
+    });
+    setShowModal(true);
+  };
+
+  const openEdit = (item) => {
+    setEditItem(item);
+    setForm({
+      ...item,
+      libraryId: item.libraryId || scopedLibIds[0] || currentUser?.libraryId || '',
+    });
+    setShowModal(true);
+  };
 
   const handleSave = () => {
     if (!form.name?.trim()) {
       toast.warning("Iltimos, jihoz nomini kiriting!");
       return;
     }
+    const safeLibraryId = form.libraryId || scopedLibIds[0] || currentUser?.libraryId || '';
+    const payload = {
+      ...form,
+      libraryId: safeLibraryId,
+      quantity: Number(form.quantity) || 1,
+      unitPrice: Number(form.unitPrice) || 0,
+    };
     if (editItem) {
-      updateEntity(STORAGE_KEYS.INVENTORY, editItem.id, form);
+      updateEntity(STORAGE_KEYS.INVENTORY, editItem.id, payload);
       toast.success("Jihoz ma'lumotlari muvaffaqiyatli yangilandi!");
     } else {
-      createEntity(STORAGE_KEYS.INVENTORY, form);
+      createEntity(STORAGE_KEYS.INVENTORY, payload);
       toast.success("Yangi inventar muvaffaqiyatli saqlandi!");
     }
     setShowModal(false);
     setEditItem(null);
-    setForm({ name: '', type: INVENTORY_TYPES.FURNITURE, quantity: 1, unitPrice: 0, status: INVENTORY_STATUS.GOOD, purchaseDate: '', serialNumber: '', libraryId: scopedLibIds[0] || '' });
+    setForm({ name: '', type: INVENTORY_TYPES.FURNITURE, quantity: 1, unitPrice: 0, status: INVENTORY_STATUS.GOOD, purchaseDate: '', serialNumber: '', libraryId: scopedLibIds[0] || currentUser?.libraryId || '' });
   };
 
   return (
     <div>
       <PageHeader title="Inventarlar" subtitle="Kutubxona jihoz va inventarlari" icon={ICONS.inventory}
-        action={canManage ? <Button onClick={() => { setEditItem(null); setForm({ name: '', type: INVENTORY_TYPES.FURNITURE, quantity: 1, unitPrice: 0, status: INVENTORY_STATUS.GOOD, purchaseDate: '', serialNumber: '', libraryId: scopedLibIds[0] || '' }); setShowModal(true); }}><ICONS.plus /> Yangi inventar</Button> : null} />
+        action={canManage ? <Button onClick={openCreate}><ICONS.plus /> Yangi inventar</Button> : null} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Card className="text-center"><p className="text-2xl font-bold text-blue-600">{inventory.length}</p><p className="text-xs text-gray-500">Jami pozitsiyalar</p></Card>
@@ -74,11 +105,20 @@ export default function InventoryPage() {
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="flex-1 relative">
-          <ICONS.search className="absolute left-3 top-3 text-gray-400" />
-          <input type="text" placeholder="Nomi, seriya raqami..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+          <ICONS.search className="absolute left-3.5 top-3.5 text-slate-400 dark:text-slate-400" />
+          <input
+            type="text"
+            placeholder="Nomi, seriya raqami..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
+          />
         </div>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white">
+        <select
+          value={typeFilter}
+          onChange={e => setTypeFilter(e.target.value)}
+          className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs cursor-pointer"
+        >
           <option value="">Barcha turlar</option>
           {Object.entries(INVENTORY_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -114,7 +154,7 @@ export default function InventoryPage() {
                     <td className="px-4 py-3"><Badge color={INVENTORY_STATUS_COLORS[i.status]}>{INVENTORY_STATUS_LABELS[i.status]}</Badge></td>
                     {canManage && (
                       <td className="px-4 py-3"><div className="flex items-center gap-1">
-                        <button onClick={() => { setEditItem(i); setForm(i); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><ICONS.edit className="text-sm" /></button>
+                        <button onClick={() => openEdit(i)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Tahrirlash"><ICONS.edit className="text-sm" /></button>
                         <button
                           onClick={() => {
                             if (confirm(`"${i.name}" inventari o'chirilsinmi?`)) {

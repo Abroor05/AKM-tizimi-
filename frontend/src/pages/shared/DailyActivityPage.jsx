@@ -358,7 +358,7 @@ export default function DailyActivityPage() {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white"
+            className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-xs focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 cursor-pointer"
           />
         )}
         {viewTab === "monthly" && (
@@ -366,14 +366,14 @@ export default function DailyActivityPage() {
             type="month"
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white"
+            className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-xs focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 cursor-pointer"
           />
         )}
         {viewTab === "yearly" && (
           <select
             value={yearFilter}
             onChange={(e) => setYearFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white"
+            className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-xs focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 cursor-pointer"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>

@@ -93,13 +93,24 @@ export default function UsersPage() {
     }
 
     const canAssignAdminRole = isRole(ROLES.SUPER_ADMIN);
+    const allowedStaffRoles = [ROLES.KUTUBXONA_XODIMI, ROLES.XODIMLAR_BOSHLIGI];
+
     const safeForm = (() => {
       const generatedForm = { ...form, password: (form.password || '').trim() };
       if (isRole(ROLES.TUMAN_ADMIN)) {
-        return { ...generatedForm, role: ROLES.KUTUBXONA_XODIMI, viloyatId: currentUser.viloyatId, tumanId: currentUser.tumanId };
+        return {
+          ...generatedForm,
+          role: allowedStaffRoles.includes(form.role) ? form.role : ROLES.KUTUBXONA_XODIMI,
+          viloyatId: currentUser.viloyatId,
+          tumanId: currentUser.tumanId,
+        };
       }
       if (isRole(ROLES.VILOYAT_ADMIN)) {
-        return { ...generatedForm, role: ROLES.KUTUBXONA_XODIMI, viloyatId: currentUser.viloyatId };
+        return {
+          ...generatedForm,
+          role: allowedStaffRoles.includes(form.role) ? form.role : ROLES.KUTUBXONA_XODIMI,
+          viloyatId: currentUser.viloyatId,
+        };
       }
       return generatedForm;
     })();
@@ -108,8 +119,8 @@ export default function UsersPage() {
       toast.warning('Faqat super admin boshqa admin rolini yaratishi mumkin!');
       return;
     }
-    if (isDistrictScopedUser && safeForm.role !== ROLES.KUTUBXONA_XODIMI) {
-      toast.warning('Tuman admini faqat xodim yaratishi mumkin!');
+    if (isRole(ROLES.TUMAN_ADMIN) && !allowedStaffRoles.includes(safeForm.role)) {
+      toast.warning("Tuman admini faqat Bo'lim boshlig'i yoki Kutubxona xodimi rolini bera oladi!");
       return;
     }
     if ((isDistrictScopedUser || isViloyatScopedUser) && safeForm.viloyatId !== currentUser?.viloyatId) {
@@ -138,16 +149,17 @@ export default function UsersPage() {
     }
     setShowModal(false);
     setEditItem(null);
-    setForm({ fullName: '', username: '', password: '', role: ROLES.KUTUBXONA_XODIMI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: '', active: true });
+    setForm({ fullName: '', username: '', password: '', role: ROLES.XODIMLAR_BOSHLIGI, phone: '+998', email: '', viloyatId: currentUser?.viloyatId || '', tumanId: currentUser?.tumanId || '', libraryId: '', active: true });
   };
 
   const openCreate = () => {
     setEditItem(null);
     const defaultLibraryId = (isDistrictScopedUser || isXodimlarBoshligi)
       ? (currentUser?.libraryId || scopedLibraries[0]?.id || '')
-      : '';
+      : (scopedLibraries[0]?.id || '');
     setForm({
-      fullName: '', username: '', password: '', role: ROLES.KUTUBXONA_XODIMI,
+      fullName: '', username: '', password: '',
+      role: isRole(ROLES.TUMAN_ADMIN, ROLES.VILOYAT_ADMIN) ? ROLES.XODIMLAR_BOSHLIGI : ROLES.KUTUBXONA_XODIMI,
       phone: '+998', email: '',
       viloyatId: currentUser?.viloyatId || '',
       tumanId:   currentUser?.tumanId   || '',
@@ -157,9 +169,28 @@ export default function UsersPage() {
     setShowModal(true);
   };
 
+  const openEdit = (u) => {
+    setEditItem(u);
+    setForm({
+      ...u,
+      password: '',
+      role: u.role || ROLES.KUTUBXONA_XODIMI,
+      libraryId: u.libraryId || '',
+      viloyatId: u.viloyatId || currentUser?.viloyatId || '',
+      tumanId: u.tumanId || currentUser?.tumanId || '',
+    });
+    setShowModal(true);
+  };
+
   const roleOptions = (() => {
     if (isRole(ROLES.SUPER_ADMIN)) {
       return Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: v }));
+    }
+    if (isRole(ROLES.TUMAN_ADMIN, ROLES.VILOYAT_ADMIN)) {
+      return [
+        { value: ROLES.XODIMLAR_BOSHLIGI, label: "Xodimlar boshlig'i (Bo'lim boshlig'i)" },
+        { value: ROLES.KUTUBXONA_XODIMI, label: "Kutubxona xodimi" },
+      ];
     }
     return [{ value: ROLES.KUTUBXONA_XODIMI, label: ROLE_LABELS[ROLES.KUTUBXONA_XODIMI] }];
   })();
@@ -192,11 +223,20 @@ export default function UsersPage() {
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="flex-1 relative">
-          <ICONS.search className="absolute left-3 top-3 text-gray-400" />
-          <input type="text" placeholder="Ism yoki login bo'yicha qidirish..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+          <ICONS.search className="absolute left-3.5 top-3.5 text-slate-400 dark:text-slate-400" />
+          <input
+            type="text"
+            placeholder="Ism yoki login bo'yicha qidirish..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
+          />
         </div>
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white">
+        <select
+          value={roleFilter}
+          onChange={e => setRoleFilter(e.target.value)}
+          className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs cursor-pointer"
+        >
           <option value="">Barcha rollar</option>
           {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -236,7 +276,7 @@ export default function UsersPage() {
                     {canManage && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => { setEditItem(u); setForm({ ...u, password: '' }); setShowModal(true); }} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Tahrirlash"><ICONS.edit className="text-sm" /></button>
+                          <button onClick={() => openEdit(u)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Tahrirlash"><ICONS.edit className="text-sm" /></button>
                           <button
                             onClick={() => {
                               const np = prompt('Yangi parolni kiriting:');
@@ -285,11 +325,25 @@ export default function UsersPage() {
           <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value.trim().toLowerCase() })} />
           <Select label="Holat" value={form.active ? 'true' : 'false'} onChange={e => setForm({ ...form, active: e.target.value === 'true' })} options={[{ value: 'true', label: 'Faol' }, { value: 'false', label: 'Nofaol' }]} placeholder="" />
 
-          {/* Faqat super admin uchun qo'shimcha maydonlar */}
+          {/* Rol va hududiy parametrlar */}
           {!isXodimlarBoshligi && (
             <>
-              <Select label="Rol" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} options={roleOptions} required disabled={!isRole(ROLES.SUPER_ADMIN)} placeholder="" />
-              <Select label="Viloyat" value={isDistrictScopedUser ? currentUser?.viloyatId || '' : form.viloyatId} onChange={e => setForm({ ...form, viloyatId: e.target.value, tumanId: '', libraryId: '' })} options={[{ value: '', label: 'Barcha hudud' }, ...VILOYATLAR.map(v => ({ value: v.id, label: v.name }))]} disabled={isDistrictScopedUser} />
+              <Select
+                label="Rol"
+                value={form.role}
+                onChange={e => setForm({ ...form, role: e.target.value })}
+                options={roleOptions}
+                required
+                disabled={roleOptions.length <= 1}
+                placeholder=""
+              />
+              <Select
+                label="Viloyat"
+                value={isDistrictScopedUser ? currentUser?.viloyatId || '' : form.viloyatId}
+                onChange={e => setForm({ ...form, viloyatId: e.target.value, tumanId: '', libraryId: '' })}
+                options={[{ value: '', label: 'Barcha hudud' }, ...VILOYATLAR.map(v => ({ value: v.id, label: v.name }))]}
+                disabled={isDistrictScopedUser}
+              />
               <Select
                 label="Tuman/Shahar"
                 value={isDistrictScopedUser ? currentUser?.tumanId || '' : form.tumanId}
@@ -299,12 +353,12 @@ export default function UsersPage() {
                 placeholder={!form.viloyatId && !isDistrictScopedUser ? "Avval viloyatni tanlang..." : "Tanlang..."}
               />
               <Select
-                label="Kutubxona"
+                label="Kutubxona / Bo'lim"
                 value={form.libraryId}
                 onChange={e => setForm({ ...form, libraryId: e.target.value })}
                 options={scopedLibraries.map(l => ({ value: l.id, label: l.name }))}
-                disabled={isDistrictScopedUser || (!isDistrictScopedUser && !form.viloyatId)}
-                placeholder={!form.viloyatId && !isDistrictScopedUser ? "Avval viloyatni tanlang..." : "Tanlang..."}
+                disabled={scopedLibraries.length === 0}
+                placeholder={scopedLibraries.length === 0 ? "Kutubxona topilmadi" : "Tanlang..."}
               />
             </>
           )}

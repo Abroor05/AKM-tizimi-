@@ -202,3 +202,149 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   animation: toastSlideOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
+/* ============================================================
+   UNIVERSAL DARK MODE FORM & INPUT ENHANCEMENTS
+   Ensures ALL inputs, textareas, selects, and pickers across
+   the entire application seamlessly adapt to dark mode with
+   perfect contrast and visible placeholders.
+   ============================================================ */
+
+/* Inputs, Selects, and Textareas in Dark Mode */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="range"]),
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="range"]):focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  outline: none !important;
+}
+
+/* High Contrast Readable Placeholders in Dark Mode */
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #94a3b8 !important; /* Slate-400: clear, distinct, readable */
+  opacity: 1 !important;
+}
+
+html.dark input::-webkit-input-placeholder,
+html.dark textarea::-webkit-input-placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+html.dark input::-moz-placeholder,
+html.dark textarea::-moz-placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+html.dark input:-ms-input-placeholder,
+html.dark textarea:-ms-input-placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+/* High Contrast Placeholders in Light Mode */
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+/* Select Dropdown Options in Dark Mode */
+html.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+html.dark select option:disabled {
+  color: #64748b !important;
+}
+
+/* Date / Time / Month pickers calendar/clock icon invert in Dark Mode */
+html.dark input[type="date"],
+html.dark input[type="time"],
+html.dark input[type="datetime-local"],
+html.dark input[type="month"] {
+  color-scheme: dark !important;
+}
+
+html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark input[type="time"]::-webkit-calendar-picker-indicator,
+html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+html.dark input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9) brightness(1.2) !important;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
+html.dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
+html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+html.dark input[type="month"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Checkbox and Radio in Dark Mode */
+html.dark input[type="checkbox"],
+html.dark input[type="radio"] {
+  background-color: #1e293b;
+  border-color: #475569;
+}
+
+/* Tables in Dark Mode */
+html.dark thead {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+}
+
+html.dark thead th {
+  color: #94a3b8 !important;
+}
+
+html.dark tr.border-b,
+html.dark tbody tr {
+  border-color: #1e293b !important;
+}
+
+html.dark tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.45);
+}
+
+/* Light background surfaces override in Dark Mode */
+html.dark .bg-gray-50,
+html.dark .bg-slate-50 {
+  background-color: #0f172a;
+}
+
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-slate-200 {
+  border-color: #334155;
+}
+
+/* Responsive screen optimizations */
+@media (max-width: 640px) {
+  /* Smooth horizontal scroll for tables on mobile */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent iOS zoom on input focus by ensuring minimum 16px font-size */
+  input, 
+  select, 
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+

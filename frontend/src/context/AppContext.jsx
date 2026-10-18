@@ -584,15 +584,18 @@ export function AppProvider({ children }) {
   const createTask = useCallback(async (task) => {
     try {
       const newTask = await api.create('tasks', task);
-      updateCollection(STORAGE_KEYS.TASKS, (tasks) => [newTask, ...(tasks || [])]);
-      // Notify assigned user
-      if (newTask.assignedTo) {
-        await createNotification({
-          type: 'task',
-          title: 'Yangi topshiriq',
-          message: `"${newTask.title}" topshirig'i sizga biriktirildi`,
-          targetUserId: newTask.assignedTo,
-        });
+      const list = Array.isArray(newTask) ? newTask : [newTask];
+      updateCollection(STORAGE_KEYS.TASKS, (tasks) => [...list, ...(tasks || [])]);
+      // Notify assigned users
+      for (const t of list) {
+        if (t && t.assignedTo) {
+          await createNotification({
+            type: 'task',
+            title: 'Yangi topshiriq',
+            message: `"${t.title}" topshirig'i sizga biriktirildi`,
+            targetUserId: t.assignedTo,
+          });
+        }
       }
       return newTask;
     } catch (err) {

@@ -295,6 +295,15 @@ if (!activityCols.includes('data')) {
   db.exec('ALTER TABLE activities ADD COLUMN data TEXT');
 }
 
+// Events: target_scope va target_tumans ustunlari qo'shish
+const eventCols = db.prepare('PRAGMA table_info(events)').all().map(c => c.name);
+if (!eventCols.includes('target_scope')) {
+  db.exec('ALTER TABLE events ADD COLUMN target_scope TEXT');
+}
+if (!eventCols.includes('target_tumans')) {
+  db.exec('ALTER TABLE events ADD COLUMN target_tumans TEXT');
+}
+
 // ============================================================
 // HELPER: Row <-> Object conversion
 // ============================================================
@@ -302,6 +311,7 @@ if (!activityCols.includes('data')) {
 // JSON fields that need parsing when reading from DB
 const JSON_FIELDS = {
   reports: ['data'],
+  events: ['target_tumans'],
 };
 
 // Convert DB row to JS object (camelCase + JSON parse)
@@ -332,7 +342,7 @@ export function objectToRow(table, obj) {
     const snakeKey = key.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
     // Stringify JSON fields
     const jsonFields = JSON_FIELDS[table] || [];
-    if (jsonFields.includes(snakeKey) && typeof value === 'object') {
+    if (jsonFields.includes(snakeKey) && value !== null && typeof value === 'object') {
       row[snakeKey] = JSON.stringify(value);
     } else if (key === 'active' || key === 'read') {
       row[snakeKey] = value ? 1 : 0;

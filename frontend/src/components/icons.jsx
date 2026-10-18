@@ -17,10 +17,15 @@ import {
   FaDisplay, FaStar, FaCircle, FaPenToSquare, FaPaperPlane,
   FaRotateRight, FaTableList, FaTriangleExclamation,
   FaSun, FaMoon, FaCircleHalfStroke,
+  FaGlobe, FaBullseye,
   FaCircleCheck as CheckIcon, FaCircleXmark as XIcon,
 } from 'react-icons/fa6';
 
 const ICON_MAP = {
+  // Global & targeting icons
+  globe: FaGlobe,
+  bullseye: FaBullseye,
+
   // Theme icons
   sun: FaSun,
   moon: FaMoon,

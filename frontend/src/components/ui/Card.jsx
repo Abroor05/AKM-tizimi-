@@ -11,8 +11,8 @@ export default function Card({
   return (
     <div className={`bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-executive overflow-hidden transition-colors duration-150 ${className}`}>
       {(title || action || Icon) && (
-        <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100/90 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40 gap-4 ${headerClassName}`}>
-          <div className="flex items-center gap-3 min-w-0">
+        <div className={`flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100/90 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40 gap-3 sm:gap-4 ${headerClassName}`}>
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             {Icon && (
               <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300 shrink-0">
                 <Icon className="text-base" />
@@ -34,7 +34,7 @@ export default function Card({
           {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
-      <div className={noPadding ? '' : 'p-6'}>
+      <div className={noPadding ? '' : 'p-4 sm:p-6'}>
         {children}
       </div>
     </div>

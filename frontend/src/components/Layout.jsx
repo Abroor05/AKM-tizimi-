@@ -295,7 +295,7 @@ export default function Layout({ children }) {
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-executive-xl border border-slate-200/90 dark:border-slate-800 z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 top-12 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-executive-xl border border-slate-200/90 dark:border-slate-800 z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
                     <div>
                       <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Bildirishnomalar</h3>
@@ -369,7 +369,7 @@ export default function Layout({ children }) {
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 top-12 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-executive-xl border border-slate-200/90 dark:border-slate-800 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 top-12 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-executive-xl border border-slate-200/90 dark:border-slate-800 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                   <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60">
                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{currentUser?.fullName}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{currentUser?.email || `@${currentUser?.username}`}</p>
@@ -400,7 +400,7 @@ export default function Layout({ children }) {
         </header>
 
         {/* Page Main Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {children}
         </main>
       </div>

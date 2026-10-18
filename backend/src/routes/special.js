@@ -405,15 +405,76 @@ tasksRouter.get('/:id', authMiddleware, (req, res) => {
 
 tasksRouter.post('/', authMiddleware, (req, res) => {
   const body = req.body;
-  const id = body.id || generateId('task');
   const todayStr = new Date().toISOString().split('T')[0];
+
+  // Ommaviy topshiriq yaratish: agar assignedToUsers massiv ko'rinishida berilgan bo'lsa
+  if (Array.isArray(body.assignedToUsers) && body.assignedToUsers.length > 0) {
+    const createdTasks = [];
+    for (const userId of body.assignedToUsers) {
+      const targetUser = getById('users', userId);
+      if (!targetUser) continue;
+
+      if (req.user.role === 'tuman_admin') {
+        if (targetUser.viloyatId !== req.user.viloyatId || targetUser.tumanId !== req.user.tumanId) {
+          continue;
+        }
+      }
+
+      const id = generateId('task');
+      const obj = {
+        id,
+        title: body.title || '',
+        description: body.description || '',
+        assigned_by: req.user.id,
+        assigned_to: userId,
+        library_id: targetUser.libraryId || targetUser.library_id || body.libraryId || req.user.library_id || null,
+        priority: body.priority || 'medium',
+        status: body.status || 'pending',
+        due_date: body.dueDate || null,
+        created_at: todayStr,
+        completed_at: null,
+      };
+      const keys = Object.keys(obj);
+      const placeholders = keys.map(() => '?').join(', ');
+      const values = keys.map(k => obj[k]);
+      db.prepare(`INSERT INTO tasks (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
+      createdTasks.push(getById('tasks', id));
+
+      insertRow('notifications', {
+        id: generateId('notif'),
+        type: 'task',
+        title: 'Yangi topshiriq',
+        message: `"${body.title || 'Yangi topshiriq'}" topshirig'i sizga biriktirildi`,
+        target_user_id: userId,
+        target_role: null,
+        read: 0,
+        created_at: new Date().toISOString(),
+      });
+    }
+    addAuditLog(req.user.id, 'create', 'tasks', `Topshiriq bir nechta foydalanuvchiga yaratildi: ${body.title} (${createdTasks.length} ta)`, req);
+    return res.status(201).json(createdTasks);
+  }
+
+  const id = body.id || generateId('task');
+
+  // Tuman admini faqat o'z tumanidagi xodimlarga topshiriq bera oladi
+  if (req.user.role === 'tuman_admin' && body.assignedTo) {
+    const targetUser = getById('users', body.assignedTo);
+    if (!targetUser) {
+      return res.status(404).json({ error: "Ijrochi foydalanuvchi topilmadi" });
+    }
+    if (targetUser.viloyatId !== req.user.viloyatId || targetUser.tumanId !== req.user.tumanId) {
+      return res.status(403).json({ error: "Siz faqat o'zingizning tumaningizdagi xodimlarga topshiriq bera olasiz" });
+    }
+  }
+
   const obj = {
     id,
     title: body.title || '',
     description: body.description || '',
     assigned_by: req.user.id,
     assigned_to: body.assignedTo || null,
-    library_id: body.libraryId || req.user.library_id || null,
+    library_id: body.libraryId || req.user.library_id || req.user.libraryId || null,
     priority: body.priority || 'medium',
     status: body.status || 'pending',
     due_date: body.dueDate || null,
@@ -424,6 +485,18 @@ tasksRouter.post('/', authMiddleware, (req, res) => {
   const placeholders = keys.map(() => '?').join(', ');
   const values = keys.map(k => obj[k]);
   db.prepare(`INSERT INTO tasks (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
+  if (body.assignedTo) {
+    insertRow('notifications', {
+      id: generateId('notif'),
+      type: 'task',
+      title: 'Yangi topshiriq',
+      message: `"${obj.title || 'Yangi topshiriq'}" topshirig'i sizga biriktirildi`,
+      target_user_id: body.assignedTo,
+      target_role: null,
+      read: 0,
+      created_at: new Date().toISOString(),
+    });
+  }
   addAuditLog(req.user.id, 'create', 'tasks', `Yangi topshiriq: ${obj.title}`, req);
   res.status(201).json(getById('tasks', id));
 });
