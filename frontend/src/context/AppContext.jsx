@@ -1002,16 +1002,20 @@ export function AppProvider({ children }) {
   }, []);
 
   // --- RESET ALL DATA ---
-  const resetAllData = useCallback(async () => {
+  const resetAllData = useCallback(async (confirmCode = 'CONFIRM_DELETE_ALL') => {
     try {
-      await api.raw('/reset', { method: 'POST' });
+      await api.raw('/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmCode }),
+      });
       setToken(null);
       setCachedUser(null);
       setCurrentUser(null);
       window.location.reload();
     } catch (err) {
       console.error('Reset failed:', err);
-      window.location.reload();
+      throw err;
     }
   }, []);
 

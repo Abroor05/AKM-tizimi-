@@ -83,7 +83,7 @@ app.post('/api/reset', authMiddleware, (req, res) => {
     return res.status(403).json({ error: 'Faqat Super Admin bazani tozalashi mumkin' });
   }
 
-  if (process.env.RESET_DATABASE_ALLOWED !== 'true') {
+  if (process.env.NODE_ENV === 'production' && process.env.RESET_DATABASE_ALLOWED !== 'true') {
     return res.status(403).json({
       error: 'Xavfsizlik: Bazani tozalash funksiyasi o\'chirilgan (RESET_DATABASE_ALLOWED=false)',
     });

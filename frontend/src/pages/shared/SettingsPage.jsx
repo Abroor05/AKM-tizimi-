@@ -11,7 +11,7 @@ import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 
 export default function SettingsPage() {
-  const { getSettings, updateSettings, resetAllData } = useApp();
+  const { getSettings, updateSettings } = useApp();
   const { theme, setTheme } = useTheme();
   const settings = getSettings();
   const [form, setForm] = useState({ ...settings, theme: settings.theme || theme });
@@ -25,15 +25,6 @@ export default function SettingsPage() {
     setSaved(true);
     toast.success("Tizim sozlamalari muvaffaqiyatli saqlandi!");
     setTimeout(() => setSaved(false), 3000);
-  };
-
-  const handleReset = () => {
-    if (confirm('DIQQAT: Barcha ma\'lumotlar boshlang\'ich holatga qaytariladi va o\'chiriladi. Davom etasizmi?')) {
-      if (confirm('Yana bir bor tasdiqlang: Haqiqatan ham barcha ma\'lumotlarni reset qilmoqchimisiz?')) {
-        resetAllData();
-        toast.info("Barcha ma'lumotlar boshlang'ich holatga qaytarildi.");
-      }
-    }
   };
 
   return (
@@ -129,23 +120,7 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        {/* Danger zone */}
-        <Card title="Xavfli hudud">
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl border-2 border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20">
-              <div className="flex items-start gap-3">
-                <ICONS.warning className="text-red-600 dark:text-red-400 text-xl mt-0.5 shrink-0" />
-                <div>
-                  <h4 className="text-sm font-semibold text-red-800 dark:text-red-300">Ma'lumotlarni reset qilish</h4>
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">Barcha ma'lumotlar o'chiriladi va boshlang'ich holatga qaytariladi. Bu amalni bekor qilib bo'lmaydi!</p>
-                  <button onClick={handleReset} className="mt-3 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors cursor-pointer">
-                    Reset qilish
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
+
       </div>
 
       {/* Save button */}

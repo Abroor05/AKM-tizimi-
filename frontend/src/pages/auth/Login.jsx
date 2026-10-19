@@ -11,7 +11,7 @@ import { formatUzPhone } from '../../utils/helpers.js';
 import { getLastRoute } from '../../utils/api.js';
 
 export default function Login() {
-  const { login, initialized, needsBootstrap, bootstrap, resetAllData } = useApp();
+  const { login, initialized, needsBootstrap, bootstrap } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectPath = new URLSearchParams(location.search).get('redirect') || getLastRoute();
@@ -347,20 +347,8 @@ export default function Login() {
             </form>
 
             {/* Bottom info */}
-            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center text-[11px] text-slate-400 font-medium">
               <span>Axborot-kutubxona tizimi v1.0</span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm("Haqiqatan ham barcha ma'lumotlarni boshlang'ich test holatiga qaytarmoqchimisiz?")) {
-                    resetAllData();
-                    toast.info("Ma'lumotlar bazasi boshlang'ich holatga qaytarildi!");
-                  }
-                }}
-                className="hover:text-rose-600 transition-colors"
-              >
-                Bazani qayta tiklash
-              </button>
             </div>
           </div>
         </div>

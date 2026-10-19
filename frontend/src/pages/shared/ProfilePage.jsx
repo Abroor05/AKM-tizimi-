@@ -8,10 +8,12 @@ import Card from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Input from '../../components/ui/Input.jsx';
+import Modal from '../../components/ui/Modal.jsx';
+import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import {
   ROLE_LABELS, ROLE_COLORS, ROLE_PERMISSIONS, PERMISSIONS,
-  avatarClass, STORAGE_KEYS,
+  avatarClass, STORAGE_KEYS, ROLES,
 } from '../../data/constants.js';
 import { getViloyatName, getTumanName } from '../../data/regions.js';
 import { formatDate } from '../../utils/helpers.js';
@@ -53,7 +55,9 @@ const PERM_LABELS = {
 };
 
 export default function ProfilePage() {
-  const { currentUser, updateUser, resetPassword, getCollection } = useApp();
+  const { currentUser, updateUser, resetPassword, getCollection, resetAllData } = useApp();
+
+  const isSuperAdmin = currentUser?.role === ROLES.SUPER_ADMIN || currentUser?.role === 'super_admin';
 
   const [activeTab, setActiveTab] = useState('info');
   const [editMode,  setEditMode]  = useState(false);
@@ -62,6 +66,13 @@ export default function ProfilePage() {
   const [pwSaving,  setPwSaving]  = useState(false);
   const [success,   setSuccess]   = useState('');
   const [error,     setError]     = useState('');
+
+  // Super Admin reset database state
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetAgreed, setResetAgreed] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   // Edit form state
   const [form, setForm] = useState({
@@ -146,10 +157,41 @@ export default function ProfilePage() {
     }
   };
 
-  const TABS = [
-    { id: 'info',  label: 'Shaxsiy ma\'lumotlar' },
-    { id: 'perms', label: 'Ruxsatlarim'            },
-  ];
+  const handleDatabaseReset = async () => {
+    if (!isSuperAdmin) {
+      toast.error("Faqat Super Admin bazani qayta tiklashi mumkin!");
+      return;
+    }
+    if (!resetAgreed || resetConfirmText.trim().toUpperCase() !== 'CONFIRM') {
+      setResetError("Tasdiqlash uchun katakchani belgilang va 'CONFIRM' so'zini kiriting.");
+      return;
+    }
+
+    setResetting(true);
+    setResetError('');
+    try {
+      toast.info("Ma'lumotlar bazasi qayta tiklanmoqda...");
+      await resetAllData('CONFIRM_DELETE_ALL');
+      toast.success("Baza muvaffaqiyatli tozalandi!");
+      setResetModalOpen(false);
+    } catch (err) {
+      setResetError(err.message || 'Bazani qayta tiklashda xato yuz berdi');
+      toast.error(err.message || 'Xato yuz berdi');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const TABS = useMemo(() => {
+    const list = [
+      { id: 'info',  label: 'Shaxsiy ma\'lumotlar' },
+      { id: 'perms', label: 'Ruxsatlarim' },
+    ];
+    if (isSuperAdmin) {
+      list.push({ id: 'database', label: 'Baza sozlamalari (Super Admin)' });
+    }
+    return list;
+  }, [isSuperAdmin]);
 
   return (
     <div>
@@ -382,6 +424,44 @@ export default function ProfilePage() {
               </div>
             )}
           </Card>
+
+          {/* Super Admin Database Reset Card */}
+          {isSuperAdmin && (
+            <div className="lg:col-span-2">
+              <Card className="border-rose-200/90 dark:border-rose-900/50 bg-gradient-to-r from-rose-50/60 via-white to-amber-50/40 dark:from-rose-950/30 dark:via-slate-900 dark:to-amber-950/20">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                      <ICONS.warning className="text-xl" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                          Ma'lumotlar bazasini qayta tiklash
+                        </h3>
+                        <Badge color="red">Faqat Super Admin</Badge>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                        Tizimdagi barcha ma'lumotlarni (foydalanuvchilar, kitoblar, hisobotlar, faoliyatlar) boshlang'ich holatga qaytarish va tozalash. Bu huquq faqat Super Adminga tegishli bo'lib, oddiy admin yoki boshqa xodimlarda mavjud emas.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setResetConfirmText('');
+                      setResetAgreed(false);
+                      setResetError('');
+                      setResetModalOpen(true);
+                    }}
+                    className="shrink-0 cursor-pointer"
+                  >
+                    <ICONS.warning className="text-sm" /> Bazani qayta tiklash
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          )}
         </div>
       )}
 
@@ -413,6 +493,173 @@ export default function ProfilePage() {
             </p>
           )}
         </Card>
+      )}
+
+      {/* ── Tab: Database Settings (Super Admin Only) ── */}
+      {isSuperAdmin && activeTab === 'database' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg">
+                  <ICONS.library />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Baza formati</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">SQLite (kbt.db)</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg">
+                  <ICONS.check />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Baza holati</p>
+                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Faol & Himoyalangan</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg">
+                  <ICONS.security />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Boshqaruv huquqi</p>
+                  <p className="text-sm font-bold text-purple-600 dark:text-purple-400">Super Admin (Root)</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <Card title="Ma'lumotlar bazasini qayta tiklash (Tozalash)">
+            <div className="p-5 rounded-2xl border-2 border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 space-y-4">
+              <div className="flex items-start gap-3.5">
+                <div className="p-2.5 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
+                  <ICONS.warning className="text-xl" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-rose-900 dark:text-rose-200">
+                    Barcha ma'lumotlarni tozalash va qayta tiklash
+                  </h4>
+                  <p className="text-xs text-rose-700 dark:text-rose-300 mt-1 leading-relaxed max-w-2xl">
+                    Ushbu amal tizimdagi barcha jadvallarni (foydalanuvchilar, kutubxonalar, kitoblar, kitobxonlar, topshiriqlar, tadbirlar, inventar, hujjatlar, arizalar, bildirishnomalar, kpi, audit) to'liq tozalaydi va tizimni boshlang'ich sozlash (bootstrap) holatiga qaytaradi.
+                  </p>
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-2">
+                    Xavfsizlik qoidasi: Ushbu amal faqat Super Admin sahifasida profil sozlamalarida mavjud bo'lib, login oynasida yoki boshqa foydalanuvchilarda ko'rinmaydi.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-rose-200/80 dark:border-rose-900/50 flex justify-end">
+                <Button
+                  variant="danger"
+                  size="md"
+                  onClick={() => {
+                    setResetConfirmText('');
+                    setResetAgreed(false);
+                    setResetError('');
+                    setResetModalOpen(true);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <ICONS.warning className="text-sm" /> Bazani qayta tiklash
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Super Admin Database Reset Confirmation Modal */}
+      {isSuperAdmin && (
+        <Modal
+          isOpen={resetModalOpen}
+          onClose={() => {
+            if (!resetting) {
+              setResetModalOpen(false);
+              setResetConfirmText('');
+              setResetAgreed(false);
+              setResetError('');
+            }
+          }}
+          title="Bazani qayta tiklashni tasdiqlang"
+          subtitle="Xavfsizlik tekshiruvi — Faqat Super Admin uchun"
+          size="md"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setResetModalOpen(false)}
+                disabled={resetting}
+              >
+                Bekor qilish
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDatabaseReset}
+                disabled={resetting || !resetAgreed || resetConfirmText.trim().toUpperCase() !== 'CONFIRM'}
+                loading={resetting}
+              >
+                {resetting ? 'Qayta tiklanmoqda...' : 'Tasdiqlash va Bazani tozalash'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3.5 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-200">
+              <ICONS.warning className="text-2xl text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="text-xs leading-relaxed space-y-1">
+                <p className="font-bold text-sm text-rose-900 dark:text-rose-100">
+                  DIQQAT: Qaytarib bo'lmas amal!
+                </p>
+                <p>
+                  Ushbu amalni tasdiqlasangiz, barcha ma'lumotlar bazasi (foydalanuvchilar, kitoblar, kitobxonlar, faoliyatlar, hisobotlar, arizalar, arxivlar) to'liq tozalanadi.
+                </p>
+                <p className="font-semibold text-rose-700 dark:text-rose-300">
+                  Tizim yangi boshlang'ich sozlash (bootstrap) holatiga o'tadi.
+                </p>
+              </div>
+            </div>
+
+            {resetError && (
+              <div className="p-3 rounded-lg bg-rose-100 dark:bg-rose-950/70 border border-rose-300 text-rose-700 dark:text-rose-300 text-xs font-semibold">
+                {resetError}
+              </div>
+            )}
+
+            <div className="space-y-3 pt-1">
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-700 dark:text-slate-300 font-medium">
+                <input
+                  type="checkbox"
+                  checked={resetAgreed}
+                  onChange={(e) => setResetAgreed(e.target.checked)}
+                  className="mt-0.5 rounded text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                />
+                <span>
+                  Barcha ma'lumotlar butunlay o'chirilishini tushunaman va tasdiqlayman.
+                </span>
+              </label>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Tasdiqlash uchun quyidagi maydonga <span className="font-mono text-rose-600 font-bold bg-rose-50 dark:bg-rose-950/50 px-1 py-0.5 rounded">CONFIRM</span> so'zini kiriting:
+                </label>
+                <Input
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder="CONFIRM"
+                  className="font-mono"
+                  disabled={resetting}
+                />
+              </div>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
