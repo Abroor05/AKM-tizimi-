@@ -1,9 +1,9 @@
 // ============================================================
-// KBT SERVER - Express app entry point
+// KBT SERVER - Express app entry point (PostgreSQL)
 // ============================================================
 import express from 'express';
 import cors from 'cors';
-import db from './db/database.js';
+import { initDb, query } from './db/database.js';
 import { mountCrudRoutes } from './routes/crud.js';
 import { mountSpecialRoutes } from './routes/special.js';
 import authRouter from './routes/auth.js';
@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 5000;
 app.use(securityHeaders);
 
 // --- Middleware ---
-const configuredOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const configuredOrigins = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -34,16 +34,17 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Mobil ilovalar, curl yoki bir xil origin so'rovlariga ruxsat berish
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    if (process.env.NODE_ENV !== 'production') return callback(null, true);
-    return callback(new Error('CORS: Ruxsat berilmagan domen'));
-  },
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (process.env.NODE_ENV !== 'production') return callback(null, true);
+      return callback(new Error('CORS: Ruxsat berilmagan domen'));
+    },
+    credentials: true,
+  })
+);
 
 // DoS hujumlaridan himoya: JSON hajmi chegarasi 2mb
 app.use(express.json({ limit: '2mb' }));
@@ -61,8 +62,13 @@ app.use((req, _res, next) => {
 });
 
 // --- Health check ---
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ status: 'ok', database: 'postgresql', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ status: 'error', database: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 // --- Swagger Documentation ---
@@ -78,27 +84,47 @@ mountCrudRoutes(app);
 mountSpecialRoutes(app);
 
 // --- Reset data endpoint (Xavfsiz: faqat super_admin va maxsus tasdiq kodi bilan) ---
-app.post('/api/reset', authMiddleware, (req, res) => {
-  if (req.user?.role !== 'super_admin') {
-    return res.status(403).json({ error: 'Faqat Super Admin bazani tozalashi mumkin' });
-  }
+app.post('/api/reset', authMiddleware, async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Faqat Super Admin bazani tozalashi mumkin' });
+    }
 
-  if (process.env.NODE_ENV === 'production' && process.env.RESET_DATABASE_ALLOWED !== 'true') {
-    return res.status(403).json({
-      error: 'Xavfsizlik: Bazani tozalash funksiyasi o\'chirilgan (RESET_DATABASE_ALLOWED=false)',
-    });
-  }
+    if (process.env.NODE_ENV === 'production' && process.env.RESET_DATABASE_ALLOWED !== 'true') {
+      return res.status(403).json({
+        error: "Xavfsizlik: Bazani tozalash funksiyasi o'chirilgan (RESET_DATABASE_ALLOWED=false)",
+      });
+    }
 
-  const { confirmCode } = req.body || {};
-  if (confirmCode !== 'CONFIRM_DELETE_ALL') {
-    return res.status(400).json({ error: 'Xavfsizlik tasdiq kodi noto\'g\'ri' });
-  }
+    const { confirmCode } = req.body || {};
+    if (confirmCode !== 'CONFIRM_DELETE_ALL') {
+      return res.status(400).json({ error: "Xavfsizlik tasdiq kodi noto'g'ri" });
+    }
 
-  const tables = ['users', 'libraries', 'books', 'readers', 'activities', 'reports', 'tasks', 'events', 'inventory', 'documents', 'appeals', 'notifications', 'kpi_data', 'audit_log', 'settings'];
-  for (const table of tables) {
-    db.exec(`DELETE FROM ${table}`);
+    const tables = [
+      'notifications',
+      'appeals',
+      'documents',
+      'inventory',
+      'events',
+      'tasks',
+      'reports',
+      'activities',
+      'readers',
+      'books',
+      'users',
+      'libraries',
+      'kpi_data',
+      'audit_log',
+      'settings',
+    ];
+    for (const table of tables) {
+      await query(`DELETE FROM ${table}`);
+    }
+    res.json({ success: true, message: "Ma'lumotlar xavfsiz tarzda tozalandi" });
+  } catch (err) {
+    next(err);
   }
-  res.json({ success: true, message: 'Ma\'lumotlar xavfsiz tarzda tozalandi' });
 });
 
 // --- Error handler ---
@@ -107,10 +133,17 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: err.message || 'Server xatosi' });
 });
 
-// --- Start server ---
+// --- Start server after initializing DB ---
+try {
+  await initDb();
+  console.log('PostgreSQL bazasi va jadvallari muvaffaqiyatli ishga tushirildi.');
+} catch (dbErr) {
+  console.error('PostgreSQL bazasiga ulanishda xatolik:', dbErr);
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n========================================`);
-  console.log(`  KBT Server ishga tushdi!`);
+  console.log(`  KBT Server ishga tushdi! (PostgreSQL)`);
   console.log(`  Port: ${PORT}`);
   console.log(`  API: http://localhost:${PORT}/api`);
   console.log(`  Swagger UI: http://localhost:${PORT}/api/docs`);

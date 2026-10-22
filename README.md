@@ -1,12 +1,12 @@
 # Hisobot — Kutubxona Boshqaruv Tizimi (KBT)
 
-Loyiha uch qismdan iborat:
+Loyiha quyidagi qismlardan iborat:
 
 ```
 Hisobot/
 ├── frontend/     ← React + Vite frontend
-├── backend/      ← Express.js + SQLite backend API
-├── database/     ← SQLite ma'lumotlar bazasi fayllari
+├── backend/      ← Express.js + PostgreSQL backend API
+├── database/     ← Zaxira va migratsiya fayllari
 └── package.json  ← Root boshqaruv skriptlari
 ```
 
@@ -56,6 +56,6 @@ npm run build
 
 ## Texnologiyalar
 
-**Frontend:** React 19, Vite 8, TailwindCSS 4, React Query, React Router  
-**Backend:** Node.js, Express.js, better-sqlite3, JWT, bcryptjs  
-**Database:** SQLite (`database/kbt.db`)
+**Frontend:** React 19, Vite, TailwindCSS, React Query, React Router  
+**Backend:** Node.js, Express.js, PostgreSQL (`pg`), JWT, bcryptjs, Helmet, Rate Limiter, Swagger UI  
+**Database:** PostgreSQL (`akm_db`)

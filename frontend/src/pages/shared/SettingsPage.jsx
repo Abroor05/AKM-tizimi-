@@ -107,7 +107,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-slate-800/80">
               <span className="text-sm text-gray-500 dark:text-slate-400">Ma'lumotlar bazasi</span>
-              <span className="text-sm font-medium text-gray-700 dark:text-slate-200">SQLite + REST API</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-slate-200">PostgreSQL + REST API</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-slate-800/80">
               <span className="text-sm text-gray-500 dark:text-slate-400">Mavjud modullar</span>

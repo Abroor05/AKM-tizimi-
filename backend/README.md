@@ -1,10 +1,32 @@
 # Kutubxona Boshqaruv Tizimi (AKM / KBT) — Backend API
 
-Express.js va SQLite (better-sqlite3) asosida yaratilgan RESTful API serveri.
+Express.js va **PostgreSQL** (`pg` connection pool) asosida yaratilgan ishlab chiqarish (production) darajasidagi xavfsiz va tezkor RESTful API serveri.
 
 ---
 
 ## 🚀 Ishga tushirish
+
+### 1. PostgreSQL sozlamalari (`.env`)
+
+`backend/.env` faylida PostgreSQL ulanish parametrlarini belgilang:
+
+```env
+PORT=5000
+NODE_ENV=development
+JWT_SECRET=akm_tizimi_jwt_secret_key_2026
+JWT_EXPIRES_IN=24h
+RESET_DATABASE_ALLOWED=true
+
+# PostgreSQL sozlamalari
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=akm_db
+DB_USER=postgres
+DB_PASSWORD=postgres
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/akm_db
+```
+
+### 2. Bog'liqliklarni o'rnatish va serverni ishga tushirish
 
 ```bash
 cd backend
@@ -13,6 +35,18 @@ npm run dev
 ```
 
 Server manzili: `http://localhost:5000`
+
+---
+
+## 🛠️ Foydali buyruqlar
+
+| Buyruq | Tavsif |
+| :--- | :--- |
+| `npm run dev` | Serverni watch rejimida ishga tushirish |
+| `npm start` | Serverni oddiy rejimda ishga tushirish |
+| `npm run migrate:from-sqlite` | SQLite (`database/kbt.db`) dan ma'lumotlarni PostgreSQL ga ko'chirish |
+| `npm run db:debug` | PostgreSQL bazasidagi jadvallar va statistikani ko'rish |
+| `npm run db:set-user` | Foydalanuvchilar parollarini tekshirish va tiklash (`admin123`) |
 
 ---
 

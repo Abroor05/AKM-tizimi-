@@ -16,7 +16,7 @@ export function generateToken(user) {
 }
 
 // Verify JWT and attach user to request
-export function authMiddleware(req, res, next) {
+export async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token talab qilinadi' });
@@ -24,7 +24,7 @@ export function authMiddleware(req, res, next) {
   const token = header.slice(7);
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = getById('users', decoded.id);
+    const user = await getById('users', decoded.id);
     if (!user || !user.active) {
       return res.status(401).json({ error: 'Foydalanuvchi topilmadi yoki faol emas' });
     }
@@ -36,13 +36,13 @@ export function authMiddleware(req, res, next) {
 }
 
 // Optional auth - doesn't fail if no token, but attaches user if present
-export function optionalAuth(req, res, next) {
+export async function optionalAuth(req, res, next) {
   const header = req.headers.authorization;
   if (header && header.startsWith('Bearer ')) {
     try {
       const token = header.slice(7);
       const decoded = jwt.verify(token, JWT_SECRET);
-      const user = getById('users', decoded.id);
+      const user = await getById('users', decoded.id);
       if (user && user.active) req.user = user;
     } catch {
       // Ignore invalid tokens

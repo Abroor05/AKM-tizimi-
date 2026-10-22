@@ -1,8 +1,8 @@
 // ============================================================
-// GENERIC CRUD ROUTE FACTORY
+// GENERIC CRUD ROUTE FACTORY (PostgreSQL)
 // ============================================================
 import { Router } from 'express';
-import db, { getAll, getById, insertRow, updateRow, deleteRow, rowToObject, objectToRow } from '../db/database.js';
+import { getAll, getById, insertRow, updateRow, deleteRow, getTableColumns } from '../db/database.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 // Entity configuration: maps API path -> DB table name
@@ -38,61 +38,81 @@ const ID_PREFIXES = {
 export function createCrudRouter(apiPath, tableName) {
   const router = Router();
   const prefix = ID_PREFIXES[apiPath] || 'ent';
-  const tableColumns = new Set(db.prepare(`PRAGMA table_info(${tableName})`).all().map(column => column.name));
 
   // GET /api/{entity} - list all
-  router.get('/', authMiddleware, (req, res) => {
-    const items = getAll(tableName);
-    res.json(items);
+  router.get('/', authMiddleware, async (_req, res, next) => {
+    try {
+      const items = await getAll(tableName);
+      res.json(items);
+    } catch (err) {
+      next(err);
+    }
   });
 
   // GET /api/{entity}/:id - get one
-  router.get('/:id', authMiddleware, (req, res) => {
-    const item = getById(tableName, req.params.id);
-    if (!item) return res.status(404).json({ error: 'Topilmadi' });
-    res.json(item);
+  router.get('/:id', authMiddleware, async (req, res, next) => {
+    try {
+      const item = await getById(tableName, req.params.id);
+      if (!item) return res.status(404).json({ error: 'Topilmadi' });
+      res.json(item);
+    } catch (err) {
+      next(err);
+    }
   });
 
   // POST /api/{entity} - create
-  router.post('/', authMiddleware, (req, res) => {
-    const body = req.body;
-    const id = body.id || generateId(prefix);
-    const obj = { ...body, id };
-    if (tableColumns.has('created_at')) {
-      obj.created_at = body.createdAt || new Date().toISOString();
+  router.post('/', authMiddleware, async (req, res, next) => {
+    try {
+      const body = req.body || {};
+      const id = body.id || generateId(prefix);
+      const obj = { ...body, id };
+
+      const tableCols = await getTableColumns(tableName);
+      if (tableCols.has('created_at')) {
+        obj.created_at = body.createdAt || obj.created_at || new Date().toISOString();
+      }
+      delete obj.createdAt;
+
+      const created = await insertRow(tableName, obj);
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
     }
-    // Remove camelCase duplicates that will be converted
-    delete obj.createdAt;
-    const row = objectToRow(tableName, obj);
-    const keys = Object.keys(row).filter(k => tableColumns.has(k));
-    const placeholders = keys.map(() => '?').join(', ');
-    const values = keys.map(k => row[k]);
-    db.prepare(`INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
-    const created = getById(tableName, id);
-    res.status(201).json(created);
   });
 
   // PUT /api/{entity}/:id - update
-  router.put('/:id', authMiddleware, (req, res) => {
-    const existing = getById(tableName, req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Topilmadi' });
-    const updated = updateRow(tableName, req.params.id, req.body);
-    res.json(updated);
+  router.put('/:id', authMiddleware, async (req, res, next) => {
+    try {
+      const existing = await getById(tableName, req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+      const updated = await updateRow(tableName, req.params.id, req.body);
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
   });
 
   // PATCH /api/{entity}/:id - partial update
-  router.patch('/:id', authMiddleware, (req, res) => {
-    const existing = getById(tableName, req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Topilmadi' });
-    const updated = updateRow(tableName, req.params.id, req.body);
-    res.json(updated);
+  router.patch('/:id', authMiddleware, async (req, res, next) => {
+    try {
+      const existing = await getById(tableName, req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+      const updated = await updateRow(tableName, req.params.id, req.body);
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
   });
 
   // DELETE /api/{entity}/:id - delete
-  router.delete('/:id', authMiddleware, (req, res) => {
-    const success = deleteRow(tableName, req.params.id);
-    if (!success) return res.status(404).json({ error: 'Topilmadi' });
-    res.json({ success: true });
+  router.delete('/:id', authMiddleware, async (req, res, next) => {
+    try {
+      const success = await deleteRow(tableName, req.params.id);
+      if (!success) return res.status(404).json({ error: 'Topilmadi' });
+      res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
   });
 
   return router;

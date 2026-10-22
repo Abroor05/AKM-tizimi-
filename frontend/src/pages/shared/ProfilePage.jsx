@@ -506,7 +506,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-400">Baza formati</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">SQLite (kbt.db)</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">PostgreSQL (akm_db)</p>
                 </div>
               </div>
             </Card>

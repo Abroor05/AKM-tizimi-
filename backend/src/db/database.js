@@ -1,333 +1,383 @@
 // ============================================================
-// DATABASE - SQLite connection & schema
+// DATABASE - PostgreSQL connection & schema
 // ============================================================
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import pg from 'pg';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const { Pool } = pg;
 
-const DB_PATH = join(__dirname, '..', '..', '..', 'database', 'kbt.db');
-
-// Ensure database directory exists
-import { mkdirSync } from 'fs';
-mkdirSync(join(__dirname, '..', '..', '..', 'database'), { recursive: true });
-
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-// --- SCHEMA ---
-const SCHEMA = `
--- USERS
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  username TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  full_name TEXT NOT NULL,
-  role TEXT NOT NULL,
-  phone TEXT,
-  email TEXT,
-  viloyat_id TEXT,
-  tuman_id TEXT,
-  library_id TEXT,
-  active INTEGER DEFAULT 1,
-  created_at TEXT,
-  last_login TEXT
-);
-
--- LIBRARIES
-CREATE TABLE IF NOT EXISTS libraries (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  type TEXT,
-  viloyat_id TEXT,
-  tuman_id TEXT,
-  address TEXT,
-  latitude REAL,
-  longitude REAL,
-  phone TEXT,
-  email TEXT,
-  staff_count INTEGER DEFAULT 0,
-  founding_year INTEGER,
-  status TEXT DEFAULT 'active',
-  created_at TEXT
-);
-
--- BOOKS
-CREATE TABLE IF NOT EXISTS books (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  author TEXT,
-  category TEXT,
-  isbn TEXT,
-  publisher TEXT,
-  year INTEGER,
-  copies_total INTEGER DEFAULT 1,
-  copies_available INTEGER DEFAULT 1,
-  library_id TEXT,
-  language TEXT,
-  pages INTEGER,
-  status TEXT DEFAULT 'available',
-  created_at TEXT
-);
-
--- READERS
-CREATE TABLE IF NOT EXISTS readers (
-  id TEXT PRIMARY KEY,
-  full_name TEXT NOT NULL,
-  card_number TEXT,
-  phone TEXT,
-  address TEXT,
-  birth_year INTEGER,
-  birth_date TEXT,
-  library_id TEXT,
-  status TEXT DEFAULT 'active',
-  registered_at TEXT,
-  borrowed_count INTEGER DEFAULT 0,
-  last_visit TEXT,
-  created_at TEXT
-);
-
--- ACTIVITIES
-CREATE TABLE IF NOT EXISTS activities (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL,
-  library_id TEXT,
-  user_id TEXT,
-  data TEXT,
-  description TEXT,
-  date TEXT,
-  time TEXT,
-  status TEXT DEFAULT 'completed'
-);
-
--- REPORTS
-CREATE TABLE IF NOT EXISTS reports (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL,
-  title TEXT,
-  library_id TEXT,
-  user_id TEXT,
-  viloyat_id TEXT,
-  tuman_id TEXT,
-  status TEXT DEFAULT 'draft',
-  period TEXT,
-  submitted_at TEXT,
-  reviewed_at TEXT,
-  reviewed_by TEXT,
-  review_comment TEXT,
-  data TEXT,
-  description TEXT,
-  created_at TEXT
-);
-
--- TASKS
-CREATE TABLE IF NOT EXISTS tasks (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  assigned_by TEXT,
-  assigned_to TEXT,
-  library_id TEXT,
-  priority TEXT DEFAULT 'medium',
-  status TEXT DEFAULT 'pending',
-  due_date TEXT,
-  created_at TEXT,
-  completed_at TEXT
-);
-
--- EVENTS
-CREATE TABLE IF NOT EXISTS events (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  type TEXT,
-  library_id TEXT,
-  viloyat_id TEXT,
-  tuman_id TEXT,
-  date TEXT,
-  time TEXT,
-  location TEXT,
-  participants INTEGER DEFAULT 0,
-  description TEXT,
-  organizer TEXT,
-  status TEXT DEFAULT 'upcoming'
-);
-
--- INVENTORY
-CREATE TABLE IF NOT EXISTS inventory (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  type TEXT,
-  library_id TEXT,
-  quantity INTEGER DEFAULT 1,
-  unit_price INTEGER,
-  status TEXT DEFAULT 'good',
-  purchase_date TEXT,
-  serial_number TEXT
-);
-
--- DOCUMENTS
-CREATE TABLE IF NOT EXISTS documents (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  type TEXT,
-  library_id TEXT,
-  uploaded_by TEXT,
-  date TEXT,
-  file_format TEXT,
-  size TEXT,
-  description TEXT
-);
-
--- APPEALS
-CREATE TABLE IF NOT EXISTS appeals (
-  id TEXT PRIMARY KEY,
-  full_name TEXT,
-  phone TEXT,
-  email TEXT,
-  library_id TEXT,
-  subject TEXT,
-  message TEXT,
-  status TEXT DEFAULT 'new',
-  date TEXT,
-  resolved_at TEXT,
-  resolved_by TEXT,
-  resolution TEXT
-);
-
--- NOTIFICATIONS
-CREATE TABLE IF NOT EXISTS notifications (
-  id TEXT PRIMARY KEY,
-  type TEXT,
-  title TEXT,
-  message TEXT,
-  target_role TEXT,
-  target_user_id TEXT,
-  date TEXT,
-  time TEXT,
-  read INTEGER DEFAULT 0
-);
-
--- KPI DATA
-CREATE TABLE IF NOT EXISTS kpi_data (
-  id TEXT PRIMARY KEY,
-  library_id TEXT,
-  category TEXT,
-  metric TEXT,
-  target REAL,
-  actual REAL,
-  unit TEXT,
-  period TEXT
-);
-
--- AUDIT LOG
-CREATE TABLE IF NOT EXISTS audit_log (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  action TEXT,
-  module TEXT,
-  details TEXT,
-  ip_address TEXT,
-  timestamp TEXT
-);
-
--- SETTINGS
-CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-);
-`;
-
-// --- Execute schema ---
-db.exec(SCHEMA);
-
+// .env konfiguratsiyasini yuklash (agar yuklanmagan bo'lsa)
 try {
-  const repCols = db.prepare("PRAGMA table_info(reports)").all().map(c => c.name);
-  if (!repCols.includes('target_role')) {
-    db.prepare("ALTER TABLE reports ADD COLUMN target_role TEXT").run();
+  process.loadEnvFile();
+} catch {
+  // .env mavjud bo'lmasa, default sozlamalar ishlaydi
+}
+
+const poolConfig = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      database: process.env.DB_NAME || 'akm_db',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+    };
+
+export const pool = new Pool({
+  ...poolConfig,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+pool.on('error', (err) => {
+  console.error('[PostgreSQL Pool Xatosi]', err);
+});
+
+// Helper: ? parametr belgilarini PostgreSQL $1, $2, ... belgilariga aylantirish
+export function toPgSql(sql) {
+  let paramIndex = 1;
+  return sql.replace(/\?/g, () => `$${paramIndex++}`);
+}
+
+// Barcha so'rovlar uchun yagona xavfsiz wrapper
+export async function query(sql, params = []) {
+  const pgSql = toPgSql(sql);
+  return pool.query(pgSql, params);
+}
+
+export async function getOne(sql, params = []) {
+  const res = await query(sql, params);
+  return res.rows[0] || null;
+}
+
+export async function getMany(sql, params = []) {
+  const res = await query(sql, params);
+  return res.rows;
+}
+
+export async function execute(sql, params = []) {
+  const res = await query(sql, params);
+  return { changes: res.rowCount, rowCount: res.rowCount };
+}
+
+// SQLite prepare() interfeysi bilan moslik (backward compatibility)
+export const db = {
+  pool,
+  query,
+  exec: async (sql) => pool.query(sql),
+  prepare: (sql) => ({
+    get: async (...params) => {
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      const res = await query(sql, flatParams);
+      return res.rows[0] || null;
+    },
+    all: async (...params) => {
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      const res = await query(sql, flatParams);
+      return res.rows;
+    },
+    run: async (...params) => {
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      const res = await query(sql, flatParams);
+      return { changes: res.rowCount, rowCount: res.rowCount };
+    },
+  }),
+};
+
+// --- SCHEMA & TABLES INITIALIZATION ---
+export async function initDb() {
+  const SCHEMA = `
+  -- USERS
+  CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(255) PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    role VARCHAR(100) NOT NULL,
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    viloyat_id VARCHAR(100),
+    tuman_id VARCHAR(100),
+    library_id VARCHAR(100),
+    active INTEGER DEFAULT 1,
+    created_at TEXT,
+    last_login TEXT
+  );
+
+  -- LIBRARIES
+  CREATE TABLE IF NOT EXISTS libraries (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    type VARCHAR(100),
+    viloyat_id VARCHAR(100),
+    tuman_id VARCHAR(100),
+    address TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    staff_count INTEGER DEFAULT 0,
+    founding_year INTEGER,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TEXT
+  );
+
+  -- BOOKS
+  CREATE TABLE IF NOT EXISTS books (
+    id VARCHAR(255) PRIMARY KEY,
+    title TEXT NOT NULL,
+    author TEXT,
+    category VARCHAR(100),
+    isbn VARCHAR(100),
+    publisher TEXT,
+    year INTEGER,
+    copies_total INTEGER DEFAULT 1,
+    copies_available INTEGER DEFAULT 1,
+    library_id VARCHAR(100),
+    language VARCHAR(50),
+    pages INTEGER,
+    status VARCHAR(50) DEFAULT 'available',
+    created_at TEXT
+  );
+
+  -- READERS
+  CREATE TABLE IF NOT EXISTS readers (
+    id VARCHAR(255) PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    card_number VARCHAR(100),
+    phone VARCHAR(50),
+    address TEXT,
+    birth_year INTEGER,
+    birth_date TEXT,
+    library_id VARCHAR(100),
+    status VARCHAR(50) DEFAULT 'active',
+    registered_at TEXT,
+    borrowed_count INTEGER DEFAULT 0,
+    last_visit TEXT,
+    created_at TEXT
+  );
+
+  -- ACTIVITIES
+  CREATE TABLE IF NOT EXISTS activities (
+    id VARCHAR(255) PRIMARY KEY,
+    type VARCHAR(100) NOT NULL,
+    library_id VARCHAR(100),
+    user_id VARCHAR(100),
+    count INTEGER,
+    data TEXT,
+    description TEXT,
+    date TEXT,
+    time TEXT,
+    status VARCHAR(50) DEFAULT 'completed'
+  );
+
+  -- REPORTS
+  CREATE TABLE IF NOT EXISTS reports (
+    id VARCHAR(255) PRIMARY KEY,
+    type VARCHAR(100) NOT NULL,
+    title TEXT,
+    library_id VARCHAR(100),
+    user_id VARCHAR(100),
+    viloyat_id VARCHAR(100),
+    tuman_id VARCHAR(100),
+    target_role VARCHAR(100),
+    status VARCHAR(50) DEFAULT 'draft',
+    period VARCHAR(50),
+    submitted_at TEXT,
+    reviewed_at TEXT,
+    reviewed_by VARCHAR(100),
+    review_comment TEXT,
+    data TEXT,
+    description TEXT,
+    created_at TEXT
+  );
+
+  -- TASKS
+  CREATE TABLE IF NOT EXISTS tasks (
+    id VARCHAR(255) PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    assigned_by VARCHAR(100),
+    assigned_to VARCHAR(100),
+    library_id VARCHAR(100),
+    priority VARCHAR(50) DEFAULT 'medium',
+    status VARCHAR(50) DEFAULT 'pending',
+    due_date TEXT,
+    created_at TEXT,
+    completed_at TEXT
+  );
+
+  -- EVENTS
+  CREATE TABLE IF NOT EXISTS events (
+    id VARCHAR(255) PRIMARY KEY,
+    title TEXT NOT NULL,
+    type VARCHAR(100),
+    library_id VARCHAR(100),
+    viloyat_id VARCHAR(100),
+    tuman_id VARCHAR(100),
+    target_scope VARCHAR(100),
+    target_tumans TEXT,
+    date TEXT,
+    time TEXT,
+    location TEXT,
+    participants INTEGER DEFAULT 0,
+    description TEXT,
+    organizer TEXT,
+    status VARCHAR(50) DEFAULT 'upcoming'
+  );
+
+  -- INVENTORY
+  CREATE TABLE IF NOT EXISTS inventory (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    type VARCHAR(100),
+    library_id VARCHAR(100),
+    quantity INTEGER DEFAULT 1,
+    unit_price NUMERIC,
+    status VARCHAR(50) DEFAULT 'good',
+    purchase_date TEXT,
+    serial_number VARCHAR(100)
+  );
+
+  -- DOCUMENTS
+  CREATE TABLE IF NOT EXISTS documents (
+    id VARCHAR(255) PRIMARY KEY,
+    title TEXT NOT NULL,
+    type VARCHAR(100),
+    library_id VARCHAR(100),
+    uploaded_by VARCHAR(100),
+    date TEXT,
+    file_format VARCHAR(50),
+    size VARCHAR(50),
+    description TEXT
+  );
+
+  -- APPEALS
+  CREATE TABLE IF NOT EXISTS appeals (
+    id VARCHAR(255) PRIMARY KEY,
+    full_name TEXT,
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    library_id VARCHAR(100),
+    subject TEXT,
+    message TEXT,
+    status VARCHAR(50) DEFAULT 'new',
+    date TEXT,
+    resolved_at TEXT,
+    resolved_by VARCHAR(100),
+    resolution TEXT
+  );
+
+  -- NOTIFICATIONS
+  CREATE TABLE IF NOT EXISTS notifications (
+    id VARCHAR(255) PRIMARY KEY,
+    type VARCHAR(100),
+    title TEXT,
+    message TEXT,
+    target_role VARCHAR(100),
+    target_user_id VARCHAR(100),
+    date TEXT,
+    time TEXT,
+    read INTEGER DEFAULT 0,
+    created_at TEXT
+  );
+
+  -- KPI DATA
+  CREATE TABLE IF NOT EXISTS kpi_data (
+    id VARCHAR(255) PRIMARY KEY,
+    library_id VARCHAR(100),
+    category VARCHAR(100),
+    metric VARCHAR(100),
+    target DOUBLE PRECISION,
+    actual DOUBLE PRECISION,
+    unit VARCHAR(50),
+    period VARCHAR(50)
+  );
+
+  -- AUDIT LOG
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(100),
+    action VARCHAR(100),
+    module VARCHAR(100),
+    details TEXT,
+    ip_address VARCHAR(50),
+    timestamp TEXT
+  );
+
+  -- SETTINGS
+  CREATE TABLE IF NOT EXISTS settings (
+    "key" VARCHAR(255) PRIMARY KEY,
+    value TEXT
+  );
+
+  -- PERFORMANCE INDEXES
+  CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+  CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+  CREATE INDEX IF NOT EXISTS idx_users_library_id ON users(library_id);
+  CREATE INDEX IF NOT EXISTS idx_libraries_viloyat_tuman ON libraries(viloyat_id, tuman_id);
+  CREATE INDEX IF NOT EXISTS idx_reports_library_id ON reports(library_id);
+  CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+  CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
+  CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+  CREATE INDEX IF NOT EXISTS idx_activities_library_id ON activities(library_id);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user_role ON notifications(target_user_id, target_role, read);
+  CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp DESC);
+  `;
+
+  await pool.query(SCHEMA);
+  await refreshColumnsCache();
+}
+
+// Cache table columns
+let columnsCache = null;
+
+export async function refreshColumnsCache() {
+  const res = await pool.query(`
+    SELECT table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+  `);
+  const cache = {};
+  for (const row of res.rows) {
+    if (!cache[row.table_name]) cache[row.table_name] = new Set();
+    cache[row.table_name].add(row.column_name);
   }
-} catch (e) {
-  // column already exists or table busy
+  columnsCache = cache;
+  return columnsCache;
 }
 
-const usersWithMissingLibrary = db.prepare("SELECT * FROM users WHERE role IN ('kutubxona_xodimi', 'xodimlar_boshligi') AND (library_id IS NULL OR library_id = '')").all();
-for (const user of usersWithMissingLibrary) {
-  let library = db.prepare(
-    'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, id ASC LIMIT 1'
-  ).get(user.viloyat_id, user.tuman_id);
-
-  if (!library) {
-    const libraryId = `lib_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const label = user.tuman_id ? `Kutubxona (${user.tuman_id})` : 'Asosiy kutubxona';
-    db.prepare(
-      'INSERT INTO libraries (id, name, type, viloyat_id, tuman_id, address, phone, email, staff_count, founding_year, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)'
-    ).run(libraryId, label, 'district', user.viloyat_id, user.tuman_id, '', '', '', new Date().getFullYear(), 'active', new Date().toISOString());
-    library = { id: libraryId };
+export async function getTableColumns(tableName) {
+  if (!columnsCache) {
+    await refreshColumnsCache();
   }
-
-  db.prepare('UPDATE users SET library_id = ? WHERE id = ?').run(library.id, user.id);
-}
-
-const libraryCols = db.prepare('PRAGMA table_info(libraries)').all().map(c => c.name);
-if (!libraryCols.includes('latitude')) {
-  db.exec('ALTER TABLE libraries ADD COLUMN latitude REAL');
-}
-if (!libraryCols.includes('longitude')) {
-  db.exec('ALTER TABLE libraries ADD COLUMN longitude REAL');
-}
-
-const readerCols = db.prepare('PRAGMA table_info(readers)').all().map(c => c.name);
-if (!readerCols.includes('birth_date')) {
-  db.exec('ALTER TABLE readers ADD COLUMN birth_date TEXT');
-}
-if (!readerCols.includes('created_at')) {
-  db.exec('ALTER TABLE readers ADD COLUMN created_at TEXT');
-}
-
-// Activities: data ustuni qo'shish (bitta kunlik hisobot JSON sifatida)
-const activityCols = db.prepare('PRAGMA table_info(activities)').all().map(c => c.name);
-if (!activityCols.includes('count')) {
-  db.exec('ALTER TABLE activities ADD COLUMN count INTEGER');
-}
-if (!activityCols.includes('data')) {
-  db.exec('ALTER TABLE activities ADD COLUMN data TEXT');
-}
-
-// Events: target_scope va target_tumans ustunlari qo'shish
-const eventCols = db.prepare('PRAGMA table_info(events)').all().map(c => c.name);
-if (!eventCols.includes('target_scope')) {
-  db.exec('ALTER TABLE events ADD COLUMN target_scope TEXT');
-}
-if (!eventCols.includes('target_tumans')) {
-  db.exec('ALTER TABLE events ADD COLUMN target_tumans TEXT');
+  return columnsCache[tableName] || new Set();
 }
 
 // ============================================================
 // HELPER: Row <-> Object conversion
 // ============================================================
 
-// JSON fields that need parsing when reading from DB
 const JSON_FIELDS = {
   reports: ['data'],
   events: ['target_tumans'],
   activities: ['data'],
 };
 
-// Convert DB row to JS object (camelCase + JSON parse)
 export function rowToObject(table, row) {
   if (!row) return null;
   const obj = {};
   for (const [key, value] of Object.entries(row)) {
-    // Convert snake_case to camelCase
     const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-    // Parse JSON fields
     const jsonFields = JSON_FIELDS[table] || [];
     if (jsonFields.includes(key) && value) {
-      try { obj[camelKey] = JSON.parse(value); } catch { obj[camelKey] = value; }
+      try {
+        obj[camelKey] = typeof value === 'object' ? value : JSON.parse(value);
+      } catch {
+        obj[camelKey] = value;
+      }
     } else if (key === 'active' || key === 'read') {
-      obj[camelKey] = value === 1;
+      obj[camelKey] = value === 1 || value === true;
     } else {
       obj[camelKey] = value;
     }
@@ -335,18 +385,30 @@ export function rowToObject(table, row) {
   return obj;
 }
 
-// Convert JS object to DB fields (snake_case + JSON stringify)
+const NUMERIC_COLUMNS = new Set([
+  'latitude', 'longitude', 'staff_count', 'founding_year',
+  'copies_total', 'copies_available', 'year', 'pages',
+  'birth_year', 'borrowed_count', 'count', 'participants',
+  'quantity', 'unit_price', 'target', 'actual', 'read', 'active'
+]);
+
 export function objectToRow(table, obj) {
   const row = {};
   for (const [key, value] of Object.entries(obj)) {
-    // Convert camelCase to snake_case
     const snakeKey = key.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
-    // Stringify JSON fields
     const jsonFields = JSON_FIELDS[table] || [];
+
     if (jsonFields.includes(snakeKey) && value !== null && typeof value === 'object') {
       row[snakeKey] = JSON.stringify(value);
     } else if (key === 'active' || key === 'read') {
       row[snakeKey] = value ? 1 : 0;
+    } else if (NUMERIC_COLUMNS.has(snakeKey)) {
+      if (value === '' || value === null || value === undefined) {
+        row[snakeKey] = null;
+      } else {
+        const num = Number(value);
+        row[snakeKey] = isNaN(num) ? null : num;
+      }
     } else {
       row[snakeKey] = value;
     }
@@ -358,7 +420,7 @@ export function objectToRow(table, obj) {
 // GENERIC QUERY HELPERS
 // ============================================================
 
-export function resolveUserLibraryId(user) {
+export async function resolveUserLibraryId(user) {
   const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
   if (!user || !libraryRoles.includes(user.role)) return user;
   if (user.libraryId || user.library_id) return user;
@@ -367,82 +429,97 @@ export function resolveUserLibraryId(user) {
   const tumanId = user.tumanId || user.tuman_id;
   if (!viloyatId || !tumanId) return user;
 
-  let library = db.prepare(
-    'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, id ASC LIMIT 1'
-  ).get(viloyatId, tumanId);
+  const res = await query(
+    'SELECT id FROM libraries WHERE viloyat_id = ? AND tuman_id = ? ORDER BY created_at DESC, id ASC LIMIT 1',
+    [viloyatId, tumanId]
+  );
+  let library = res.rows[0];
 
   if (!library) {
     const libraryId = `lib_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const label = tumanId ? `Kutubxona (${tumanId})` : 'Asosiy kutubxona';
-    db.prepare(
-      'INSERT INTO libraries (id, name, type, viloyat_id, tuman_id, address, phone, email, staff_count, founding_year, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)'
-    ).run(libraryId, label, 'district', viloyatId, tumanId, '', '', '', new Date().getFullYear(), 'active', new Date().toISOString());
+    await query(
+      'INSERT INTO libraries (id, name, type, viloyat_id, tuman_id, address, phone, email, staff_count, founding_year, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)',
+      [libraryId, label, 'district', viloyatId, tumanId, '', '', '', new Date().getFullYear(), 'active', new Date().toISOString()]
+    );
     library = { id: libraryId };
   }
 
-  db.prepare('UPDATE users SET library_id = ? WHERE id = ?').run(library.id, user.id);
+  await query('UPDATE users SET library_id = ? WHERE id = ?', [library.id, user.id]);
   return { ...user, libraryId: library.id, library_id: library.id };
 }
 
-export function getAll(table, where = '', params = []) {
+export async function getAll(table, where = '', params = []) {
   const sql = where
     ? `SELECT * FROM ${table} WHERE ${where}`
     : `SELECT * FROM ${table}`;
-  const rows = db.prepare(sql).all(...params);
-  return rows.map(r => {
+  const res = await query(sql, params);
+  const items = [];
+  for (const r of res.rows) {
     const obj = rowToObject(table, r);
-    return table === 'users' ? resolveUserLibraryId(obj) : obj;
-  });
+    items.push(table === 'users' ? await resolveUserLibraryId(obj) : obj);
+  }
+  return items;
 }
 
-export function getById(table, id) {
-  const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id);
+export async function getById(table, id) {
+  const res = await query(`SELECT * FROM ${table} WHERE id = ?`, [id]);
+  const row = res.rows[0];
+  if (!row) return null;
   const obj = rowToObject(table, row);
-  return table === 'users' ? resolveUserLibraryId(obj) : obj;
+  return table === 'users' ? await resolveUserLibraryId(obj) : obj;
 }
 
-export function insertRow(table, obj) {
+export async function insertRow(table, obj) {
   const row = objectToRow(table, obj);
-  const tableColumns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name));
-  const keys = Object.keys(row).filter(k => tableColumns.has(k));
-  const placeholders = keys.map(() => '?').join(', ');
-  const values = keys.map(k => row[k]);
-  db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
-  return getById(table, obj.id);
+  const tableColumns = await getTableColumns(table);
+  const keys = Object.keys(row).filter((k) => tableColumns.has(k));
+  const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+  const quotedKeys = keys.map((k) => `"${k}"`).join(', ');
+  const values = keys.map((k) => row[k]);
+  await pool.query(`INSERT INTO ${table} (${quotedKeys}) VALUES (${placeholders})`, values);
+  return await getById(table, obj.id);
 }
 
-export function updateRow(table, id, updates) {
+export async function updateRow(table, id, updates) {
   const row = objectToRow(table, updates);
-  delete row.id; // Don't update ID
-  const tableColumns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name));
-  const keys = Object.keys(row).filter(k => tableColumns.has(k));
-  if (keys.length === 0) return getById(table, id);
-  const setClause = keys.map(k => `${k} = ?`).join(', ');
-  const values = keys.map(k => row[k]);
-  db.prepare(`UPDATE ${table} SET ${setClause} WHERE id = ?`).run(...values, id);
-  return getById(table, id);
+  delete row.id;
+  const tableColumns = await getTableColumns(table);
+  const keys = Object.keys(row).filter((k) => tableColumns.has(k));
+  if (keys.length === 0) return await getById(table, id);
+  const setClause = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+  const values = keys.map((k) => row[k]);
+  values.push(id);
+  await pool.query(`UPDATE ${table} SET ${setClause} WHERE id = $${values.length}`, values);
+  return await getById(table, id);
 }
 
-export function deleteRow(table, id) {
-  const result = db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id);
-  return result.changes > 0;
+export async function deleteRow(table, id) {
+  const res = await query(`DELETE FROM ${table} WHERE id = ?`, [id]);
+  return res.rowCount > 0;
 }
 
-export function getSetting(key, defaultValue = null) {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  if (!row) return defaultValue;
-  try { return JSON.parse(row.value); } catch { return row.value; }
+export async function getSetting(key, defaultValue = null) {
+  const res = await query('SELECT value FROM settings WHERE "key" = ?', [key]);
+  if (!res.rows[0]) return defaultValue;
+  try {
+    return JSON.parse(res.rows[0].value);
+  } catch {
+    return res.rows[0].value;
+  }
 }
 
-export function setSetting(key, value) {
+export async function setSetting(key, value) {
   const val = typeof value === 'object' ? JSON.stringify(value) : String(value);
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, val);
+  await query(
+    'INSERT INTO settings ("key", value) VALUES (?, ?) ON CONFLICT ("key") DO UPDATE SET value = EXCLUDED.value',
+    [key, val]
+  );
 }
 
-// Check if database has been seeded
-export function isSeeded() {
-  const row = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  return row.count > 0;
+export async function isSeeded() {
+  const res = await query('SELECT COUNT(*) as count FROM users');
+  return parseInt(res.rows[0]?.count || 0, 10) > 0;
 }
 
 export default db;
