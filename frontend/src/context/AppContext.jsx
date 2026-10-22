@@ -804,6 +804,7 @@ export function AppProvider({ children }) {
       const totals = {
         kitob_skanerlash: 0,
         kitob_pdf: 0,
+        ijtimoiy_tarmoq: 0,
         texnik_xizmat: 0,
         jihozlash: 0,
         tuzatish: 0,
@@ -898,6 +899,7 @@ export function AppProvider({ children }) {
       const totals = {
         kitob_skanerlash: 0,
         kitob_pdf: 0,
+        ijtimoiy_tarmoq: 0,
         texnik_xizmat: 0,
         jihozlash: 0,
         tuzatish: 0,

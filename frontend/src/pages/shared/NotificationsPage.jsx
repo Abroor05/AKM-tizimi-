@@ -33,7 +33,7 @@ export default function NotificationsPage() {
   const unreadCount = getUnreadCount();
 
   return (
-    <div>
+    <div className="abror">
       <PageHeader title="Bildirishnomalar" subtitle="Tizim bildirishnomalari va xabarnomalar" icon={ICONS.notifications}
         action={unreadCount > 0 ? <button onClick={markAllRead} className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"><ICONS.check className="text-sm" /> Hammasini o'qildi</button> : null} />
 
@@ -41,7 +41,7 @@ export default function NotificationsPage() {
         <EmptyState icon={ICONS.notifications} title="Bildirishnomalar yo'q" message="Sizda hozircha bildirishnomalar mavjud emas" />
       ) : (
         <Card noPadding>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 abror">
             {notifications.map(n => {
               const config = TYPE_CONFIG[n.type] || TYPE_CONFIG[NOTIFICATION_TYPES.INFO];
               const Icon = config.icon;

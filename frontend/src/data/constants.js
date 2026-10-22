@@ -268,6 +268,7 @@ export const REPORT_TYPES = {
   THEMATIC: 'thematic',
   FINANCIAL: 'financial',
   ACTIVITY: 'activity',
+  SOCIAL: 'social',
 };
 
 export const REPORT_TYPE_LABELS = {
@@ -278,7 +279,72 @@ export const REPORT_TYPE_LABELS = {
   [REPORT_TYPES.THEMATIC]: 'Mavzuli hisobot',
   [REPORT_TYPES.FINANCIAL]: 'Moliyaviy hisobot',
   [REPORT_TYPES.ACTIVITY]: 'Faoliyat hisoboti',
+  [REPORT_TYPES.SOCIAL]: 'Ijtimoiy tarmoqlar hisoboti',
 };
+
+// --- SOCIAL MEDIA PLATFORMS CONFIG ---
+export const SOCIAL_PLATFORMS = [
+  {
+    key: 'telegram',
+    label: 'Telegram',
+    icon: 'telegram',
+    color: '#229ED9',
+    textColor: 'text-sky-500',
+    bgColor: 'bg-sky-50',
+    borderColor: 'border-sky-200',
+    badgeColor: 'sky',
+    placeholder: 'Telegram kanal yoki guruhga qanday post/e\'lon joylandi? (Mavzu va tavsif)...',
+    unit: 'ta post/e\'lon',
+  },
+  {
+    key: 'instagram',
+    label: 'Instagram',
+    icon: 'instagram',
+    color: '#E1306C',
+    textColor: 'text-pink-600',
+    bgColor: 'bg-pink-50',
+    borderColor: 'border-pink-200',
+    badgeColor: 'pink',
+    placeholder: 'Post, reels yoki stories mazmuni haqida izoh...',
+    unit: 'ta post/reels',
+  },
+  {
+    key: 'facebook',
+    label: 'Facebook',
+    icon: 'facebook',
+    color: '#1877F2',
+    textColor: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    badgeColor: 'blue',
+    placeholder: 'Facebook sahifaga qanday yangilik yoki maqola joylandi?...',
+    unit: 'ta post/maqola',
+  },
+  {
+    key: 'twitter',
+    label: 'Twitter (X)',
+    icon: 'twitter',
+    color: '#0f172a',
+    textColor: 'text-slate-800',
+    bgColor: 'bg-slate-100',
+    borderColor: 'border-slate-300',
+    badgeColor: 'gray',
+    placeholder: 'X (Twitter)da qanday tvit yoki e\'lon berildi?...',
+    unit: 'ta tvit/post',
+  },
+  {
+    key: 'youtube',
+    label: 'YouTube',
+    icon: 'youtube',
+    color: '#FF0000',
+    textColor: 'text-red-600',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-200',
+    badgeColor: 'red',
+    placeholder: 'YouTube kanalga qanday video, shorts yoki efir yuklandi?...',
+    unit: 'ta video/shorts',
+  },
+];
 
 // --- REPORT STATUS ---
 export const REPORT_STATUS = {
@@ -471,6 +537,7 @@ export const APPEAL_STATUS_COLORS = {
 export const ACTIVITY_TYPES = {
   KITOB_SKANERLASH: 'kitob_skanerlash',
   KITOB_PDF: 'kitob_pdf',
+  IJTIMOIY_TARMOQ: 'ijtimoiy_tarmoq',
   TEXNIK_XIZMAT: 'texnik_xizmat',
   JIHOZLASH: 'jihozlash',
   TUZATISH: 'tuzatish',
@@ -480,6 +547,7 @@ export const ACTIVITY_TYPES = {
 export const ACTIVITY_TYPE_LABELS = {
   kitob_skanerlash: 'Skanerlash ishlari (sahifa)',
   kitob_pdf:        'Elektronlashtirish / PDF (fayl)',
+  ijtimoiy_tarmoq:  "Ijtimoiy tarmoqlar (post / e'lon)",
   texnik_xizmat:    'Texnik xizmat',
   jihozlash:        'Jihozlash va tarmoq',
   tuzatish:         "Ta'mirlash va sozlash",
@@ -489,6 +557,7 @@ export const ACTIVITY_TYPE_LABELS = {
 export const ACTIVITY_TYPE_COLORS = {
   kitob_skanerlash: 'blue',
   kitob_pdf:        'indigo',
+  ijtimoiy_tarmoq:  'purple',
   texnik_xizmat:    'amber',
   jihozlash:        'teal',
   tuzatish:         'red',

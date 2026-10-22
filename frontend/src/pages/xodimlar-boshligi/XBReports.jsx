@@ -28,11 +28,14 @@ import { getViloyatName, getTumanName } from '../../data/regions.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import SocialMediaReportModal from '../../components/common/SocialMediaReportModal.jsx';
+import SocialMediaReportsView from '../../components/common/SocialMediaReportsView.jsx';
 
 // Qisqa nomlar
 const TYPE_SHORT = {
   kitob_skanerlash: 'Skanerlash (sahifa)',
   kitob_pdf:        'Elektronlashtirish / PDF (fayl)',
+  ijtimoiy_tarmoq:  "Ijtimoiy tarmoqlar (post/e'lon)",
   texnik_xizmat:    'Texnik xizmat',
   jihozlash:        'Jihozlash',
   tuzatish:         "Ta'mirlash",
@@ -110,6 +113,15 @@ export default function XBReports() {
     [allActs, currentUser, myStaff]
   );
 
+  // Kutubxonaga tegishli ijtimoiy tarmoq hisobotlari
+  const socialActs = useMemo(() =>
+    allActs.filter(a =>
+      (a.libraryId === currentUser?.libraryId || a.userId === currentUser?.id || myStaff.some(s => s.id === a.userId)) &&
+      (a.type === 'social_report' || a.type === 'social')
+    ),
+    [allActs, currentUser, myStaff]
+  );
+
   // Bo'lim boshlig'i hisobotlari
   const myReports = useMemo(() =>
     allReports.filter(r =>
@@ -133,6 +145,7 @@ export default function XBReports() {
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
   const [createType, setCreateType] = useState(REPORT_TYPES.MONTHLY);
   const [detailReport, setDetailReport] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,6 +160,7 @@ export default function XBReports() {
     counts: {
       kitob_skanerlash: 0,
       kitob_pdf: 0,
+      ijtimoiy_tarmoq: 0,
       texnik_xizmat: 0,
       jihozlash: 0,
       tuzatish: 0,
@@ -156,7 +170,7 @@ export default function XBReports() {
     events: 0,
   });
 
-  // Daily form for head
+  // Daily form for head (faqat skanerlash, pdf va texnik xizmatlar, ijtimoiy tarmoqlar alohida)
   const [dailyForm, setDailyForm] = useState({
     date: today,
     time: new Date().toTimeString().slice(0, 5),
@@ -212,6 +226,7 @@ export default function XBReports() {
       const totals = {
         kitob_skanerlash: 0,
         kitob_pdf: 0,
+        ijtimoiy_tarmoq: 0,
         texnik_xizmat: 0,
         jihozlash: 0,
         tuzatish: 0,
@@ -270,6 +285,7 @@ export default function XBReports() {
 
       let scanner = 0;
       let pdf = 0;
+      let social = 0;
       let texnik = 0;
       let jami = 0;
 
@@ -277,9 +293,10 @@ export default function XBReports() {
         const d = parseData(a);
         scanner += Number(d.kitob_skanerlash || 0);
         pdf     += Number(d.kitob_pdf || 0);
+        social  += Number(d.ijtimoiy_tarmoq || 0);
         texnik  += Number(d.texnik_xizmat || 0) + Number(d.jihozlash || 0) + Number(d.tuzatish || 0) + Number(d.boshqa || 0);
       });
-      jami = scanner + pdf + texnik;
+      jami = scanner + pdf + social + texnik;
 
       return {
         monthKey: monthPrefix,
@@ -287,6 +304,7 @@ export default function XBReports() {
         fullName: mName,
         scanner,
         pdf,
+        social,
         texnik,
         jami,
         actsCount: acts.length,
@@ -299,6 +317,7 @@ export default function XBReports() {
     const totals = {
       kitob_skanerlash: 0,
       kitob_pdf: 0,
+      ijtimoiy_tarmoq: 0,
       texnik_xizmat: 0,
       jihozlash: 0,
       tuzatish: 0,
@@ -359,6 +378,7 @@ export default function XBReports() {
     const counts = {
       kitob_skanerlash: 0,
       kitob_pdf: 0,
+      ijtimoiy_tarmoq: 0,
       texnik_xizmat: 0,
       jihozlash: 0,
       tuzatish: 0,
@@ -649,6 +669,13 @@ export default function XBReports() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
+              onClick={() => setShowSocialModal(true)}
+              className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 shadow-2xs font-semibold"
+            >
+              <ICONS.share className="text-purple-600 text-sm" /> Ijtimoiy tarmoq
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => handleOpenCreateModal(REPORT_TYPES.MONTHLY)}
               className="bg-white border-teal-200 text-teal-800 hover:bg-teal-50"
             >
@@ -738,6 +765,21 @@ export default function XBReports() {
           <span>Kunlik hisobotlar (Har kuni)</span>
           <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800 font-bold">
             {myLibActs.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('social_media')}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-semibold text-sm whitespace-nowrap transition-colors ${
+            activeTab === 'social_media'
+              ? 'border-purple-600 text-purple-700 bg-purple-50/40 rounded-t-lg'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <ICONS.share className="text-base" />
+          <span>Ijtimoiy tarmoqlar hisoboti</span>
+          <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 font-bold">
+            {socialActs.length}
           </span>
         </button>
 
@@ -897,6 +939,13 @@ export default function XBReports() {
                     </div>
 
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <p className="text-[11px] text-slate-500 font-medium">Ijtimoiy tarmoqlar</p>
+                      <p className="text-lg font-extrabold text-purple-700 mt-0.5">
+                        {formatNumber(item.totals.ijtimoiy_tarmoq || 0)} <span className="text-[10px] font-normal text-slate-400">post</span>
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                       <p className="text-[11px] text-slate-500 font-medium">Texnik xizmat</p>
                       <p className="text-lg font-extrabold text-teal-700 mt-0.5">
                         {formatNumber(item.totals.texnik_xizmat)} <span className="text-[10px] font-normal text-slate-400">ta</span>
@@ -988,7 +1037,7 @@ export default function XBReports() {
           </div>
 
           {/* Yearly grand totals cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <Card className="text-center bg-gradient-to-br from-blue-50/70 to-white border-blue-200">
               <p className="text-2xl font-black text-blue-700">{formatNumber(yearGrandTotals.totals.kitob_skanerlash)}</p>
               <p className="text-xs font-semibold text-slate-600 mt-1">Yillik skanerlangan sahifalar</p>
@@ -997,15 +1046,19 @@ export default function XBReports() {
               <p className="text-2xl font-black text-indigo-700">{formatNumber(yearGrandTotals.totals.kitob_pdf)}</p>
               <p className="text-xs font-semibold text-slate-600 mt-1">Yillik elektronlashtirilgan (PDF) fayllar</p>
             </Card>
+            <Card className="text-center bg-gradient-to-br from-purple-50/70 to-white border-purple-200">
+              <p className="text-2xl font-black text-purple-700">{formatNumber(yearGrandTotals.totals.ijtimoiy_tarmoq || 0)}</p>
+              <p className="text-xs font-semibold text-slate-600 mt-1">Yillik ijtimoiy tarmoq post/e'lonlari</p>
+            </Card>
             <Card className="text-center bg-gradient-to-br from-teal-50/70 to-white border-teal-200">
               <p className="text-2xl font-black text-teal-700">
                 {formatNumber(yearGrandTotals.totals.texnik_xizmat + yearGrandTotals.totals.jihozlash + yearGrandTotals.totals.tuzatish + yearGrandTotals.totals.boshqa)}
               </p>
               <p className="text-xs font-semibold text-slate-600 mt-1">Texnik & boshqa xizmatlar</p>
             </Card>
-            <Card className="text-center bg-gradient-to-br from-purple-50/70 to-white border-purple-200">
-              <p className="text-3xl font-black text-purple-700">{formatNumber(yearGrandTotals.grand)}</p>
-              <p className="text-xs font-bold text-purple-900 mt-1">JAMI YILLIK ISHLAR</p>
+            <Card className="text-center bg-gradient-to-br from-emerald-50/70 to-white border-emerald-200">
+              <p className="text-3xl font-black text-emerald-800">{formatNumber(yearGrandTotals.grand)}</p>
+              <p className="text-xs font-bold text-emerald-950 mt-1">JAMI YILLIK ISHLAR</p>
             </Card>
           </div>
 
@@ -1019,14 +1072,15 @@ export default function XBReports() {
                 <Tooltip
                   formatter={(val, name) => [
                     formatNumber(val),
-                    name === 'scanner' ? 'Skanerlash' : name === 'pdf' ? 'PDF qilish' : 'Texnik xizmatlar'
+                    name === 'scanner' ? 'Skanerlash' : name === 'pdf' ? 'PDF qilish' : name === 'social' ? 'Ijtimoiy tarmoq' : 'Texnik xizmatlar'
                   ]}
                 />
                 <Legend
-                  formatter={(value) => value === 'scanner' ? 'Skanerlash (sahifa)' : value === 'pdf' ? 'Elektron / PDF (fayl)' : 'Texnik xizmatlar'}
+                  formatter={(value) => value === 'scanner' ? 'Skanerlash (sahifa)' : value === 'pdf' ? 'Elektron / PDF (fayl)' : value === 'social' ? 'Ijtimoiy tarmoq (post)' : 'Texnik xizmatlar'}
                 />
                 <Bar dataKey="scanner" fill="#3b82f6" radius={[4, 4, 0, 0]} name="scanner" />
                 <Bar dataKey="pdf" fill="#6366f1" radius={[4, 4, 0, 0]} name="pdf" />
+                <Bar dataKey="social" fill="#a855f7" radius={[4, 4, 0, 0]} name="social" />
                 <Bar dataKey="texnik" fill="#0d9488" radius={[4, 4, 0, 0]} name="texnik" />
               </BarChart>
             </ResponsiveContainer>
@@ -1145,6 +1199,7 @@ export default function XBReports() {
                       <th className="text-left px-4 py-3">Xodim</th>
                       <th className="text-center px-3 py-3">Scanner</th>
                       <th className="text-center px-3 py-3">PDF</th>
+                      <th className="text-center px-3 py-3">Post/E'lon</th>
                       <th className="text-center px-3 py-3">Texnik</th>
                       <th className="text-center px-3 py-3">Jihozlash</th>
                       <th className="text-center px-3 py-3">Holat</th>
@@ -1188,6 +1243,9 @@ export default function XBReports() {
                           </td>
                           <td className="text-center px-3 py-3 font-semibold text-indigo-700">
                             {d.kitob_pdf ? formatNumber(d.kitob_pdf) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="text-center px-3 py-3 font-semibold text-purple-700">
+                            {d.ijtimoiy_tarmoq ? formatNumber(d.ijtimoiy_tarmoq) : <span className="text-slate-300">—</span>}
                           </td>
                           <td className="text-center px-3 py-3 font-semibold text-teal-700">
                             {d.texnik_xizmat ? formatNumber(d.texnik_xizmat) : <span className="text-slate-300">—</span>}
@@ -1308,6 +1366,24 @@ export default function XBReports() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          TAB 5: IJTIMOIY TARMOQLAR HISOBOTI (Kunlik / Oylik / Yillik)
+      ══════════════════════════════════════════════════════════ */}
+      {activeTab === 'social_media' && (
+        <SocialMediaReportsView
+          activities={allActs.filter(a =>
+            a.libraryId === currentUser?.libraryId ||
+            a.userId === currentUser?.id ||
+            myStaff.some(s => s.id === a.userId)
+          )}
+          users={allUsers}
+          libraries={libraries}
+          currentUser={currentUser}
+          onOpenCreateModal={() => setShowSocialModal(true)}
+          canCreate={true}
+        />
       )}
 
       {/* ══════════════════════════════════════════════════════════
@@ -1925,6 +2001,17 @@ export default function XBReports() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* ── Modal: Ijtimoiy tarmoq hisoboti kiritish ── */}
+      {showSocialModal && (
+        <SocialMediaReportModal
+          isOpen={showSocialModal}
+          onClose={() => setShowSocialModal(false)}
+          currentUser={currentUser}
+          libraries={libraries}
+          createEntity={createEntity}
+        />
       )}
     </div>
   );

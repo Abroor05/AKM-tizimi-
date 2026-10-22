@@ -312,6 +312,7 @@ if (!eventCols.includes('target_tumans')) {
 const JSON_FIELDS = {
   reports: ['data'],
   events: ['target_tumans'],
+  activities: ['data'],
 };
 
 // Convert DB row to JS object (camelCase + JSON parse)

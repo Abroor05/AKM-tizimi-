@@ -16,11 +16,14 @@ import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES, ACTIVITY_TYPE_LABELS } from '../../data/constants.js';
 import { formatDate, formatNumber } from '../../utils/helpers.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import SocialMediaReportModal from '../../components/common/SocialMediaReportModal.jsx';
+import SocialMediaReportsView from '../../components/common/SocialMediaReportsView.jsx';
 
 // ─── Helpers ─────────────────────────────────────────────────
 const TYPE_SHORT = {
   kitob_skanerlash: 'Scanner',
   kitob_pdf:        'PDF',
+  ijtimoiy_tarmoq:  "Post / E'lon",
   texnik_xizmat:    'Texnik',
   jihozlash:        'Jihozlash',
   tuzatish:         "Ta'mirlash",
@@ -55,6 +58,7 @@ const TABS = [
   { id: 'incoming', label: "Kelgan hisobotlar" },
   { id: 'monthly',  label: 'Oylik jami'         },
   { id: 'yearly',   label: 'Yillik'              },
+  { id: 'social',   label: 'Ijtimoiy tarmoqlar'  },
 ];
 
 const TASK_ACTIVITY_CONFIG = [
@@ -116,10 +120,15 @@ export default function XBDailyActivity() {
   const allUsers  = useMemo(() => getCollection(STORAGE_KEYS.USERS),      [getCollection]);
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
 
+  // Faqat o'z kutubxonasidagi barcha faoliyatlar (daily va social)
+  const myAllActs = useMemo(() =>
+    allActs.filter(a => ((currentUser?.libraryId && a.libraryId === currentUser?.libraryId) || a.userId === currentUser?.id)),
+    [allActs, currentUser]);
+
   // Faqat o'z kutubxonasidagi daily_report lar
   const myLibActs = useMemo(() =>
-    allActs.filter(a => ((currentUser?.libraryId && a.libraryId === currentUser?.libraryId) || a.userId === currentUser?.id) && a.type === 'daily_report'),
-    [allActs, currentUser]);
+    myAllActs.filter(a => a.type === 'daily_report'),
+    [myAllActs]);
 
   // Xodimlar
   const myStaff = useMemo(() =>
@@ -127,15 +136,16 @@ export default function XBDailyActivity() {
     [allUsers, currentUser]);
 
   const today = new Date().toISOString().split('T')[0];
-  const [activeTab,   setActiveTab]   = useState('incoming');
-  const [showModal,   setShowModal]   = useState(false);
-  const [showDetail,  setShowDetail]  = useState(null);
-  const [accepting,   setAccepting]   = useState(null);
-  const [sendingAdmin, setSendingAdmin] = useState(false);
-  const [monthFilter, setMonthFilter] = useState(today.slice(0, 7));
-  const [yearFilter,  setYearFilter]  = useState(today.slice(0, 4));
-  const [staffFilter, setStaffFilter] = useState('all');
-  const [form,        setForm]        = useState(buildEmptyForm);
+  const [activeTab,       setActiveTab]       = useState('incoming');
+  const [showModal,       setShowModal]       = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
+  const [showDetail,      setShowDetail]      = useState(null);
+  const [accepting,       setAccepting]       = useState(null);
+  const [sendingAdmin,    setSendingAdmin]    = useState(false);
+  const [monthFilter,     setMonthFilter]     = useState(today.slice(0, 7));
+  const [yearFilter,      setYearFilter]      = useState(today.slice(0, 4));
+  const [staffFilter,     setStaffFilter]     = useState('all');
+  const [form,            setForm]            = useState(buildEmptyForm);
 
   // ─── Kelgan hisobotlar (faqat 'sent' statuslilar) ─────────
   const incomingActs = useMemo(() => {
@@ -208,6 +218,7 @@ export default function XBDailyActivity() {
         name: m,
         scanner: base.reduce((s,a) => s + (parseData(a).kitob_skanerlash || 0), 0),
         pdf:     base.reduce((s,a) => s + (parseData(a).kitob_pdf || 0), 0),
+        social:  base.reduce((s,a) => s + (parseData(a).ijtimoiy_tarmoq || 0), 0),
         jami:    base.length,
       };
     });
@@ -364,6 +375,13 @@ export default function XBDailyActivity() {
             <Button onClick={() => setShowModal(true)}>
               <ICONS.plus /> O'z hisobotim
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowSocialModal(true)}
+              className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 shadow-2xs font-semibold"
+            >
+              <ICONS.share className="text-purple-600 text-sm" /> Ijtimoiy tarmoq
+            </Button>
           </div>
         }
       />
@@ -440,7 +458,7 @@ export default function XBDailyActivity() {
                           </td>
                           {Object.keys(TYPE_SHORT).map(k => {
                             const val = data[k];
-                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf';
+                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf' || k === 'ijtimoiy_tarmoq';
                             if (isNumeric) {
                               return (
                                 <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
@@ -530,8 +548,8 @@ export default function XBDailyActivity() {
           {/* Oylik jami kartalar */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => {
-              const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf';
-              const unit = key === 'kitob_skanerlash' ? 'sahifa' : key === 'kitob_pdf' ? 'fayl' : 'marta';
+              const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf' || key === 'ijtimoiy_tarmoq';
+              const unit = key === 'kitob_skanerlash' ? 'sahifa' : key === 'kitob_pdf' ? 'fayl' : key === 'ijtimoiy_tarmoq' ? 'ta post' : 'marta';
               return (
                 <Card key={key} className="text-center">
                   <p className="text-2xl font-bold text-teal-600">
@@ -613,7 +631,7 @@ export default function XBDailyActivity() {
                           <td className="px-4 py-3 text-gray-600 text-xs">{owner?.fullName || '—'}</td>
                           {Object.keys(TYPE_SHORT).map(k => {
                             const val = data[k];
-                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf';
+                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf' || k === 'ijtimoiy_tarmoq';
                             if (isNumeric) {
                               return (
                                 <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
@@ -1000,8 +1018,8 @@ export default function XBDailyActivity() {
               return (
                 <div className="space-y-2">
                   {entries.map(([key, val]) => {
-                    const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf';
-                    const unit = key === 'kitob_skanerlash' ? 'sahifa' : 'fayl';
+                    const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf' || key === 'ijtimoiy_tarmoq';
+                    const unit = key === 'kitob_skanerlash' ? 'sahifa' : key === 'kitob_pdf' ? 'fayl' : 'ta post';
                     const note = notes[key];
                     return (
                       <div key={key} className="p-3 rounded-xl bg-gray-50 border border-gray-100">
@@ -1028,13 +1046,31 @@ export default function XBDailyActivity() {
                 </div>
               );
             })()}
-            {showDetail.description && (
-              <div className="px-4 py-3 rounded-lg bg-amber-50 border border-amber-100 text-sm text-gray-600 mt-2">
-                <span className="font-medium text-amber-700">Qo'shimcha izoh: </span>{showDetail.description}
-              </div>
-            )}
           </div>
         </Modal>
+      )}
+
+      {/* ── TAB: Ijtimoiy tarmoqlar ── */}
+      {activeTab === 'social' && (
+        <SocialMediaReportsView
+          activities={myAllActs}
+          users={allUsers}
+          libraries={libraries}
+          currentUser={currentUser}
+          onOpenCreateModal={() => setShowSocialModal(true)}
+          canCreate={true}
+        />
+      )}
+
+      {/* Ijtimoiy tarmoqlar hisoboti modali */}
+      {showSocialModal && (
+        <SocialMediaReportModal
+          isOpen={showSocialModal}
+          onClose={() => setShowSocialModal(false)}
+          currentUser={currentUser}
+          libraries={libraries}
+          createEntity={createEntity}
+        />
       )}
     </div>
   );

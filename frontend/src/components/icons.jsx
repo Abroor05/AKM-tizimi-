@@ -18,10 +18,20 @@ import {
   FaRotateRight, FaTableList, FaTriangleExclamation,
   FaSun, FaMoon, FaCircleHalfStroke,
   FaGlobe, FaBullseye,
+  FaTelegram, FaInstagram, FaFacebook, FaXTwitter, FaYoutube, FaShareNodes, FaArrowUpRightFromSquare,
   FaCircleCheck as CheckIcon, FaCircleXmark as XIcon,
 } from 'react-icons/fa6';
 
 const ICON_MAP = {
+  // Social icons
+  telegram: FaTelegram,
+  instagram: FaInstagram,
+  facebook: FaFacebook,
+  twitter: FaXTwitter,
+  youtube: FaYoutube,
+  share: FaShareNodes,
+  externalLink: FaArrowUpRightFromSquare,
+
   // Global & targeting icons
   globe: FaGlobe,
   bullseye: FaBullseye,

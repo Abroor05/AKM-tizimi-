@@ -156,7 +156,7 @@ Himoyalangan API endpointlaridan foydalanish uchun \`POST /auth/login\` orqali t
           date: { type: 'string', example: '2026-10-08' },
           time: { type: 'string', example: '18:00' },
           count: { type: 'integer', example: 45 },
-          data: { type: 'string', example: '{"visitors":45,"booksGiven":32,"newReaders":4}' },
+          data: { type: 'string', example: '{"kitob_skanerlash":45,"kitob_pdf":10,"ijtimoiy_tarmoq":3}' },
           status: { type: 'string', example: 'completed' },
         },
       },

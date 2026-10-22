@@ -14,9 +14,13 @@ import ICONS from '../../components/icons.jsx';
 import { REPORT_TYPES, REPORT_TYPE_LABELS, REPORT_STATUS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS, ROLES, ROLE_LABELS, STORAGE_KEYS } from '../../data/constants.js';
 import { formatDate, formatMoney, formatNumber } from '../../utils/helpers.js';
 import { getViloyatName, getTumanName } from '../../data/regions.js';
+import SocialMediaReportsView from '../../components/common/SocialMediaReportsView.jsx';
+import SocialMediaReportModal from '../../components/common/SocialMediaReportModal.jsx';
 
 export default function ReportsPage() {
-  const { currentUser, getReports, createReport, submitReport, reviewReport, isRole, hasPermission, getCollection } = useApp();
+  const { currentUser, getReports, createReport, submitReport, reviewReport, isRole, hasPermission, getCollection, createEntity } = useApp();
+  const [mainTab, setMainTab] = useState('general'); // 'general' | 'social'
+  const [showSocialModal, setShowSocialModal] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -28,8 +32,14 @@ export default function ReportsPage() {
   const [form, setForm] = useState({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
 
   const allReports = useMemo(() => getReports(), [getReports]);
+  const allActs    = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES) || [], [getCollection]);
   const allUsers   = useMemo(() => getCollection(STORAGE_KEYS.USERS) || [],     [getCollection]);
   const libraries  = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
+
+  const socialActsCount = useMemo(() =>
+    allActs.filter(a => a.type === 'social_report' || a.type === 'social').length,
+    [allActs]
+  );
 
   // Scope reports based on role
   const reports = useMemo(() => {
@@ -65,7 +75,14 @@ export default function ReportsPage() {
       return;
     }
     try {
-      await createReport(form);
+      const payload = {
+        ...form,
+        data: {
+          visitors: Number(form.visitors || 0),
+          events: Number(form.events || 0),
+        },
+      };
+      await createReport(payload);
       setShowModal(false);
       setForm({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
       toast.success("Hisobot muvaffaqiyatli yaratildi!");
@@ -142,10 +159,73 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <PageHeader title="Hisobotlar" subtitle="Faoliyat hisobotlari va moliyaviy hisobotlar" icon={ICONS.reports}
-        action={canCreate && !isRole(ROLES.KUTUBXONA_XODIMI) ? <Button onClick={() => setShowModal(true)}><ICONS.plus /> Yangi hisobot</Button> : null} />
+      <PageHeader
+        title="Hisobotlar"
+        subtitle="Faoliyat hisobotlari va ijtimoiy tarmoqlar faoliyati"
+        icon={ICONS.reports}
+        action={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="secondary"
+              onClick={() => setShowSocialModal(true)}
+              className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 shadow-2xs font-semibold"
+            >
+              <ICONS.share className="text-purple-600 text-sm" /> Ijtimoiy tarmoq
+            </Button>
+            {canCreate && !isRole(ROLES.KUTUBXONA_XODIMI) && (
+              <Button onClick={() => setShowModal(true)}>
+                <ICONS.plus /> Yangi hisobot
+              </Button>
+            )}
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+      {/* ── Asosiy Tablar: Umumiy hisobotlar & Ijtimoiy tarmoqlar ── */}
+      <div className="flex border-b border-gray-200 overflow-x-auto pb-0.5 mb-5">
+        <button
+          onClick={() => setMainTab('general')}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-semibold text-sm whitespace-nowrap transition-colors ${
+            mainTab === 'general'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/40 rounded-t-lg'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <ICONS.reports className="text-base" />
+          <span>Kutubxona faoliyat hisobotlari</span>
+          <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 font-bold">
+            {reports.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setMainTab('social')}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-semibold text-sm whitespace-nowrap transition-colors ${
+            mainTab === 'social'
+              ? 'border-purple-600 text-purple-700 bg-purple-50/40 rounded-t-lg'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <ICONS.share className="text-base" />
+          <span>Ijtimoiy tarmoqlar hisoboti</span>
+          <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 font-bold">
+            {socialActsCount}
+          </span>
+        </button>
+      </div>
+
+      {mainTab === 'social' ? (
+        <SocialMediaReportsView
+          activities={allActs}
+          users={allUsers}
+          libraries={libraries}
+          currentUser={currentUser}
+          onOpenCreateModal={() => setShowSocialModal(true)}
+          canCreate={true}
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
         <Card className="text-center"><p className="text-2xl font-bold text-blue-600">{reports.length}</p><p className="text-xs text-gray-500">Jami</p></Card>
         <Card className="text-center"><p className="text-2xl font-bold text-gray-600">{reports.filter(r => r.status === REPORT_STATUS.DRAFT).length}</p><p className="text-xs text-gray-500">Qoralama</p></Card>
         <Card className="text-center"><p className="text-2xl font-bold text-amber-600">{reports.filter(r => r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW).length}</p><p className="text-xs text-gray-500">Kutilmoqda</p></Card>
@@ -305,6 +385,8 @@ export default function ReportsPage() {
             </table>
           </div>
         </Card>
+      )}
+        </>
       )}
 
       {/* Create modal */}
@@ -590,6 +672,12 @@ export default function ReportsPage() {
                             <span className="font-extrabold text-indigo-700 text-sm">{formatNumber(totals.kitob_pdf)} fayl</span>
                           </div>
                         )}
+                        {totals.ijtimoiy_tarmoq !== undefined && (
+                          <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
+                            <span className="text-slate-500 block">Ijtimoiy tarmoqlar:</span>
+                            <span className="font-extrabold text-purple-700 text-sm">{formatNumber(totals.ijtimoiy_tarmoq)} ta post/e'lon</span>
+                          </div>
+                        )}
                         {totals.texnik_xizmat !== undefined && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Texnik xizmat:</span>
@@ -681,6 +769,17 @@ export default function ReportsPage() {
             )}
           </div>
         </Modal>
+      )}
+
+      {/* ── Modal: Ijtimoiy tarmoq hisoboti kiritish ── */}
+      {showSocialModal && (
+        <SocialMediaReportModal
+          isOpen={showSocialModal}
+          onClose={() => setShowSocialModal(false)}
+          currentUser={currentUser}
+          libraries={libraries}
+          createEntity={createEntity}
+        />
       )}
     </div>
   );

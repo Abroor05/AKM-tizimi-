@@ -137,7 +137,7 @@ export default function XBDashboard() {
 
   const handleSaveAct = () => {
     if (!actForm.type || !actForm.date) return;
-    const isNumeric = actForm.type === 'kitob_skanerlash' || actForm.type === 'kitob_pdf';
+    const isNumeric = actForm.type === 'kitob_skanerlash' || actForm.type === 'kitob_pdf' || actForm.type === 'ijtimoiy_tarmoq';
     const finalCount = isNumeric ? (actForm.count ? Number(actForm.count) : null) : 1;
     createEntity(STORAGE_KEYS.ACTIVITIES, {
       ...actForm,
@@ -449,14 +449,14 @@ export default function XBDashboard() {
             options={Object.entries(ACTIVITY_TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))}
             required
           />
-          {actForm.type === 'kitob_skanerlash' || actForm.type === 'kitob_pdf' ? (
+          {actForm.type === 'kitob_skanerlash' || actForm.type === 'kitob_pdf' || actForm.type === 'ijtimoiy_tarmoq' ? (
             <Input
-              label={`Soni (${actForm.type === 'kitob_skanerlash' ? 'sahifa' : 'fayl'})`}
+              label={`Soni (${actForm.type === 'kitob_skanerlash' ? 'sahifa' : actForm.type === 'kitob_pdf' ? 'fayl' : 'ta post/e\'lon'})`}
               type="number"
               min="1"
               value={actForm.count}
               onChange={e => setActForm({ ...actForm, count: e.target.value })}
-              placeholder={actForm.type === 'kitob_skanerlash' ? "Masalan: 45 sahifa" : "Masalan: 10 fayl"}
+              placeholder={actForm.type === 'kitob_skanerlash' ? "Masalan: 45 sahifa" : actForm.type === 'kitob_pdf' ? "Masalan: 10 fayl" : "Masalan: 3 ta post"}
             />
           ) : (
             <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200 text-xs text-teal-900">

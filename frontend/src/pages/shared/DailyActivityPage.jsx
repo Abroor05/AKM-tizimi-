@@ -14,10 +14,13 @@ import {
   ACTIVITY_TYPE_LABELS,
 } from "../../data/constants.js";
 import { formatDate, formatNumber } from "../../utils/helpers.js";
+import SocialMediaReportModal from "../../components/common/SocialMediaReportModal.jsx";
+import SocialMediaReportsView from "../../components/common/SocialMediaReportsView.jsx";
 
 const TYPE_SHORT = {
   kitob_skanerlash: "Scanner",
   kitob_pdf: "PDF",
+  ijtimoiy_tarmoq: "Post / E'lon",
   texnik_xizmat: "Texnik",
   jihozlash: "Jihozlash",
   tuzatish: "Ta'mirlash",
@@ -78,6 +81,7 @@ function buildEmptyForm() {
     counts: {
       kitob_skanerlash: "",
       kitob_pdf: "",
+      ijtimoiy_tarmoq: "",
     },
     tasks: {
       texnik_xizmat: false,
@@ -98,6 +102,7 @@ const VIEW_TABS = [
   { id: "daily", label: "Kunlik" },
   { id: "monthly", label: "Oylik" },
   { id: "yearly", label: "Yillik" },
+  { id: "social", label: "Ijtimoiy tarmoqlar" },
 ];
 
 function getMonthLabel(yyyy_mm) {
@@ -132,6 +137,7 @@ export default function DailyActivityPage() {
 
   const [viewTab, setViewTab] = useState("daily");
   const [showModal, setShowModal] = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
   const [sending, setSending] = useState(null); // activity id being sent
   const [dateFilter, setDateFilter] = useState(
@@ -208,7 +214,8 @@ export default function DailyActivityPage() {
   const handleSave = () => {
     const hasNumeric =
       Number(form.counts.kitob_skanerlash) > 0 ||
-      Number(form.counts.kitob_pdf) > 0;
+      Number(form.counts.kitob_pdf) > 0 ||
+      Number(form.counts.ijtimoiy_tarmoq) > 0;
     const hasTasks = Object.values(form.tasks).some(Boolean);
     const hasDesc = Boolean(form.description?.trim());
 
@@ -222,6 +229,9 @@ export default function DailyActivityPage() {
     }
     if (Number(form.counts.kitob_pdf) > 0) {
       data.kitob_pdf = Number(form.counts.kitob_pdf);
+    }
+    if (Number(form.counts.ijtimoiy_tarmoq) > 0) {
+      data.ijtimoiy_tarmoq = Number(form.counts.ijtimoiy_tarmoq);
     }
     const taskNotes = {};
     TASK_ACTIVITY_CONFIG.forEach((item) => {
@@ -327,9 +337,18 @@ export default function DailyActivityPage() {
         icon={ICONS.activity}
         action={
           canCreate ? (
-            <Button onClick={() => setShowModal(true)}>
-              <ICONS.plus /> Bugungi hisobot
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setShowModal(true)}>
+                <ICONS.plus /> Bugungi hisobot
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setShowSocialModal(true)}
+                className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 shadow-2xs font-semibold"
+              >
+                <ICONS.share className="text-purple-600 text-sm" /> Ijtimoiy tarmoq
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -351,7 +370,18 @@ export default function DailyActivityPage() {
         ))}
       </div>
 
-      {/* Filtr */}
+      {viewTab === "social" ? (
+        <SocialMediaReportsView
+          activities={allActivities}
+          users={allUsers}
+          libraries={libraries}
+          currentUser={currentUser}
+          onOpenCreateModal={() => setShowSocialModal(true)}
+          canCreate={canCreate}
+        />
+      ) : (
+        <>
+          {/* Filtr */}
       <div className="mb-5">
         {viewTab === "daily" && (
           <input
@@ -390,13 +420,15 @@ export default function DailyActivityPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => {
               const isNumeric =
-                key === "kitob_skanerlash" || key === "kitob_pdf";
+                key === "kitob_skanerlash" || key === "kitob_pdf" || key === "ijtimoiy_tarmoq";
               const unit =
                 key === "kitob_skanerlash"
                   ? "sahifa"
                   : key === "kitob_pdf"
                     ? "fayl"
-                    : "marta";
+                    : key === "ijtimoiy_tarmoq"
+                      ? "ta post"
+                      : "marta";
               return (
                 <Card key={key} className="text-center">
                   <p className="text-2xl font-bold text-blue-600">
@@ -499,7 +531,7 @@ export default function DailyActivityPage() {
                       {Object.keys(TYPE_SHORT).map((k) => {
                         const val = data[k];
                         const isNumeric =
-                          k === "kitob_skanerlash" || k === "kitob_pdf";
+                          k === "kitob_skanerlash" || k === "kitob_pdf" || k === "ijtimoiy_tarmoq";
                         if (isNumeric) {
                           return (
                             <td
@@ -581,6 +613,8 @@ export default function DailyActivityPage() {
             </table>
           </div>
         </Card>
+      )}
+        </>
       )}
 
       {/* Hisobot qo'shish modali */}
@@ -978,8 +1012,8 @@ export default function DailyActivityPage() {
                 <div className="space-y-2">
                   {entries.map(([key, val]) => {
                     const isNumeric =
-                      key === "kitob_skanerlash" || key === "kitob_pdf";
-                    const unit = key === "kitob_skanerlash" ? "sahifa" : "fayl";
+                      key === "kitob_skanerlash" || key === "kitob_pdf" || key === "ijtimoiy_tarmoq";
+                    const unit = key === "kitob_skanerlash" ? "sahifa" : key === "kitob_pdf" ? "fayl" : "ta post";
                     const note = notes[key];
                     return (
                       <div
@@ -1026,6 +1060,17 @@ export default function DailyActivityPage() {
             )}
           </div>
         </Modal>
+      )}
+
+      {/* Ijtimoiy tarmoqlar hisoboti modali */}
+      {showSocialModal && (
+        <SocialMediaReportModal
+          isOpen={showSocialModal}
+          onClose={() => setShowSocialModal(false)}
+          currentUser={currentUser}
+          libraries={libraries}
+          createEntity={createEntity}
+        />
       )}
     </div>
   );
