@@ -451,12 +451,12 @@ export default function XBDashboard() {
           />
           {actForm.type === 'kitob_skanerlash' || actForm.type === 'kitob_pdf' || actForm.type === 'ijtimoiy_tarmoq' ? (
             <Input
-              label={`Soni (${actForm.type === 'kitob_skanerlash' ? 'sahifa' : actForm.type === 'kitob_pdf' ? 'fayl' : 'ta post/e\'lon'})`}
+              label={`Soni (${actForm.type === 'kitob_skanerlash' ? 'kitob' : actForm.type === 'kitob_pdf' ? 'fayl' : 'ta post/e\'lon'})`}
               type="number"
               min="1"
               value={actForm.count}
               onChange={e => setActForm({ ...actForm, count: e.target.value })}
-              placeholder={actForm.type === 'kitob_skanerlash' ? "Masalan: 45 sahifa" : actForm.type === 'kitob_pdf' ? "Masalan: 10 fayl" : "Masalan: 3 ta post"}
+              placeholder={actForm.type === 'kitob_skanerlash' ? "Masalan: 5 ta kitob" : actForm.type === 'kitob_pdf' ? "Masalan: 10 fayl" : "Masalan: 3 ta post"}
             />
           ) : (
             <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200 text-xs text-teal-900">

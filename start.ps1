@@ -12,11 +12,28 @@ Write-Host "  Ma'lumotlar bazasi: PostgreSQL" -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# PostgreSQL xizmatini tekshirish
-$pgService = Get-Service *postgres* -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Running' }
-if (-not $pgService) {
-    Write-Host "PostgreSQL xizmati tekshirilmoqda..." -ForegroundColor Yellow
-    Start-Service postgresql* -ErrorAction SilentlyContinue
+# PostgreSQL serverini tekshirish va ishga tushirish
+$port5432 = Get-NetTCPConnection -LocalPort 5432 -State Listen -ErrorAction SilentlyContinue
+if (-not $port5432) {
+    Write-Host "PostgreSQL 5432 porti tekshirilmoqda..." -ForegroundColor Yellow
+    $pgService = Get-Service *postgres* -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Running' }
+    if ($pgService) {
+        Write-Host "PostgreSQL xizmati ishlamoqda." -ForegroundColor Green
+    } else {
+        Start-Service postgresql* -ErrorAction SilentlyContinue
+    }
+
+    $port5432Check = Get-NetTCPConnection -LocalPort 5432 -State Listen -ErrorAction SilentlyContinue
+    if (-not $port5432Check) {
+        $pgCtl = "C:\Users\Fujitsu-HS\pgsql\bin\pg_ctl.exe"
+        $pgData = "C:\Users\Fujitsu-HS\pgsql\data"
+        $pgLog = "C:\Users\Fujitsu-HS\pgsql\logfile.txt"
+        if (Test-Path $pgCtl) {
+            Write-Host "PostgreSQL serveri ishga tushirilmoqda ($pgCtl)..." -ForegroundColor Yellow
+            Start-Process -FilePath $pgCtl -ArgumentList "-D", $pgData, "-l", $pgLog, "start" -WindowStyle Hidden
+            Start-Sleep -Seconds 2
+        }
+    }
 }
 
 # Port 5000 ni tozalash

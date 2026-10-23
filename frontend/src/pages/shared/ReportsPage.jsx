@@ -663,7 +663,7 @@ export default function ReportsPage() {
                         {totals.kitob_skanerlash !== undefined && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Skanerlash:</span>
-                            <span className="font-extrabold text-blue-700 text-sm">{formatNumber(totals.kitob_skanerlash)} sahifa</span>
+                            <span className="font-extrabold text-blue-700 text-sm">{formatNumber(totals.kitob_skanerlash)} ta kitob</span>
                           </div>
                         )}
                         {totals.kitob_pdf !== undefined && (

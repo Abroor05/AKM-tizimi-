@@ -6,13 +6,14 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "migrate:from-sqlite": "node migrate-sqlite-to-pg.js",
+    "db:start": "powershell -Command \"Start-Process -FilePath 'C:\\Users\\Fujitsu-HS\\pgsql\\bin\\pg_ctl.exe' -ArgumentList '-D', 'C:\\Users\\Fujitsu-HS\\pgsql\\data', '-l', 'C:\\Users\\Fujitsu-HS\\pgsql\\logfile.txt', 'start' -WindowStyle Hidden\"",
+    "db:stop": "C:\\Users\\Fujitsu-HS\\pgsql\\bin\\pg_ctl.exe -D C:\\Users\\Fujitsu-HS\\pgsql\\data stop",
+    "db:status": "C:\\Users\\Fujitsu-HS\\pgsql\\bin\\pg_ctl.exe -D C:\\Users\\Fujitsu-HS\\pgsql\\data status",
     "db:debug": "node debug-db.js",
     "db:set-user": "node set-user.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.3.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "express-rate-limit": "^8.7.1",
@@ -20,8 +21,5 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.23.1",
     "swagger-ui-express": "^5.0.1"
-  },
-  "allowScripts": {
-    "better-sqlite3@11.10.0": true
   }
 }

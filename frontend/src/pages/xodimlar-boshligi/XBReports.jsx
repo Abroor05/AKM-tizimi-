@@ -33,7 +33,7 @@ import SocialMediaReportsView from '../../components/common/SocialMediaReportsVi
 
 // Qisqa nomlar
 const TYPE_SHORT = {
-  kitob_skanerlash: 'Skanerlash (sahifa)',
+  kitob_skanerlash: 'Skanerlash (kitob)',
   kitob_pdf:        'Elektronlashtirish / PDF (fayl)',
   ijtimoiy_tarmoq:  "Ijtimoiy tarmoqlar (post/e'lon)",
   texnik_xizmat:    'Texnik xizmat',
@@ -923,11 +923,11 @@ export default function XBReports() {
                   </div>
 
                   {/* Ko'rsatkichlar paneli (Grid) */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-4">
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                       <p className="text-[11px] text-slate-500 font-medium">Skanerlash</p>
                       <p className="text-lg font-extrabold text-blue-700 mt-0.5">
-                        {formatNumber(item.totals.kitob_skanerlash)} <span className="text-[10px] font-normal text-slate-400">sahifa</span>
+                        {formatNumber(item.totals.kitob_skanerlash)} <span className="text-[10px] font-normal text-slate-400">ta kitob</span>
                       </p>
                     </div>
 
@@ -1040,7 +1040,7 @@ export default function XBReports() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <Card className="text-center bg-gradient-to-br from-blue-50/70 to-white border-blue-200">
               <p className="text-2xl font-black text-blue-700">{formatNumber(yearGrandTotals.totals.kitob_skanerlash)}</p>
-              <p className="text-xs font-semibold text-slate-600 mt-1">Yillik skanerlangan sahifalar</p>
+              <p className="text-xs font-semibold text-slate-600 mt-1">Yillik skanerlangan kitoblar</p>
             </Card>
             <Card className="text-center bg-gradient-to-br from-indigo-50/70 to-white border-indigo-200">
               <p className="text-2xl font-black text-indigo-700">{formatNumber(yearGrandTotals.totals.kitob_pdf)}</p>
@@ -1076,7 +1076,7 @@ export default function XBReports() {
                   ]}
                 />
                 <Legend
-                  formatter={(value) => value === 'scanner' ? 'Skanerlash (sahifa)' : value === 'pdf' ? 'Elektron / PDF (fayl)' : value === 'social' ? 'Ijtimoiy tarmoq (post)' : 'Texnik xizmatlar'}
+                  formatter={(value) => value === 'scanner' ? 'Skanerlash (kitob)' : value === 'pdf' ? 'Elektron / PDF (fayl)' : value === 'social' ? 'Ijtimoiy tarmoq (post)' : 'Texnik xizmatlar'}
                 />
                 <Bar dataKey="scanner" fill="#3b82f6" radius={[4, 4, 0, 0]} name="scanner" />
                 <Bar dataKey="pdf" fill="#6366f1" radius={[4, 4, 0, 0]} name="pdf" />
@@ -1819,10 +1819,10 @@ export default function XBReports() {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-800">Skanerlash ishlari</p>
-                        <p className="text-[11px] text-slate-400">Kitob va materiallar</p>
+                        <p className="text-[11px] text-slate-400">Kitoblar soni</p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-teal-600 bg-teal-100/70 px-2 py-0.5 rounded-md">sahifa</span>
+                    <span className="text-[11px] font-semibold text-teal-600 bg-teal-100/70 px-2 py-0.5 rounded-md">ta kitob</span>
                   </div>
                   <div className="relative">
                     <input
@@ -1830,10 +1830,10 @@ export default function XBReports() {
                       min="0"
                       value={dailyForm.counts.kitob_skanerlash}
                       onChange={e => setDailyForm(f => ({ ...f, counts: { ...f.counts, kitob_skanerlash: e.target.value } }))}
-                      placeholder="Masalan: 45"
+                      placeholder="Masalan: 5"
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-teal-300"
                     />
-                    <span className="absolute right-3 top-2.5 text-xs text-slate-400 pointer-events-none">sahifa</span>
+                    <span className="absolute right-3 top-2.5 text-xs text-slate-400 pointer-events-none">ta kitob</span>
                   </div>
                 </div>
 

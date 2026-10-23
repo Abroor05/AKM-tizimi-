@@ -545,7 +545,7 @@ export const ACTIVITY_TYPES = {
 };
 
 export const ACTIVITY_TYPE_LABELS = {
-  kitob_skanerlash: 'Skanerlash ishlari (sahifa)',
+  kitob_skanerlash: 'Skanerlash ishlari (kitob)',
   kitob_pdf:        'Elektronlashtirish / PDF (fayl)',
   ijtimoiy_tarmoq:  "Ijtimoiy tarmoqlar (post / e'lon)",
   texnik_xizmat:    'Texnik xizmat',
