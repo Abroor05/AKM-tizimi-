@@ -17,6 +17,7 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts';
 import { FaPlus, FaArrowRight, FaChartLine, FaShieldHalved } from 'react-icons/fa6';
+import ReportReminderBanner from '../../components/common/ReportReminderBanner.jsx';
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
 
@@ -170,6 +171,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-7">
+      {/* Pending Report Deadlines & Reminders */}
+      <ReportReminderBanner />
+
       {/* Executive Hero Banner (Deep Obsidian / Royal Slate) */}
       <div className="relative rounded-3xl bg-gradient-to-br from-[#0b1120] via-[#111827] to-[#0f172a] border border-slate-800 p-6 sm:p-8 text-white shadow-executive-lg overflow-hidden">
         {/* Ambient subtle glow */}

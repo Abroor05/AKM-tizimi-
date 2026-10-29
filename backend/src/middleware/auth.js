@@ -15,6 +15,14 @@ export function generateToken(user) {
   );
 }
 
+const userCache = new Map();
+const USER_CACHE_TTL = 30000; // 30 soniya kesh (tezkorlik uchun)
+
+export function invalidateUserCache(userId) {
+  if (userId) userCache.delete(userId);
+  else userCache.clear();
+}
+
 // Verify JWT and attach user to request
 export async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
@@ -24,10 +32,22 @@ export async function authMiddleware(req, res, next) {
   const token = header.slice(7);
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Keshdan tezkor tekshirish (parallel so'rovlarda DB ga ortiqcha yuk tushirmaydi)
+    const cached = userCache.get(decoded.id);
+    if (cached && Date.now() - cached.time < USER_CACHE_TTL) {
+      if (!cached.user.active) {
+        return res.status(401).json({ error: 'Foydalanuvchi topilmadi yoki faol emas' });
+      }
+      req.user = cached.user;
+      return next();
+    }
+
     const user = await getById('users', decoded.id);
     if (!user || !user.active) {
       return res.status(401).json({ error: 'Foydalanuvchi topilmadi yoki faol emas' });
     }
+    userCache.set(decoded.id, { user, time: Date.now() });
     req.user = user;
     next();
   } catch (err) {

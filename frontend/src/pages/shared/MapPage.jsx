@@ -161,9 +161,10 @@ export default function MapPage() {
     }
   }, [selectedTuman]);
 
-  // Libraries in the selected district
+  // Libraries in the selected district (or all libraries across region if 'all' is chosen)
   const districtLibraries = useMemo(() => {
-    if (!selectedTuman) return [];
+    if (!selectedTuman) return libraries;
+    if (selectedTuman.id === 'all') return libraries;
     return libraries.filter(l => l.viloyatId === selectedTuman.viloyatId && l.tumanId === selectedTuman.id);
   }, [libraries, selectedTuman]);
 
@@ -201,12 +202,27 @@ export default function MapPage() {
         setMapZoom(16);
         toast.success(`Hozirgi joylashuvingiz aniqlandi (aniqlik: ~${Math.round(accuracy)}m)!`);
       },
-      (err) => {
+      async (err) => {
+        if (err.code === 1) {
+          toast.info("Brauzer GPS cheklangan. Joylashuv internet (IP) orqali aniqlanmoqda...");
+          try {
+            const res = await fetch('https://ipapi.co/json/');
+            const d = await res.json();
+            if (d && Number.isFinite(d.latitude) && Number.isFinite(d.longitude)) {
+              const loc = { lat: d.latitude, lng: d.longitude, accuracy: 2500 };
+              setUserLocation(loc);
+              setMapTarget([d.latitude, d.longitude]);
+              setMapZoom(14);
+              toast.success(`Joylashuvingiz tarmoq orqali aniqlandi (${d.city || "Farg'ona"})!`);
+              return;
+            }
+          } catch {}
+        }
         let msg = "Joylashuvni aniqlab bo'lmadi.";
-        if (err.code === 1) msg = "Joylashuvga ruxsat berilmadi. Brauzer sozlamalaridan geolokatsiyani yoqing.";
+        if (err.code === 1) msg = "Brauzeringizda geolokatsiya bloklangan. Xaritani bosib nuqtani belgilang.";
         toast.warning(msg);
       },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 
@@ -310,6 +326,30 @@ export default function MapPage() {
         {!isDistrictScopedUser && (
           <Card className="lg:col-span-3 p-3.5 space-y-3" title="Tuman / Shaharlar">
             <div className="max-h-[560px] overflow-y-auto space-y-1.5 pr-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTuman({ id: 'all', name: "Barcha tumanlar (Jami)", viloyatId: 'v01', lat: 40.3864, lng: 71.7864 });
+                  setMapTarget([40.3864, 71.7864]);
+                  setMapZoom(10);
+                  setClickedPoint(null);
+                }}
+                className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left text-xs transition-all cursor-pointer ${
+                  selectedTuman?.id === 'all'
+                    ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <ICONS.globe className={selectedTuman?.id === 'all' ? 'text-white' : 'text-blue-500'} />
+                  <span className="truncate font-medium">Barcha tumanlar (Jami)</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  selectedTuman?.id === 'all' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                }`}>
+                  {libraries.length}
+                </span>
+              </button>
               {accessibleDistricts.map(district => {
                 const count = libraries.filter(l => l.viloyatId === district.viloyatId && l.tumanId === district.id).length;
                 const isSelected = selectedTuman?.id === district.id;
@@ -674,12 +714,30 @@ export default function MapPage() {
       {/* Shared Library Create/Edit Modal with Real-time GPS and Map Picker */}
       <LibraryModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setClickedPoint(null);
+        }}
         editItem={editItem}
         initialCoords={modalCoords}
-        initialViloyatId={selectedTuman?.viloyatId}
-        initialTumanId={selectedTuman?.id}
-        onSuccess={() => {
+        initialViloyatId={selectedTuman?.viloyatId || 'v01'}
+        initialTumanId={selectedTuman?.id === 'all' ? '' : (selectedTuman?.id || '')}
+        onSuccess={(savedLib) => {
+          if (savedLib) {
+            // Yangi yoki tahrirlangan kutubxona tumanini avtomatik tanlash
+            if (savedLib.tumanId && selectedTuman?.id !== 'all') {
+              const district = allDistricts.find(d => d.id === savedLib.tumanId);
+              if (district) setSelectedTuman(district);
+            }
+            if (Number.isFinite(Number(savedLib.latitude)) && Number.isFinite(Number(savedLib.longitude))) {
+              setMapTarget([Number(savedLib.latitude), Number(savedLib.longitude)]);
+              setMapZoom(16);
+              setActiveLibrary(savedLib);
+            }
+          } else if (modalCoords) {
+            setMapTarget([Number(modalCoords.lat), Number(modalCoords.lng)]);
+            setMapZoom(16);
+          }
           setClickedPoint(null);
         }}
       />

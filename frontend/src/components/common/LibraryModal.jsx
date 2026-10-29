@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -10,7 +10,7 @@ import Select from '../ui/Select.jsx';
 import { toast } from '../ui/Toast.jsx';
 import ICONS from '../icons.jsx';
 import { STORAGE_KEYS, ROLES } from '../../data/constants.js';
-import { VILOYATLAR, getViloyatName, getTumanName, getTumanCoordinates } from '../../data/regions.js';
+import { VILOYATLAR, getViloyatName, getTumanName, getTumanCoordinates, findNearestTuman } from '../../data/regions.js';
 import { formatUzPhone } from '../../utils/helpers.js';
 
 // Custom Map Pin Icons using SVG to guarantee zero 404 image errors in Vite
@@ -66,6 +66,109 @@ function MapClickListener({ onSelect }) {
   return null;
 }
 
+/**
+ * OpenStreetMap Nominatim orqali koordinatadan aniq manzilni (ko'cha, mahalla, shahar) aniqlash
+ */
+async function fetchAddressFromCoords(lat, lng) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Accept-Language': 'uz, ru, en',
+      },
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.address) return null;
+
+    const a = data.address;
+    const parts = [];
+
+    // Ko'cha / mahalla / bino raqami
+    const road = a.road || a.pedestrian || a.street || a.neighbourhood || a.suburb;
+    const house = a.house_number ? `${a.house_number}-uy` : '';
+    if (road) parts.push(house ? `${road}, ${house}` : road);
+
+    // Shahar / Tuman / Qishloq
+    const settlement = a.city || a.town || a.district || a.county || a.village;
+    if (settlement && !parts.some(p => p.toLowerCase().includes(settlement.toLowerCase()))) {
+      parts.unshift(settlement);
+    }
+
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+    return data.display_name?.split(',').slice(0, 3).join(', ') || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Manzil yoki mo'ljal bo'yicha qidirish (Nominatim Search)
+ */
+async function searchPlaces(query, viloyatName = "Farg'ona") {
+  if (!query || query.trim().length < 3) return [];
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const q = `${query.trim()}, ${viloyatName}, O'zbekiston`;
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=5&addressdetails=1`;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'Accept-Language': 'uz, ru, en' },
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data || []).map(item => ({
+      name: item.display_name,
+      shortName: item.display_name.split(',').slice(0, 3).join(', '),
+      lat: Number(item.lat),
+      lng: Number(item.lon),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * IP manzil orqali taxminiy joylashuvni aniqlash (Brauzer GPS blok bo'lgandagi zaxira usul)
+ */
+async function getIpLocation() {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && Number.isFinite(data.latitude) && Number.isFinite(data.longitude)) {
+      return {
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city || data.region || "Farg'ona",
+      };
+    }
+  } catch {
+    try {
+      const res2 = await fetch('https://freeipapi.com/api/json');
+      const d2 = await res2.json();
+      if (d2 && Number.isFinite(d2.latitude) && Number.isFinite(d2.longitude)) {
+        return {
+          latitude: d2.latitude,
+          longitude: d2.longitude,
+          city: d2.cityName || "Farg'ona",
+        };
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export default function LibraryModal({
   isOpen,
   onClose,
@@ -94,12 +197,22 @@ export default function LibraryModal({
 
   const [isLocating, setIsLocating] = useState(false);
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [hasCustomCoords, setHasCustomCoords] = useState(false);
+
+  // Address Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchTimeoutRef = useRef(null);
 
   // Sync state when modal opens or editItem/initialCoords change
   useEffect(() => {
     if (!isOpen) return;
 
     if (editItem) {
+      const hasCoords = editItem.latitude != null && editItem.longitude != null;
       setForm({
         ...editItem,
         latitude: editItem.latitude != null ? String(editItem.latitude) : '',
@@ -107,15 +220,19 @@ export default function LibraryModal({
         phone: editItem.phone || '+998',
       });
       setGpsAccuracy(null);
+      setHasCustomCoords(hasCoords);
     } else {
       const defaultViloyat = isDistrictScopedUser ? (currentUser?.viloyatId || 'v01') : (initialViloyatId || 'v01');
       const defaultTuman = isDistrictScopedUser ? (currentUser?.tumanId || '') : (initialTumanId || '');
       
       let lat = '';
       let lng = '';
+      let hasCoords = false;
+
       if (initialCoords?.lat && initialCoords?.lng) {
         lat = String(Number(initialCoords.lat).toFixed(6));
         lng = String(Number(initialCoords.lng).toFixed(6));
+        hasCoords = true;
       } else if (defaultViloyat && defaultTuman) {
         const coords = getTumanCoordinates(defaultViloyat, defaultTuman);
         if (coords) {
@@ -138,7 +255,17 @@ export default function LibraryModal({
         foundingYear: new Date().getFullYear(),
       });
       setGpsAccuracy(null);
+      setHasCustomCoords(hasCoords);
+
+      // Agar initialCoords berilgan bo'lsa, manzilni avtomatik aniqlash
+      if (initialCoords?.lat && initialCoords?.lng) {
+        handleApplyLocation(Number(initialCoords.lat), Number(initialCoords.lng), null, false);
+      }
     }
+
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchDropdown(false);
   }, [isOpen, editItem, initialCoords, initialTumanId, initialViloyatId, isDistrictScopedUser, currentUser]);
 
   const selectedViloyat = useMemo(() => {
@@ -149,7 +276,64 @@ export default function LibraryModal({
     return selectedViloyat?.tumanlar.find(t => t.id === form.tumanId) || null;
   }, [selectedViloyat, form.tumanId]);
 
-  // Real-time GPS Location Handler
+  /**
+   * Koordinatani qo'llash, tumanini avtomatik tanlash va manzilni reverse-geocoding qilish
+   */
+  const handleApplyLocation = async (lat, lng, accuracy = null, showNotification = true) => {
+    const latStr = Number(lat).toFixed(6);
+    const lngStr = Number(lng).toFixed(6);
+    setHasCustomCoords(true);
+
+    // 1. Koordinatalar va eng yaqin tumanni topish
+    const nearest = findNearestTuman(lat, lng, form.viloyatId || 'v01');
+    const autoTumanId = nearest ? nearest.id : form.tumanId;
+
+    setForm(prev => ({
+      ...prev,
+      latitude: latStr,
+      longitude: lngStr,
+      tumanId: autoTumanId || prev.tumanId,
+    }));
+
+    if (accuracy) {
+      setGpsAccuracy(Math.round(accuracy));
+    }
+
+    // 2. Reverse Geocoding orqali ko'cha va manzilni aniqlash
+    setIsGeocoding(true);
+    try {
+      const detectedAddress = await fetchAddressFromCoords(lat, lng);
+      if (detectedAddress) {
+        setForm(prev => ({
+          ...prev,
+          // Agar manzil bo'sh bo'lsa yoki avtomatik aniqlangan bo'lsa, to'ldiramiz
+          address: detectedAddress,
+        }));
+        if (showNotification) {
+          toast.success(`Joylashuv va manzil aniqlandi: ${detectedAddress}`);
+        }
+      } else if (nearest) {
+        setForm(prev => ({
+          ...prev,
+          address: prev.address || `${nearest.name}, Markaz`,
+        }));
+        if (showNotification) {
+          toast.success(`Koordinatalar belgilandi (${nearest.name})!`);
+        }
+      }
+    } catch {
+      if (nearest) {
+        setForm(prev => ({
+          ...prev,
+          address: prev.address || `${nearest.name}`,
+        }));
+      }
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  // Real-time GPS Location Handler (Hozirgi joylashuvim)
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.warning("Brauzeringizda geolokatsiya (GPS) xizmati qo'llab-quvvatlanmaydi.");
@@ -158,27 +342,30 @@ export default function LibraryModal({
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
-        const latStr = latitude.toFixed(6);
-        const lngStr = longitude.toFixed(6);
-
-        setForm(prev => ({
-          ...prev,
-          latitude: latStr,
-          longitude: lngStr,
-        }));
-        setGpsAccuracy(Math.round(accuracy));
+        await handleApplyLocation(latitude, longitude, accuracy, true);
         setIsLocating(false);
-        toast.success(`Hozirgi real-time joylashuv aniqlandi (aniqlik: ~${Math.round(accuracy)}m)!`);
       },
-      (error) => {
+      async (error) => {
+        // Agar brauzer GPS ruxsatini bloklagan bo'lsa (Insecure HTTP), avtomatik IP/Tarmoq orqali olamiz
+        if (error.code === 1) {
+          toast.info("Brauzer GPS cheklangan. Joylashuv tarmoq (IP) orqali aniqlanmoqda...");
+          const ipLoc = await getIpLocation();
+          if (ipLoc) {
+            await handleApplyLocation(ipLoc.latitude, ipLoc.longitude, 2000, false);
+            toast.success(`Joylashuv internet orqali belgilandi (${ipLoc.city || "Farg'ona"}). Xaritadan aniqlashtirishingiz mumkin!`);
+            setIsLocating(false);
+            return;
+          }
+        }
+
         setIsLocating(false);
         let errorMsg = "Joylashuvni aniqlab bo'lmadi.";
         if (error.code === 1) {
-          errorMsg = "Joylashuvni aniqlashga ruxsat berilmadi. Iltimos, brauzer sozlamalaridan geolokatsiyani yoqing.";
+          errorMsg = "Brauzeringizda geolokatsiya bloklangan. Iltimos, xaritani bosib nuqtani belgilang!";
         } else if (error.code === 2) {
-          errorMsg = "Joylashuv ma'lumoti mavjud emas. GPS va internet aloqasini tekshiring.";
+          errorMsg = "Joylashuv ma'lumoti mavjud emas. Qurilma GPS va internetini tekshiring.";
         } else if (error.code === 3) {
           errorMsg = "Joylashuvni aniqlash vaqti tugadi (timeout). Qaytadan urinib ko'ring.";
         }
@@ -186,19 +373,43 @@ export default function LibraryModal({
       },
       {
         enableHighAccuracy: true,
-        timeout: 20000,
+        timeout: 15000,
         maximumAge: 0,
       }
     );
   };
 
+  // Map Click or Pin Drag handler
   const handleLocationSelect = (lat, lng) => {
-    setForm(prev => ({
-      ...prev,
-      latitude: Number(lat).toFixed(6),
-      longitude: Number(lng).toFixed(6),
-    }));
-    setGpsAccuracy(null);
+    handleApplyLocation(lat, lng, null, true);
+  };
+
+  // Place Search (Nominatim) handler
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (val.trim().length >= 3) {
+      setIsSearching(true);
+      searchTimeoutRef.current = setTimeout(async () => {
+        const results = await searchPlaces(val, selectedViloyat?.name || "Farg'ona");
+        setSearchResults(results);
+        setIsSearching(false);
+        setShowSearchDropdown(results.length > 0);
+      }, 500);
+    } else {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectSearchResult = (item) => {
+    setSearchQuery(item.shortName);
+    setShowSearchDropdown(false);
+    handleApplyLocation(item.lat, item.lng, null, true);
   };
 
   const openInGoogleMaps = () => {
@@ -208,7 +419,7 @@ export default function LibraryModal({
     window.open(`https://www.google.com/maps?q=${lat},${lng}&z=17`, '_blank', 'noopener,noreferrer');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name?.trim()) {
       toast.warning("Iltimos, kutubxona nomini kiriting!");
       return;
@@ -218,34 +429,49 @@ export default function LibraryModal({
       return;
     }
 
+    // Koordinatalarni tozalash (vergulni nuqtaga almashtirish, NaN bo'lsa null)
+    const cleanLat = form.latitude ? parseFloat(String(form.latitude).replace(',', '.').trim()) : null;
+    const cleanLng = form.longitude ? parseFloat(String(form.longitude).replace(',', '.').trim()) : null;
+
+    const finalLat = Number.isFinite(cleanLat) ? cleanLat : null;
+    const finalLng = Number.isFinite(cleanLng) ? cleanLng : null;
+
     const payload = {
       ...form,
       name: form.name.trim(),
+      address: form.address?.trim() || '',
       phone: form.phone || '+998',
       viloyatId: isDistrictScopedUser ? currentUser?.viloyatId : form.viloyatId,
       tumanId: isDistrictScopedUser ? currentUser?.tumanId : form.tumanId,
-      latitude: form.latitude ? Number(form.latitude) : null,
-      longitude: form.longitude ? Number(form.longitude) : null,
+      latitude: finalLat,
+      longitude: finalLng,
       staffCount: Number(form.staffCount) || 1,
       foundingYear: Number(form.foundingYear) || new Date().getFullYear(),
     };
 
-    if (editItem) {
-      updateEntity(STORAGE_KEYS.LIBRARIES, editItem.id, payload);
-      toast.success("Kutubxona ma'lumotlari muvaffaqiyatli yangilandi!");
-    } else {
-      createEntity(STORAGE_KEYS.LIBRARIES, { ...payload, status: 'active' });
-      toast.success("Yangi kutubxona muvaffaqiyatli saqlandi!");
-    }
+    try {
+      let savedEntity = null;
+      if (editItem) {
+        savedEntity = await updateEntity(STORAGE_KEYS.LIBRARIES, editItem.id, payload);
+        toast.success("Kutubxona va uning manzili muvaffaqiyatli yangilandi!");
+      } else {
+        savedEntity = await createEntity(STORAGE_KEYS.LIBRARIES, { ...payload, status: 'active' });
+        toast.success("Yangi kutubxona va xaritadagi manzili muvaffaqiyatli saqlandi!");
+      }
 
-    onSuccess?.();
-    onClose();
+      onSuccess?.(savedEntity || { ...payload, id: editItem?.id || 'temp' });
+      onClose();
+    } catch (err) {
+      // toast error handled in AppContext
+    }
   };
 
   // Center calculation for the map inside modal
   const mapCenter = useMemo(() => {
-    if (form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude))) {
-      return [Number(form.latitude), Number(form.longitude)];
+    const lat = parseFloat(String(form.latitude).replace(',', '.'));
+    const lng = parseFloat(String(form.longitude).replace(',', '.'));
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return [lat, lng];
     }
     if (selectedTuman?.lat && selectedTuman?.lng) {
       return [selectedTuman.lat, selectedTuman.lng];
@@ -253,7 +479,11 @@ export default function LibraryModal({
     return [40.3864, 71.7864];
   }, [form.latitude, form.longitude, selectedTuman]);
 
-  const hasCoordinates = form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude));
+  const hasCoordinates = useMemo(() => {
+    const lat = parseFloat(String(form.latitude).replace(',', '.'));
+    const lng = parseFloat(String(form.longitude).replace(',', '.'));
+    return Number.isFinite(lat) && Number.isFinite(lng);
+  }, [form.latitude, form.longitude]);
 
   return (
     <Modal
@@ -295,7 +525,14 @@ export default function LibraryModal({
             value={isDistrictScopedUser ? (currentUser?.viloyatId || '') : form.viloyatId}
             onChange={e => {
               const nextViloyat = e.target.value;
-              setForm({ ...form, viloyatId: nextViloyat, tumanId: '', latitude: '', longitude: '' });
+              setForm(prev => ({
+                ...prev,
+                viloyatId: nextViloyat,
+                tumanId: '',
+                // Agar foydalanuvchi maxsus GPS tanlamagan bo'lsa, tozalaymiz
+                latitude: hasCustomCoords ? prev.latitude : '',
+                longitude: hasCustomCoords ? prev.longitude : '',
+              }));
             }}
             options={VILOYATLAR.map(v => ({ value: v.id, label: v.name }))}
             required
@@ -306,12 +543,19 @@ export default function LibraryModal({
             value={isDistrictScopedUser ? (currentUser?.tumanId || '') : form.tumanId}
             onChange={e => {
               const nextTumanId = e.target.value;
-              const coords = getTumanCoordinates(form.viloyatId, nextTumanId);
-              setForm({
-                ...form,
-                tumanId: nextTumanId,
-                latitude: coords ? String(coords.lat) : form.latitude,
-                longitude: coords ? String(coords.lng) : form.longitude,
+              setForm(prev => {
+                // MUHIM: Agar foydalanuvchi GPS orqali yoki xaritada nuqtani belgilagan bo'lsa,
+                // uning aniq koordinatalarini O'CHIRIB TASHMAYMIZ!
+                if (hasCustomCoords && prev.latitude && prev.longitude) {
+                  return { ...prev, tumanId: nextTumanId };
+                }
+                const coords = getTumanCoordinates(prev.viloyatId, nextTumanId);
+                return {
+                  ...prev,
+                  tumanId: nextTumanId,
+                  latitude: coords ? String(coords.lat) : prev.latitude,
+                  longitude: coords ? String(coords.lng) : prev.longitude,
+                };
               });
             }}
             options={(selectedViloyat?.tumanlar || []).map(t => ({ value: t.id, label: t.name }))}
@@ -319,13 +563,20 @@ export default function LibraryModal({
             disabled={isDistrictScopedUser}
             placeholder={!form.viloyatId ? "Avval viloyatni tanlang..." : "Tanlang..."}
           />
-          <Input
-            label="Aniq manzil yoki mo'ljal"
-            placeholder="Masalan: Mustaqillik ko'chasi, 24-uy (Hokimiyat yonida)"
-            value={form.address}
-            onChange={e => setForm({ ...form, address: e.target.value })}
-            className="sm:col-span-2"
-          />
+          <div className="sm:col-span-2">
+            <Input
+              label="Aniq manzil yoki mo'ljal"
+              placeholder="Masalan: Mustaqillik ko'chasi, 24-uy (Hokimiyat yonida)"
+              value={form.address}
+              onChange={e => setForm({ ...form, address: e.target.value })}
+            />
+            {isGeocoding && (
+              <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
+                <span className="w-2.5 h-2.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                Manzil koordinata orqali avtomatik aniqlanmoqda...
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Real-time Location and Interactive Map Card */}
@@ -339,7 +590,7 @@ export default function LibraryModal({
                 </h4>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Xaritani bosib nuqtani belgilang yoki telefon/qurilma GPS orqali real-time oling
+                Tugmani bosib joriy GPS joylashuvingizni yuboring yoki xaritada nuqtani belgilang
               </p>
             </div>
 
@@ -347,16 +598,62 @@ export default function LibraryModal({
             <button
               type="button"
               onClick={handleGetCurrentLocation}
-              disabled={isLocating}
+              disabled={isLocating || isGeocoding}
               className={`inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer ${
-                isLocating
+                isLocating || isGeocoding
                   ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 animate-pulse'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
               }`}
+              title="Qurilmangizning hozirgi GPS koordinatasini olish va manzilni avtomatik to'ldirish"
             >
               <ICONS.location className={isLocating ? 'animate-spin' : ''} />
-              {isLocating ? "GPS orqali aniqlanmoqda..." : "📍 Hozirgi joylashuvimni aniqlash (GPS)"}
+              {isLocating
+                ? "GPS koordinata olinmoqda..."
+                : isGeocoding
+                ? "Manzil aniqlanmoqda..."
+                : "📍 Hozirgi joylashuvimni yuborish (GPS)"}
             </button>
+          </div>
+
+          {/* Quick Search on Map */}
+          <div className="relative z-10">
+            <div className="relative">
+              <ICONS.search className="absolute left-3 top-2.5 text-slate-400 text-xs" />
+              <input
+                type="text"
+                placeholder="Manzil yoki mo'ljalni qidirish (masalan: Qo'qon markaz, Rishton bozor)..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={() => {
+                  if (searchResults.length > 0) setShowSearchDropdown(true);
+                }}
+                className="w-full pl-8 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-2.5">
+                  <span className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+                </div>
+              )}
+            </div>
+
+            {showSearchDropdown && searchResults.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-48 overflow-y-auto z-[500] py-1">
+                {searchResults.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectSearchResult(item)}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer flex items-start gap-2"
+                  >
+                    <ICONS.location className="text-blue-500 shrink-0 mt-0.5 text-xs" />
+                    <div>
+                      <p className="font-semibold">{item.shortName}</p>
+                      <p className="text-[10px] text-slate-400 line-clamp-1">{item.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Interactive Leaflet Map Picker */}
@@ -377,7 +674,10 @@ export default function LibraryModal({
               {hasCoordinates && (
                 <>
                   <Marker
-                    position={[Number(form.latitude), Number(form.longitude)]}
+                    position={[
+                      parseFloat(String(form.latitude).replace(',', '.')),
+                      parseFloat(String(form.longitude).replace(',', '.'))
+                    ]}
                     icon={pickerPinIcon}
                     draggable={true}
                     eventHandlers={{
@@ -393,7 +693,8 @@ export default function LibraryModal({
                     <Popup>
                       <div className="text-xs font-sans text-slate-800">
                         <p className="font-bold text-blue-600 mb-0.5">{form.name || "Kutubxona joylashuvi"}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">
+                        <p className="text-[11px] text-slate-600 mb-1">{form.address || "Manzil aniqlanmoqda..."}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">
                           {Number(form.latitude).toFixed(6)}, {Number(form.longitude).toFixed(6)}
                         </p>
                         <p className="text-[10px] text-slate-400 mt-1 italic">
@@ -404,9 +705,12 @@ export default function LibraryModal({
                   </Marker>
                   {gpsAccuracy && (
                     <Circle
-                      center={[Number(form.latitude), Number(form.longitude)]}
+                      center={[
+                        parseFloat(String(form.latitude).replace(',', '.')),
+                        parseFloat(String(form.longitude).replace(',', '.'))
+                      ]}
                       radius={gpsAccuracy}
-                      pathOptions={{ color: '#3b82f6', fillColor: '#60a5fa', fillOpacity: 0.15, weight: 1.5 }}
+                      pathOptions={{ color: '#10b981', fillColor: '#34d399', fillOpacity: 0.15, weight: 1.5 }}
                     />
                   )}
                 </>
@@ -417,7 +721,7 @@ export default function LibraryModal({
             {!hasCoordinates && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md border border-slate-200/80 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 pointer-events-none z-[400] flex items-center gap-1.5">
                 <ICONS.location className="text-blue-500" />
-                Xaritani istalgan joyini bosib nuqta qo'ying
+                Xaritani istalgan joyini bosib nuqta belgilang
               </div>
             )}
           </div>
@@ -426,19 +730,23 @@ export default function LibraryModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <Input
               label="Kenglik (Latitude)"
-              type="number"
-              step="0.000001"
+              type="text"
               placeholder="Masalan: 40.386400"
               value={form.latitude}
-              onChange={e => setForm({ ...form, latitude: e.target.value })}
+              onChange={e => {
+                setForm({ ...form, latitude: e.target.value });
+                setHasCustomCoords(true);
+              }}
             />
             <Input
               label="Uzunlik (Longitude)"
-              type="number"
-              step="0.000001"
+              type="text"
               placeholder="Masalan: 71.786400"
               value={form.longitude}
-              onChange={e => setForm({ ...form, longitude: e.target.value })}
+              onChange={e => {
+                setForm({ ...form, longitude: e.target.value });
+                setHasCustomCoords(true);
+              }}
             />
           </div>
 
@@ -446,7 +754,7 @@ export default function LibraryModal({
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 border-t border-slate-200/60 dark:border-slate-800">
               <span className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1.5">
                 <ICONS.check className="text-emerald-600 dark:text-emerald-400" />
-                Koordinatalar belgilangan: <strong>{Number(form.latitude).toFixed(6)}, {Number(form.longitude).toFixed(6)}</strong>
+                Joylashuv aniqlandi: <strong>{Number(form.latitude).toFixed(6)}, {Number(form.longitude).toFixed(6)}</strong>
                 {gpsAccuracy && ` (GPS aniqligi: ~${gpsAccuracy}m)`}
               </span>
               <div className="flex items-center gap-2">
@@ -459,7 +767,11 @@ export default function LibraryModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setForm(prev => ({ ...prev, latitude: '', longitude: '' }))}
+                  onClick={() => {
+                    setForm(prev => ({ ...prev, latitude: '', longitude: '' }));
+                    setHasCustomCoords(false);
+                    setGpsAccuracy(null);
+                  }}
                   className="text-rose-600 dark:text-rose-400 hover:underline font-medium cursor-pointer ml-2"
                 >
                   Tozalash

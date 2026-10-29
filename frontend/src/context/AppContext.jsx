@@ -196,7 +196,7 @@ export function AppProvider({ children }) {
   }, [updateCollection]);
 
   // --- Generic CRUD factory (optimistic + API) ---
-  const createEntity = useCallback((storageKey, entity, userId = null, action = null, module = null) => {
+  const createEntity = useCallback(async (storageKey, entity, userId = null, action = null, module = null) => {
     const apiEndpoint = STORAGE_TO_API[storageKey];
     const tempId = entity.id || generateId('ent');
     const newItem = { ...entity, id: tempId, createdAt: entity.createdAt || new Date().toISOString() };
@@ -204,20 +204,24 @@ export function AppProvider({ children }) {
     updateCollection(storageKey, (items) => [newItem, ...(items || [])]);
     // API call — replace temp item with server-confirmed item on success
     if (apiEndpoint) {
-      api.create(apiEndpoint, newItem)
-        .then(serverItem => {
-          // Replace optimistic item with real server response (may have different id/fields)
-          updateCollection(storageKey, (items) =>
-            (items || []).map(item => item.id === tempId ? serverItem : item)
-          );
-        })
-        .catch(err => {
-          console.error('Create failed:', err);
-          // Rollback: remove the optimistic item on failure
-          updateCollection(storageKey, (items) =>
-            (items || []).filter(item => item.id !== tempId)
-          );
-        });
+      try {
+        const serverItem = await api.create(apiEndpoint, newItem);
+        updateCollection(storageKey, (items) =>
+          (items || []).map(item => item.id === tempId ? serverItem : item)
+        );
+        if (userId && action) {
+          addAuditLog(userId, action, module || 'unknown', `${action}: ${serverItem?.id || tempId}`);
+        }
+        return serverItem;
+      } catch (err) {
+        console.error('Create failed:', err);
+        toast.error("Ma'lumotni serverda saqlashda xatolik: " + (err.message || 'Server xatosi'));
+        // Rollback: remove the optimistic item on failure
+        updateCollection(storageKey, (items) =>
+          (items || []).filter(item => item.id !== tempId)
+        );
+        throw err;
+      }
     }
     if (userId && action) {
       addAuditLog(userId, action, module || 'unknown', `${action}: ${tempId}`);
@@ -225,7 +229,7 @@ export function AppProvider({ children }) {
     return newItem;
   }, [updateCollection, addAuditLog]);
 
-  const updateEntity = useCallback((storageKey, id, updates, userId = null, action = null, module = null) => {
+  const updateEntity = useCallback(async (storageKey, id, updates, userId = null, action = null, module = null) => {
     const apiEndpoint = STORAGE_TO_API[storageKey];
     // Save original for potential rollback
     const originalItems = collectionsRef.current[storageKey] || [];
@@ -236,22 +240,26 @@ export function AppProvider({ children }) {
     );
     // API call
     if (apiEndpoint) {
-      api.update(apiEndpoint, id, updates)
-        .then(serverItem => {
-          // Sync with server response
+      try {
+        const serverItem = await api.update(apiEndpoint, id, updates);
+        updateCollection(storageKey, (items) =>
+          (items || []).map(item => item.id === id ? serverItem : item)
+        );
+        if (userId && action) {
+          addAuditLog(userId, action, module || 'unknown', `${action}: ${id}`);
+        }
+        return serverItem;
+      } catch (err) {
+        console.error('Update failed:', err);
+        toast.error("Ma'lumotni serverda yangilashda xatolik: " + (err.message || 'Server xatosi'));
+        // Rollback on failure
+        if (original) {
           updateCollection(storageKey, (items) =>
-            (items || []).map(item => item.id === id ? serverItem : item)
+            (items || []).map(item => item.id === id ? original : item)
           );
-        })
-        .catch(err => {
-          console.error('Update failed:', err);
-          // Rollback on failure
-          if (original) {
-            updateCollection(storageKey, (items) =>
-              (items || []).map(item => item.id === id ? original : item)
-            );
-          }
-        });
+        }
+        throw err;
+      }
     }
     if (userId && action) {
       addAuditLog(userId, action, module || 'unknown', `${action}: ${id}`);

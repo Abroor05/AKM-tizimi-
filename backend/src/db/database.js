@@ -15,7 +15,7 @@ try {
 const poolConfig = process.env.DATABASE_URL
   ? { connectionString: process.env.DATABASE_URL }
   : {
-      host: process.env.DB_HOST || 'localhost',
+      host: process.env.DB_HOST || '127.0.0.1',
       port: parseInt(process.env.DB_PORT || '5432', 10),
       database: process.env.DB_NAME || 'akm_db',
       user: process.env.DB_USER || 'postgres',
@@ -406,7 +406,8 @@ export function objectToRow(table, obj) {
       if (value === '' || value === null || value === undefined) {
         row[snakeKey] = null;
       } else {
-        const num = Number(value);
+        const cleanVal = typeof value === 'string' ? value.replace(',', '.') : value;
+        const num = Number(cleanVal);
         row[snakeKey] = isNaN(num) ? null : num;
       }
     } else {

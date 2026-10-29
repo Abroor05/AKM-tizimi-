@@ -13,7 +13,8 @@ import {
   setSetting,
   query,
 } from '../db/database.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, invalidateUserCache } from '../middleware/auth.js';
+import { checkAndGenerateUserReportReminders } from '../services/reportReminder.js';
 
 function generateId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -223,6 +224,7 @@ usersRouter.put('/:id', authMiddleware, async (req, res, next) => {
     delete updates.password;
 
     const updated = await updateRow('users', req.params.id, updates);
+    invalidateUserCache(req.params.id);
     await addAuditLog(req.user.id, 'update', 'users', `Foydalanuvchi yangilandi: ${req.params.id}`, req);
     const { password_hash, ...safe } = updated;
     res.json(safe);
@@ -269,6 +271,7 @@ usersRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     delete updates.password;
 
     const updated = await updateRow('users', req.params.id, updates);
+    invalidateUserCache(req.params.id);
     const { password_hash, ...safe } = updated;
     res.json(safe);
   } catch (err) {
@@ -298,6 +301,7 @@ usersRouter.delete('/:id', authMiddleware, async (req, res, next) => {
 
     const success = await deleteRow('users', req.params.id);
     if (!success) return res.status(404).json({ error: 'Topilmadi' });
+    invalidateUserCache(req.params.id);
     await addAuditLog(req.user.id, 'delete', 'users', `Foydalanuvchi o'chirildi: ${req.params.id}`, req);
     res.json({ success: true });
   } catch (err) {
@@ -312,6 +316,7 @@ usersRouter.post('/:id/reset-password', authMiddleware, async (req, res, next) =
     if (!newPassword) return res.status(400).json({ error: 'Yangi parol talab qilinadi' });
     const hash = bcrypt.hashSync(newPassword, 10);
     await query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
+    invalidateUserCache(req.params.id);
     await addAuditLog(req.user.id, 'reset_password', 'users', `Parol tiklandi: ${req.params.id}`, req);
     res.json({ success: true });
   } catch (err) {
@@ -323,6 +328,16 @@ usersRouter.post('/:id/reset-password', authMiddleware, async (req, res, next) =
 // REPORTS ROUTER
 // ============================================================
 const reportsRouter = Router();
+
+// Foydalanuvchi hisobot topshirish holati va eslatmalar statusi
+reportsRouter.get('/reminder-status', authMiddleware, async (req, res, next) => {
+  try {
+    const status = await checkAndGenerateUserReportReminders(req.user);
+    res.json(status || { dailyPending: false, monthlyPending: false, annualPending: false, createdNotifications: [] });
+  } catch (err) {
+    next(err);
+  }
+});
 
 reportsRouter.get('/', authMiddleware, async (_req, res, next) => {
   try {
@@ -372,6 +387,20 @@ reportsRouter.post('/', authMiddleware, async (req, res, next) => {
 
     const created = await insertRow('reports', obj);
     await addAuditLog(req.user.id, 'create', 'reports', `Yangi hisobot: ${obj.title}`, req);
+
+    // Agar hisobot topshirilgan bo'lsa, tegishli eslatma bildirishnomalarini avtomatik read=1 qilish
+    if (obj.status === 'submitted') {
+      try {
+        if (obj.type === 'daily') {
+          await query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND date = ? AND title LIKE '%Kunlik hisobot%' AND read = 0", [req.user.id, todayStr]);
+        } else if (obj.type === 'monthly') {
+          await query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND title LIKE '%oylik hisobot%' AND read = 0", [req.user.id]);
+        } else if (obj.type === 'annual') {
+          await query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND title LIKE '%Yillik hisobot%' AND read = 0", [req.user.id]);
+        }
+      } catch {}
+    }
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -439,6 +468,19 @@ reportsRouter.post('/:id/submit', authMiddleware, async (req, res, next) => {
     }
     const updated = await updateRow('reports', req.params.id, updates);
     await addAuditLog(req.user.id, 'submit', 'reports', `Hisobot yuborildi: ${req.params.id}`, req);
+
+    // Eslatma bildirishnomasini tozalash (read = 1)
+    try {
+      const repType = existing.type || req.body?.type;
+      if (repType === 'daily') {
+        await query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND date = ? AND title LIKE '%Kunlik hisobot%' AND read = 0", [req.user.id, todayStr]);
+      } else if (repType === 'monthly') {
+        await query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND title LIKE '%oylik hisobot%' AND read = 0", [req.user.id]);
+      } else if (repType === 'annual') {
+        await query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND title LIKE '%Yillik hisobot%' AND read = 0", [req.user.id]);
+      }
+    } catch {}
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -649,6 +691,7 @@ const notificationsRouter = Router();
 
 notificationsRouter.get('/', authMiddleware, async (req, res, next) => {
   try {
+    await checkAndGenerateUserReportReminders(req.user).catch(() => {});
     const all = await getAll('notifications');
     const userRole = req.user.role;
     const userId = req.user.id;
@@ -669,6 +712,7 @@ notificationsRouter.get('/', authMiddleware, async (req, res, next) => {
 
 notificationsRouter.get('/unread-count', authMiddleware, async (req, res, next) => {
   try {
+    await checkAndGenerateUserReportReminders(req.user).catch(() => {});
     const all = await getAll('notifications');
     const userRole = req.user.role;
     const userId = req.user.id;

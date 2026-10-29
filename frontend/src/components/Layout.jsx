@@ -323,7 +323,17 @@ export default function Layout({ children }) {
                       notifications.slice(0, 8).map(n => (
                         <button
                           key={n.id}
-                          onClick={() => markNotificationRead(n.id)}
+                          onClick={() => {
+                            markNotificationRead(n.id);
+                            setNotifOpen(false);
+                            if (n.type === NOTIFICATION_TYPES.REPORT || n.title?.toLowerCase().includes('hisobot')) {
+                              if (n.title?.toLowerCase().includes('kunlik')) {
+                                navigate(currentUser?.role === 'xodimlar_boshligi' ? '/xb-activity' : '/daily-activity');
+                              } else {
+                                navigate('/reports');
+                              }
+                            }
+                          }}
                           className={`w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-3 ${
                             !n.read ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
                           }`}

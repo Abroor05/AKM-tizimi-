@@ -2,7 +2,7 @@
 // GENERIC CRUD ROUTE FACTORY (PostgreSQL)
 // ============================================================
 import { Router } from 'express';
-import { getAll, getById, insertRow, updateRow, deleteRow, getTableColumns } from '../db/database.js';
+import { getAll, getById, insertRow, updateRow, deleteRow, getTableColumns, query } from '../db/database.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 // Entity configuration: maps API path -> DB table name
@@ -74,6 +74,16 @@ export function createCrudRouter(apiPath, tableName) {
       delete obj.createdAt;
 
       const created = await insertRow(tableName, obj);
+
+      // Agar faoliyat (kunlik hisobot) topshirilgan bo'lsa, eslatma bildirishnomasini o'qilgan deb belgilash
+      if (tableName === 'activities' && (obj.type === 'daily_report' || obj.type === 'daily')) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const statusVal = obj.status || 'completed';
+        if (['submitted', 'sent', 'accepted', 'completed'].includes(statusVal)) {
+          query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND date = ? AND title LIKE '%Kunlik hisobot%' AND read = 0", [req.user.id, todayStr]).catch(() => {});
+        }
+      }
+
       res.status(201).json(created);
     } catch (err) {
       next(err);
@@ -86,6 +96,14 @@ export function createCrudRouter(apiPath, tableName) {
       const existing = await getById(tableName, req.params.id);
       if (!existing) return res.status(404).json({ error: 'Topilmadi' });
       const updated = await updateRow(tableName, req.params.id, req.body);
+      if (tableName === 'activities') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const statusVal = req.body?.status || updated?.status;
+        if (['submitted', 'sent', 'accepted', 'completed'].includes(statusVal)) {
+          const uId = updated?.userId || updated?.user_id || req.user.id;
+          query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND date = ? AND title LIKE '%Kunlik hisobot%' AND read = 0", [uId, todayStr]).catch(() => {});
+        }
+      }
       res.json(updated);
     } catch (err) {
       next(err);
@@ -98,6 +116,14 @@ export function createCrudRouter(apiPath, tableName) {
       const existing = await getById(tableName, req.params.id);
       if (!existing) return res.status(404).json({ error: 'Topilmadi' });
       const updated = await updateRow(tableName, req.params.id, req.body);
+      if (tableName === 'activities') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const statusVal = req.body?.status || updated?.status;
+        if (['submitted', 'sent', 'accepted', 'completed'].includes(statusVal)) {
+          const uId = updated?.userId || updated?.user_id || req.user.id;
+          query("UPDATE notifications SET read = 1 WHERE target_user_id = ? AND date = ? AND title LIKE '%Kunlik hisobot%' AND read = 0", [uId, todayStr]).catch(() => {});
+        }
+      }
       res.json(updated);
     } catch (err) {
       next(err);

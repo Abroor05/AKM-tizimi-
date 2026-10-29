@@ -10,6 +10,7 @@ import authRouter from './routes/auth.js';
 import { setupSwagger } from './swagger.js';
 import { authMiddleware } from './middleware/auth.js';
 import { securityHeaders, apiRateLimiter, sanitizeInputs } from './middleware/security.js';
+import { checkAllStaffReportReminders } from './services/reportReminder.js';
 
 // .env konfiguratsiyasini yuklash
 try {
@@ -150,4 +151,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  OpenAPI JSON: http://localhost:${PORT}/api/docs.json`);
   console.log(`  Health: http://localhost:${PORT}/api/health`);
   console.log(`========================================\n`);
+
+  // Hisobot eslatmalarini tekshirish (startdan 5 soniya keyin va har 15 daqiqada bir)
+  setTimeout(() => {
+    checkAllStaffReportReminders().catch((err) => console.error('Eslatmalarni tekshirishda xatolik:', err.message));
+  }, 5000);
+  setInterval(() => {
+    checkAllStaffReportReminders().catch((err) => console.error('Eslatmalarni tekshirishda xatolik:', err.message));
+  }, 15 * 60 * 1000);
 });

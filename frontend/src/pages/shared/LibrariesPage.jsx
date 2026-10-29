@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import Card from '../../components/ui/Card.jsx';
@@ -13,6 +14,7 @@ import LibraryModal from '../../components/common/LibraryModal.jsx';
 
 export default function LibrariesPage() {
   const { currentUser, getCollection, deleteEntity, isRole } = useApp();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [viloyatFilter, setViloyatFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -20,14 +22,18 @@ export default function LibrariesPage() {
 
   const allLibraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
   const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.KUTUBXONA_XODIMI);
+  const isXodimlarBoshligi = isRole(ROLES.XODIMLAR_BOSHLIGI);
 
   // Scope libraries based on user role
   const libraries = useMemo(() => {
     if (isRole(ROLES.SUPER_ADMIN)) return allLibraries;
     if (isRole(ROLES.VILOYAT_ADMIN)) return allLibraries.filter(l => l.viloyatId === currentUser?.viloyatId);
     if (isDistrictScopedUser) return allLibraries.filter(l => l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId);
-    return [];
-  }, [allLibraries, currentUser, isRole, isDistrictScopedUser]);
+    if (isXodimlarBoshligi) {
+      return allLibraries.filter(l => l.id === currentUser?.libraryId || (l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId));
+    }
+    return allLibraries;
+  }, [allLibraries, currentUser, isRole, isDistrictScopedUser, isXodimlarBoshligi]);
 
   const filtered = useMemo(() => {
     return libraries.filter(l => {
@@ -71,12 +77,20 @@ export default function LibrariesPage() {
         title="AKM / Kutubxonalar"
         subtitle="Axborot-kutubxona markazlari va filiallari"
         icon={ICONS.library}
-        action={canManage ? (
-          <Button onClick={openCreate} className="flex items-center gap-2">
-            <ICONS.plus />
-            <span>Yangi kutubxona</span>
-          </Button>
-        ) : null}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => navigate('/map')} className="flex items-center gap-2">
+              <ICONS.map />
+              <span>Xaritada ko'rish</span>
+            </Button>
+            {canManage && (
+              <Button onClick={openCreate} className="flex items-center gap-2">
+                <ICONS.plus />
+                <span>Yangi kutubxona</span>
+              </Button>
+            )}
+          </div>
+        }
       />
 
       {/* Filters */}
@@ -153,15 +167,31 @@ export default function LibrariesPage() {
                       <span>{getViloyatName(lib.viloyatId)} / {getTumanName(lib.viloyatId, lib.tumanId)}</span>
                     </div>
                     {hasCoords ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/map')}
+                          className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <ICONS.location className="text-[10px]" /> Xaritada
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openGoogleMaps(lib.latitude, lib.longitude)}
+                          className="text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <ICONS.globe className="text-[10px]" /> Google
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => openGoogleMaps(lib.latitude, lib.longitude)}
-                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        onClick={() => openEdit(lib)}
+                        className="text-amber-500 hover:text-amber-600 font-medium flex items-center gap-1 cursor-pointer"
+                        title="GPS manzil kiritish"
                       >
-                        <ICONS.globe className="text-[10px]" /> Xarita
+                        <ICONS.location className="text-[10px]" /> GPS qo'shish
                       </button>
-                    ) : (
-                      <span className="text-amber-500 font-medium">GPS yo'q</span>
                     )}
                   </div>
 

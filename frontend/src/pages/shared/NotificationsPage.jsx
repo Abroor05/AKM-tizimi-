@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import Card from '../../components/ui/Card.jsx';
@@ -28,14 +29,39 @@ const BG_COLORS = {
 };
 
 export default function NotificationsPage() {
-  const { getNotifications, markNotificationRead, markAllRead, getUnreadCount } = useApp();
+  const { currentUser, getNotifications, markNotificationRead, markAllRead, getUnreadCount } = useApp();
+  const navigate = useNavigate();
   const notifications = useMemo(() => getNotifications(), [getNotifications]);
   const unreadCount = getUnreadCount();
 
+  const handleNotificationClick = (n) => {
+    markNotificationRead(n.id);
+    if (n.type === NOTIFICATION_TYPES.REPORT || n.title?.toLowerCase().includes('hisobot')) {
+      if (n.title?.toLowerCase().includes('kunlik')) {
+        navigate(currentUser?.role === 'xodimlar_boshligi' ? '/xb-activity' : '/daily-activity');
+      } else {
+        navigate('/reports');
+      }
+    }
+  };
+
   return (
     <div className="abror">
-      <PageHeader title="Bildirishnomalar" subtitle="Tizim bildirishnomalari va xabarnomalar" icon={ICONS.notifications}
-        action={unreadCount > 0 ? <button onClick={markAllRead} className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"><ICONS.check className="text-sm" /> Hammasini o'qildi</button> : null} />
+      <PageHeader
+        title="Bildirishnomalar"
+        subtitle="Tizim bildirishnomalari va xabarnomalar"
+        icon={ICONS.notifications}
+        action={
+          unreadCount > 0 ? (
+            <button
+              onClick={markAllRead}
+              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1"
+            >
+              <ICONS.check className="text-sm" /> Hammasini o'qildi
+            </button>
+          ) : null
+        }
+      />
 
       {notifications.length === 0 ? (
         <EmptyState icon={ICONS.notifications} title="Bildirishnomalar yo'q" message="Sizda hozircha bildirishnomalar mavjud emas" />
@@ -49,7 +75,7 @@ export default function NotificationsPage() {
               return (
                 <button
                   key={n.id}
-                  onClick={() => markNotificationRead(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                   className={`w-full text-left flex items-start gap-3 p-4 hover:bg-gray-50 transition-colors ${!n.read ? 'bg-blue-50/30' : ''}`}
                 >
                   <div className={`p-2 rounded-lg shrink-0 ${bgClass}`}>

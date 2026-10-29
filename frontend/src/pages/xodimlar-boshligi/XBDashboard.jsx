@@ -27,6 +27,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts';
+import ReportReminderBanner from '../../components/common/ReportReminderBanner.jsx';
 
 const PIE_COLORS = ['#0d9488', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
 
@@ -159,6 +160,9 @@ export default function XBDashboard() {
 
   return (
     <div>
+      {/* Pending Report Deadlines & Reminders */}
+      <ReportReminderBanner />
+
       {/* Welcome banner */}
       <div className="relative rounded-3xl bg-gradient-to-br from-[#042f2e] via-[#0b1329] to-[#0f172a] border border-teal-900/60 p-6 sm:p-8 mb-7 text-white shadow-executive-lg overflow-hidden">
         <div className="flex items-start justify-between flex-wrap gap-4 relative z-10">

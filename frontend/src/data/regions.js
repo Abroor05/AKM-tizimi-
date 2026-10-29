@@ -64,3 +64,28 @@ export function getTumanCoordinates(viloyatId, tumanId) {
 export function getAllTumanlar() {
   return VILOYATLAR.flatMap(v => v.tumanlar.map(t => ({ ...t, viloyatId: v.id, viloyatName: v.name })));
 }
+
+/**
+ * Berilgan koordinatalar (lat, lng) ga eng yaqin tuman/shaharni topish (avtomatik biriktirish)
+ */
+export function findNearestTuman(lat, lng, viloyatId = 'v01') {
+  const v = getViloyatById(viloyatId) || VILOYATLAR[0];
+  const numLat = Number(lat);
+  const numLng = Number(lng);
+  if (!v || !Number.isFinite(numLat) || !Number.isFinite(numLng)) return null;
+
+  let best = null;
+  let minDistance = Infinity;
+
+  for (const t of v.tumanlar) {
+    if (t.lat != null && t.lng != null) {
+      const d = Math.hypot(t.lat - numLat, t.lng - numLng);
+      if (d < minDistance) {
+        minDistance = d;
+        best = t;
+      }
+    }
+  }
+
+  return best;
+}
