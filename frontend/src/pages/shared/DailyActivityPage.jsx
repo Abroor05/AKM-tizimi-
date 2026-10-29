@@ -417,27 +417,31 @@ export default function DailyActivityPage() {
       {/* Oylik/yillik jami */}
       {(viewTab === "monthly" || viewTab === "yearly") &&
         filtered.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-2.5 mb-4">
             {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => {
               const isNumeric =
                 key === "kitob_skanerlash" || key === "kitob_pdf" || key === "ijtimoiy_tarmoq";
               const unit =
                 key === "kitob_skanerlash"
-                  ? "sahifa"
+                  ? "ta kitob"
                   : key === "kitob_pdf"
                     ? "fayl"
                     : key === "ijtimoiy_tarmoq"
                       ? "ta post"
                       : "marta";
               return (
-                <Card key={key} className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">
+                <Card
+                  key={key}
+                  noPadding
+                  className="p-2 sm:p-2.5 text-center flex flex-col justify-center items-center rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-blue-300 dark:hover:border-blue-700 transition-all min-h-[68px]"
+                >
+                  <p className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400 flex items-baseline justify-center gap-1 leading-none">
                     {formatNumber(monthTotals[key] || 0)}
-                    <span className="text-xs font-normal text-gray-400 ml-1">
+                    <span className="text-[10px] sm:text-[11px] font-normal text-slate-400 dark:text-slate-500">
                       {unit}
                     </span>
                   </p>
-                  <p className="text-xs text-gray-500 mt-1 leading-tight">
+                  <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400 mt-1.5 leading-tight font-medium line-clamp-2">
                     {label}
                   </p>
                 </Card>
@@ -671,12 +675,12 @@ export default function DailyActivityPage() {
                         Skanerlash ishlari
                       </p>
                       <p className="text-[11px] text-gray-400">
-                        Kitob va materiallar
+                        Kitoblar soni
                       </p>
                     </div>
                   </div>
                   <span className="text-[11px] font-semibold text-blue-600 bg-blue-100/70 px-2 py-0.5 rounded-md">
-                    sahifa
+                    ta kitob
                   </span>
                 </div>
                 <div className="relative">
@@ -693,11 +697,11 @@ export default function DailyActivityPage() {
                         },
                       }))
                     }
-                    placeholder="Masalan: 45"
+                    placeholder="Masalan: 5"
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                   />
                   <span className="absolute right-3 top-2.5 text-xs text-gray-400 pointer-events-none">
-                    sahifa
+                    ta kitob
                   </span>
                 </div>
               </div>
@@ -1013,7 +1017,7 @@ export default function DailyActivityPage() {
                   {entries.map(([key, val]) => {
                     const isNumeric =
                       key === "kitob_skanerlash" || key === "kitob_pdf" || key === "ijtimoiy_tarmoq";
-                    const unit = key === "kitob_skanerlash" ? "sahifa" : key === "kitob_pdf" ? "fayl" : "ta post";
+                    const unit = key === "kitob_skanerlash" ? "ta kitob" : key === "kitob_pdf" ? "fayl" : "ta post";
                     const note = notes[key];
                     return (
                       <div
