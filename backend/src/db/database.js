@@ -2,6 +2,10 @@
 // DATABASE - PostgreSQL connection & schema
 // ============================================================
 import pg from 'pg';
+import net from 'net';
+import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 
 const { Pool } = pg;
 
@@ -10,6 +14,82 @@ try {
   process.loadEnvFile();
 } catch {
   // .env mavjud bo'lmasa, default sozlamalar ishlaydi
+}
+
+function checkPort(host, port, timeout = 1000) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeout);
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once('error', () => {
+      resolve(false);
+    });
+    socket.connect(port, host);
+  });
+}
+
+export async function ensurePostgresIsRunning() {
+  const host = process.env.DB_HOST || '127.0.0.1';
+  const port = parseInt(process.env.DB_PORT || '5432', 10);
+
+  const isOpen = await checkPort(host, port, 600);
+  if (isOpen) return true;
+
+  console.log(`[PostgreSQL] ${host}:${port} ulanishi topilmadi. Avtomatik ishga tushirish tekshirilmoqda...`);
+
+  const candidates = [
+    'C:\\Users\\Fujitsu-HS\\pgsql',
+    path.join(process.env.USERPROFILE || '', 'pgsql'),
+    'C:\\pgsql',
+    'C:\\Program Files\\PostgreSQL\\16',
+  ];
+
+  for (const dir of candidates) {
+    const pgCtl = path.join(dir, 'bin', 'pg_ctl.exe');
+    const pgData = path.join(dir, 'data');
+    const pgLog = path.join(dir, 'logfile.txt');
+
+    const vbsPath = path.join(dir, 'start-postgres.vbs');
+    if (fs.existsSync(pgCtl) && fs.existsSync(pgData)) {
+      console.log(`[PostgreSQL] PostgreSQL topildi (${pgCtl}). Fon rejimida oynasiz ishga tushirilmoqda...`);
+      try {
+        let child;
+        if (fs.existsSync(vbsPath)) {
+          child = spawn('wscript.exe', [vbsPath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+        } else {
+          child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', `& "${pgCtl}" -D "${pgData}" -l "${pgLog}" start`], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+        }
+        child.unref();
+
+        for (let i = 0; i < 25; i++) {
+          await new Promise((r) => setTimeout(r, 300));
+          if (await checkPort(host, port, 300)) {
+            console.log('[PostgreSQL] Server muvaffaqiyatli ishga tushdi va ulanishga tayyor!');
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn('[PostgreSQL] Avto-startda xatolik:', err.message);
+      }
+    }
+  }
+
+  return false;
 }
 
 const poolConfig = process.env.DATABASE_URL
@@ -85,7 +165,8 @@ export const db = {
 };
 
 // --- SCHEMA & TABLES INITIALIZATION ---
-export async function initDb() {
+export async function initDb(retries = 3) {
+  await ensurePostgresIsRunning();
   const SCHEMA = `
   -- USERS
   CREATE TABLE IF NOT EXISTS users (
@@ -325,8 +406,17 @@ export async function initDb() {
   CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp DESC);
   `;
 
-  await pool.query(SCHEMA);
-  await refreshColumnsCache();
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await pool.query(SCHEMA);
+      await refreshColumnsCache();
+      return;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      console.warn(`[PostgreSQL] Ulanishda kutilmagan holat (${attempt}/${retries}), 1 soniyadan so'ng qayta urinilmoqda...`);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
 }
 
 // Cache table columns

@@ -34,6 +34,7 @@ router.get('/bootstrap-check', async (_req, res, next) => {
 });
 
 // POST /api/auth/bootstrap - create the first real administrator on an empty database
+
 router.post('/bootstrap', async (req, res, next) => {
   try {
     const resDb = await query('SELECT COUNT(*) as count FROM users');
