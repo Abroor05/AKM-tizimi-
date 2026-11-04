@@ -1,33 +1,38 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
-import { ROLE_PERMISSIONS, PERMISSIONS } from '../data/constants.js';
+import { ROLES } from '../data/constants.js';
 
-export default function ProtectedRoute({ children, requiredPermission = null, allowedRoles = null }) {
+export default function ProtectedRoute({ children, requiredPermission }) {
   const { currentUser, initialized, hasPermission } = useApp();
   const location = useLocation();
 
   if (!initialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-500">Yuklanmoqda...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
+  // Tizimga kirmagan bo'lsa login sahifasiga yo'naltirish
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check role restriction
-  if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
-    return <Navigate to="/dashboard" replace />;
+  // SuperAdmin har qanday bo'limga to'siqsiz kira oladi
+  const isSuperAdmin = currentUser?.role === ROLES?.SUPER_ADMIN || currentUser?.role === 'superadmin';
+  if (isSuperAdmin) {
+    return children;
   }
 
-  // Check permission restriction
-  if (requiredPermission && !hasPermission(requiredPermission)) {
+  // Ruxsat talab qilinmagan bo'lsa o'tkazish
+  if (!requiredPermission) {
+    return children;
+  }
+
+  // Qolgan rollar uchun ruxsatni qat'iy tekshirish
+  const allowed = typeof hasPermission === 'function' ? hasPermission(requiredPermission) : true;
+  if (!allowed) {
     return <Navigate to="/dashboard" replace />;
   }
 
