@@ -58,70 +58,74 @@ export default function Dashboard() {
   const isXodim = role === ROLES.KUTUBXONA_XODIMI;
   const isAdmin = isSuperAdmin || isViloyatAdmin || isTumanAdmin;
 
-  // Collections
-  const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
-  const activities = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
-  const reports = useMemo(() => getReports(), [getReports]);
-  const tasks = useMemo(() => getTasks(), [getTasks]);
-  const events = useMemo(() => getCollection(STORAGE_KEYS.EVENTS), [getCollection]);
-  const appeals = useMemo(() => getCollection(STORAGE_KEYS.APPEALS), [getCollection]);
+  // Collections (massiv bo'sh bo'lsa default [] qaytadi)
+  const libraries = useMemo(() => (getCollection ? getCollection(STORAGE_KEYS.LIBRARIES) || [] : []), [getCollection]);
+  const activities = useMemo(() => (getCollection ? getCollection(STORAGE_KEYS.ACTIVITIES) || [] : []), [getCollection]);
+  const reports = useMemo(() => (getReports ? getReports() || [] : []), [getReports]);
+  const tasks = useMemo(() => (getTasks ? getTasks() || [] : []), [getTasks]);
+  const events = useMemo(() => (getCollection ? getCollection(STORAGE_KEYS.EVENTS) || [] : []), [getCollection]);
+  const appeals = useMemo(() => (getCollection ? getCollection(STORAGE_KEYS.APPEALS) || [] : []), [getCollection]);
 
   // Scoped data by role
   const scopedLibraries = useMemo(() => {
+    if (!Array.isArray(libraries)) return [];
     if (isSuperAdmin) return libraries;
-    if (isViloyatAdmin) return libraries.filter(l => l.viloyatId === currentUser?.viloyatId);
-    if (isTumanAdmin) return libraries.filter(l => l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId);
-    if (isXodimBoshligi || isXodim) return libraries.filter(l => l.id === currentUser?.libraryId);
+    if (isViloyatAdmin) return libraries.filter(l => l?.viloyatId === currentUser?.viloyatId);
+    if (isTumanAdmin) return libraries.filter(l => l?.viloyatId === currentUser?.viloyatId && l?.tumanId === currentUser?.tumanId);
+    if (isXodimBoshligi || isXodim) return libraries.filter(l => l?.id === currentUser?.libraryId);
     return libraries;
   }, [libraries, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
   const scopedReports = useMemo(() => {
+    if (!Array.isArray(reports)) return [];
     if (isSuperAdmin) return reports;
-    if (isViloyatAdmin) return reports.filter(r => !r.viloyatId || r.viloyatId === currentUser?.viloyatId || (r.targetRole && r.targetRole.includes('viloyat_admin')));
-    if (isTumanAdmin) return reports.filter(r => r.viloyatId === currentUser?.viloyatId && r.tumanId === currentUser?.tumanId);
-    if (isXodimBoshligi || isXodim) return reports.filter(r => r.libraryId === currentUser?.libraryId || r.createdBy === currentUser?.id || r.userId === currentUser?.id);
+    if (isViloyatAdmin) return reports.filter(r => !r?.viloyatId || r?.viloyatId === currentUser?.viloyatId || (r?.targetRole && r.targetRole.includes('viloyat_admin')));
+    if (isTumanAdmin) return reports.filter(r => r?.viloyatId === currentUser?.viloyatId && r?.tumanId === currentUser?.tumanId);
+    if (isXodimBoshligi || isXodim) return reports.filter(r => r?.libraryId === currentUser?.libraryId || r?.createdBy === currentUser?.id || r?.userId === currentUser?.id);
     return reports;
   }, [reports, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
   const scopedTasks = useMemo(() => {
+    if (!Array.isArray(tasks)) return [];
     if (isSuperAdmin || isViloyatAdmin) return tasks;
-    if (isTumanAdmin) return tasks.filter(t => t.assignedBy === currentUser?.id || t.assignedTo === currentUser?.id);
+    if (isTumanAdmin) return tasks.filter(t => t?.assignedBy === currentUser?.id || t?.assignedTo === currentUser?.id);
     if (isXodimBoshligi) return tasks.filter(t =>
-      t.assignedBy === currentUser?.id || t.assignedTo === currentUser?.id || t.libraryId === currentUser?.libraryId
+      t?.assignedBy === currentUser?.id || t?.assignedTo === currentUser?.id || t?.libraryId === currentUser?.libraryId
     );
-    if (isXodim) return tasks.filter(t => t.assignedTo === currentUser?.id);
+    if (isXodim) return tasks.filter(t => t?.assignedTo === currentUser?.id);
     return tasks;
   }, [tasks, currentUser, isSuperAdmin, isViloyatAdmin, isXodimBoshligi, isXodim, isTumanAdmin]);
 
   // Derived stats
-  const pendingReports = scopedReports.filter(r => r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW);
-  const pendingTasks = scopedTasks.filter(t => t.status === TASK_STATUS.PENDING || t.status === TASK_STATUS.IN_PROGRESS);
-  const newAppeals = appeals.filter(a => a.status === 'new');
-  const upcomingEvents = events.filter(e => e.status === 'upcoming');
+  const pendingReports = (scopedReports || []).filter(r => r?.status === REPORT_STATUS.SUBMITTED || r?.status === REPORT_STATUS.UNDER_REVIEW);
+  const pendingTasks = (scopedTasks || []).filter(t => t?.status === TASK_STATUS.PENDING || t?.status === TASK_STATUS.IN_PROGRESS);
+  const newAppeals = (appeals || []).filter(a => a?.status === 'new');
+  const upcomingEvents = (events || []).filter(e => e?.status === 'upcoming');
 
-  const allUsers = useMemo(() => getUsers(), [getUsers]);
+  const allUsers = useMemo(() => (getUsers ? getUsers() || [] : []), [getUsers]);
   const scopedUsers = useMemo(() => {
+    if (!Array.isArray(allUsers)) return [];
     if (isSuperAdmin) return allUsers;
-    if (isViloyatAdmin) return allUsers.filter(u => u.viloyatId === currentUser?.viloyatId);
-    if (isTumanAdmin) return allUsers.filter(u => u.viloyatId === currentUser?.viloyatId && u.tumanId === currentUser?.tumanId);
-    return allUsers.filter(u => u.libraryId === currentUser?.libraryId);
+    if (isViloyatAdmin) return allUsers.filter(u => u?.viloyatId === currentUser?.viloyatId);
+    if (isTumanAdmin) return allUsers.filter(u => u?.viloyatId === currentUser?.viloyatId && u?.tumanId === currentUser?.tumanId);
+    return allUsers.filter(u => u?.libraryId === currentUser?.libraryId);
   }, [allUsers, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin]);
 
-  // Pure Visitors trend (deterministic, without Math.random)
+  // Pure Visitors trend
   const visitorsTrend = useMemo(() => {
     const months = ['May', 'Iyun', 'Iyul', 'Avgust', 'Sentyabr', 'Oktyabr'];
     const baseCounts = [380, 420, 390, 480, 560, 620];
     const baseActivities = [35, 42, 38, 51, 58, 64];
 
-    // Factor in actual activity count
-    const activityWeight = Math.min(activities.length * 2, 50);
+    const actLen = Array.isArray(activities) ? activities.length : 0;
+    const activityWeight = Math.min(actLen * 2, 50);
 
     return months.map((month, i) => ({
       name: month,
       tashrif: baseCounts[i] + activityWeight,
       faollik: baseActivities[i] + Math.floor(activityWeight / 2),
     }));
-  }, [activities.length]);
+  }, [activities]);
 
   // Report status chart
   const reportStatusData = useMemo(() => {
@@ -132,8 +136,8 @@ export default function Dashboard() {
       [REPORT_STATUS.REJECTED]: { name: 'Rad etilgan', value: 0, color: '#ef4444' },
       [REPORT_STATUS.DRAFT]: { name: 'Qoralama', value: 0, color: '#94a3b8' },
     };
-    scopedReports.forEach(r => {
-      if (counts[r.status]) counts[r.status].value++;
+    (scopedReports || []).forEach(r => {
+      if (r?.status && counts[r.status]) counts[r.status].value++;
     });
     const list = Object.values(counts).filter(c => c.value > 0);
     return list.length > 0 ? list : [{ name: 'Hisobotlar yo\'q', value: 1, color: '#cbd5e1' }];
@@ -141,10 +145,12 @@ export default function Dashboard() {
 
   // Libraries by viloyat
   const librariesByViloyat = useMemo(() => {
-    if (!isSuperAdmin && !isViloyatAdmin) return [];
+    if ((!isSuperAdmin && !isViloyatAdmin) || !Array.isArray(libraries)) return [];
     const counts = {};
     libraries.forEach(l => {
-      counts[l.viloyatId] = (counts[l.viloyatId] || 0) + 1;
+      if (l?.viloyatId) {
+        counts[l.viloyatId] = (counts[l.viloyatId] || 0) + 1;
+      }
     });
     return Object.entries(counts).map(([vid, count]) => ({
       name: getViloyatName(vid)?.replace(' viloyati', '').replace(' shahri', '') || vid,
@@ -153,13 +159,13 @@ export default function Dashboard() {
   }, [libraries, isSuperAdmin, isViloyatAdmin]);
 
   // Recent reports
-  const recentReports = useMemo(() => [...scopedReports].sort((a, b) =>
-    new Date(b.submittedAt || b.createdAt) - new Date(a.submittedAt || a.createdAt)
+  const recentReports = useMemo(() => [...(scopedReports || [])].sort((a, b) =>
+    new Date(b?.submittedAt || b?.createdAt || 0) - new Date(a?.submittedAt || a?.createdAt || 0)
   ).slice(0, 5), [scopedReports]);
 
   // Recent tasks
-  const myTasks = useMemo(() => [...scopedTasks].sort((a, b) =>
-    new Date(b.createdAt) - new Date(a.createdAt)
+  const myTasks = useMemo(() => [...(scopedTasks || [])].sort((a, b) =>
+    new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0)
   ).slice(0, 5), [scopedTasks]);
 
   const greeting = () => {
@@ -169,14 +175,21 @@ export default function Dashboard() {
     return "Xayrli kech";
   };
 
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-7">
       {/* Pending Report Deadlines & Reminders */}
       <ReportReminderBanner />
 
-      {/* Executive Hero Banner (Deep Obsidian / Royal Slate) */}
+      {/* Executive Hero Banner */}
       <div className="relative rounded-3xl bg-gradient-to-br from-[#0b1120] via-[#111827] to-[#0f172a] border border-slate-800 p-6 sm:p-8 text-white shadow-executive-lg overflow-hidden">
-        {/* Ambient subtle glow */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -185,7 +198,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                {ROLE_LABELS[role]}
+                {ROLE_LABELS[role] || role}
               </span>
               <span className="text-xs text-slate-400 font-medium">
                 {currentUser?.viloyatId ? getViloyatName(currentUser.viloyatId) : "O'zbekiston Respublikasi"}
@@ -201,9 +214,8 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Quick Action Buttons on Hero */}
           <div className="flex items-center gap-3 flex-wrap shrink-0">
-            {hasPermission('create_activity') && (
+            {hasPermission && hasPermission('create_activity') && (
               <Button
                 variant="primary"
                 size="md"
@@ -214,7 +226,7 @@ export default function Dashboard() {
                 Kunlik faoliyat
               </Button>
             )}
-            {hasPermission('create_report') && (
+            {hasPermission && hasPermission('create_report') && (
               <Button
                 variant="dark"
                 size="md"
@@ -310,7 +322,6 @@ export default function Dashboard() {
 
       {/* Analytics & Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Main Trend Chart (AreaChart) */}
         <div className="lg:col-span-8">
           <Card
             title="Tashriflar va xizmatlar dinamikasi"
@@ -358,7 +369,6 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Right Distribution Chart (PieChart) */}
         <div className="lg:col-span-4">
           <Card
             title="Hisobotlar holati"
@@ -389,7 +399,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Regional Libraries breakdown (Admins) */}
+      {/* Regional Libraries breakdown */}
       {(isSuperAdmin || isViloyatAdmin) && librariesByViloyat.length > 0 && (
         <Card
           title="Hududlar bo'yicha filiallar taqsimoti"
@@ -447,7 +457,6 @@ export default function Dashboard() {
 
       {/* Tables Row: Recent Reports & Active Tasks */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Reports Table */}
         <Card
           title="So'nggi hisobotlar"
           subtitle="Kutubxonalar tomonidan taqdim etilgan hisobotlar"
@@ -468,26 +477,26 @@ export default function Dashboard() {
               </div>
             ) : (
               recentReports.map(r => {
-                const author = scopedUsers.find(u => u.id === r.userId || u.id === r.createdBy);
-                const lib = libraries.find(l => l.id === r.libraryId || l.id === author?.libraryId);
+                const author = (scopedUsers || []).find(u => u?.id === r?.userId || u?.id === r?.createdBy);
+                const lib = (libraries || []).find(l => l?.id === r?.libraryId || l?.id === author?.libraryId);
                 return (
                   <div
-                    key={r.id}
+                    key={r?.id}
                     onClick={() => navigate('/reports')}
                     className="py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 px-2 -mx-2 rounded-xl transition-colors cursor-pointer"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-800 truncate leading-snug">
-                        {r.title || 'Nomsiz hisobot'}
+                        {r?.title || 'Nomsiz hisobot'}
                       </p>
                       <p className="text-[11px] text-slate-500 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
                         <span className="text-blue-600 font-semibold">{author?.fullName || 'Xodim'}</span>
                         {lib && <span className="text-slate-400">• {lib.name}</span>}
-                        <span className="text-slate-400">• Davr: {r.period || 'Joriy'}</span>
+                        <span className="text-slate-400">• Davr: {r?.period || 'Joriy'}</span>
                       </p>
                     </div>
-                    <Badge color={REPORT_STATUS_COLORS[r.status] || 'gray'} withDot>
-                      {REPORT_STATUS_LABELS[r.status] || r.status}
+                    <Badge color={REPORT_STATUS_COLORS[r?.status] || 'gray'} withDot>
+                      {REPORT_STATUS_LABELS[r?.status] || r?.status}
                     </Badge>
                   </div>
                 );
@@ -496,7 +505,6 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        {/* Active Tasks Table */}
         <Card
           title="Topshiriqlar ijrosi"
           subtitle="Belgilangan muddatli vazifalar monitoringi"
@@ -518,20 +526,20 @@ export default function Dashboard() {
             ) : (
               myTasks.map(t => (
                 <div
-                  key={t.id}
+                  key={t?.id}
                   onClick={() => navigate('/tasks')}
                   className="py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 px-2 -mx-2 rounded-xl transition-colors cursor-pointer"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-800 truncate leading-snug">
-                      {t.title}
+                      {t?.title}
                     </p>
                     <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                      Muddat: {t.dueDate || 'Belgilanmagan'} • {getRelativeTime(t.createdAt)}
+                      Muddat: {t?.dueDate || 'Belgilanmagan'} • {getRelativeTime(t?.createdAt)}
                     </p>
                   </div>
-                  <Badge color={TASK_STATUS_COLORS[t.status] || 'gray'} withDot>
-                    {TASK_STATUS_LABELS[t.status] || t.status}
+                  <Badge color={TASK_STATUS_COLORS[t?.status] || 'gray'} withDot>
+                    {TASK_STATUS_LABELS[t?.status] || t?.status}
                   </Badge>
                 </div>
               ))
