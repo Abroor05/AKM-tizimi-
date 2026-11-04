@@ -48,7 +48,8 @@ export default function UsersPage() {
     });
   }, [allUsers, currentUser, isDistrictScopedUser, isXodimlarBoshligi, isRole, isViloyatScopedUser, search, roleFilter]);
 
-  const canManage = isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI);
+  const isSuperAdmin = currentUser?.role === ROLES.SUPER_ADMIN || currentUser?.role === 'superadmin';
+  const canManage = isSuperAdmin || isRole(ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI);
 
   const selectedViloyat = VILOYATLAR.find(v => v.id === form.viloyatId);
 
