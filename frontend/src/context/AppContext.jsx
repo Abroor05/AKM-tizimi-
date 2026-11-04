@@ -170,12 +170,12 @@ export function AppProvider({ children }) {
     collectionsRef.current = {};
   }, []);
 
-  const hasPermission = useCallback((permission) => {
+const hasPermission = useCallback((permission) => {
     if (!currentUser) return false;
+    if (currentUser.role === 'superadmin' || currentUser.role === 'super_admin') return true;
     const perms = ROLE_PERMISSIONS[currentUser.role] || [];
     return perms.includes(permission);
   }, [currentUser]);
-
   const isRole = useCallback((...roles) => {
     if (!currentUser) return false;
     return roles.includes(currentUser.role);
