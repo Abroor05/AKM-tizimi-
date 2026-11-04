@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
-import { MENU_ITEMS, ROLE_LABELS, ROLE_COLORS, avatarClass, STORAGE_KEYS, REPORT_STATUS, TASK_STATUS } from '../data/constants.js';
+import { MENU_ITEMS, ROLE_LABELS, ROLE_COLORS, avatarClass, STORAGE_KEYS, REPORT_STATUS, TASK_STATUS, ROLES } from '../data/constants.js';
 import { getViloyatName, getTumanName } from '../data/regions.js';
 import ICONS from './icons.jsx';
 import Logo from './ui/Logo.jsx';
@@ -48,24 +48,26 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const notifications = getNotifications();
-  const unreadCount = getUnreadCount();
+  const isSuperAdmin = currentUser?.role === ROLES?.SUPER_ADMIN || currentUser?.role === 'superadmin';
+
+  const notifications = typeof getNotifications === 'function' ? getNotifications() || [] : [];
+  const unreadCount = typeof getUnreadCount === 'function' ? getUnreadCount() || 0 : 0;
 
   // Active counts for badges
-  const reports = useMemo(() => getCollection(STORAGE_KEYS.REPORTS) || [], [getCollection]);
-  const tasks = useMemo(() => getCollection(STORAGE_KEYS.TASKS) || [], [getCollection]);
-  const appeals = useMemo(() => getCollection(STORAGE_KEYS.APPEALS) || [], [getCollection]);
+  const reports = useMemo(() => (getCollection ? getCollection(STORAGE_KEYS.REPORTS) || [] : []), [getCollection]);
+  const tasks = useMemo(() => (getCollection ? getCollection(STORAGE_KEYS.TASKS) || [] : []), [getCollection]);
+  const appeals = useMemo(() => (getCollection ? getCollection(STORAGE_KEYS.APPEALS) || [] : []), [getCollection]);
 
   const pendingReportsCount = useMemo(() =>
-    reports.filter(r => r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW).length,
+    reports.filter(r => r?.status === REPORT_STATUS.SUBMITTED || r?.status === REPORT_STATUS.UNDER_REVIEW).length,
   [reports]);
 
   const pendingTasksCount = useMemo(() =>
-    tasks.filter(t => t.status === TASK_STATUS.PENDING || t.status === TASK_STATUS.IN_PROGRESS).length,
+    tasks.filter(t => t?.status === TASK_STATUS.PENDING || t?.status === TASK_STATUS.IN_PROGRESS).length,
   [tasks]);
 
   const newAppealsCount = useMemo(() =>
-    appeals.filter(a => a.status === 'new').length,
+    appeals.filter(a => a?.status === 'new').length,
   [appeals]);
 
   // Close dropdowns on outside click
@@ -90,16 +92,16 @@ export default function Layout({ children }) {
     navigate('/login');
   };
 
-  // Group visible menu items
+  // Group visible menu items (SuperAdmin uchun barcha menyular cheklovsiz ochiladi)
   const menuMap = useMemo(() => {
     const map = new Map();
-    MENU_ITEMS.forEach(item => {
-      if (hasPermission(item.permission)) {
+    (MENU_ITEMS || []).forEach(item => {
+      if (isSuperAdmin || (typeof hasPermission === 'function' && hasPermission(item.permission))) {
         map.set(item.id, item);
       }
     });
     return map;
-  }, [hasPermission]);
+  }, [hasPermission, isSuperAdmin]);
 
   // Get item badge
   const getItemBadge = (id) => {
@@ -136,7 +138,7 @@ export default function Layout({ children }) {
         />
       )}
 
-      {/* Senior Executive Sidebar (Deep Slate/Obsidian) */}
+      {/* Senior Executive Sidebar */}
       <aside
         className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-72 bg-[#0b1120] border-r border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -222,7 +224,7 @@ export default function Layout({ children }) {
                   {currentUser?.fullName}
                 </p>
                 <p className="text-[10px] text-slate-400 truncate mt-0.5 font-medium">
-                  {ROLE_LABELS[currentUser?.role]}
+                  {ROLE_LABELS[currentUser?.role] || currentUser?.role}
                 </p>
               </div>
             </div>
@@ -239,9 +241,8 @@ export default function Layout({ children }) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Modern Glassmorphic Topbar */}
+        {/* Topbar */}
         <header className="h-18 sticky top-0 z-30 glass-surface border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* Left: Mobile Toggle & Context Breadcrumb */}
           <div className="flex items-center gap-3.5 min-w-0">
             <button
               className="lg:hidden p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
@@ -266,15 +267,12 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          {/* Right: Date, Theme Toggle, Notifications & User Menu */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Live date stamp */}
             <div className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
               <ICONS.calendar className="text-slate-400" />
               <span className="capitalize">{todayStr}</span>
             </div>
 
-            {/* Senior Executive Theme Toggle */}
             <ThemeToggle />
 
             {/* Notifications Dropdown */}
@@ -322,12 +320,12 @@ export default function Layout({ children }) {
                     ) : (
                       notifications.slice(0, 8).map(n => (
                         <button
-                          key={n.id}
+                          key={n?.id}
                           onClick={() => {
-                            markNotificationRead(n.id);
+                            if (typeof markNotificationRead === 'function') markNotificationRead(n.id);
                             setNotifOpen(false);
-                            if (n.type === NOTIFICATION_TYPES.REPORT || n.title?.toLowerCase().includes('hisobot')) {
-                              if (n.title?.toLowerCase().includes('kunlik')) {
+                            if (n?.type === NOTIFICATION_TYPES.REPORT || n?.title?.toLowerCase().includes('hisobot')) {
+                              if (n?.title?.toLowerCase().includes('kunlik')) {
                                 navigate(currentUser?.role === 'xodimlar_boshligi' ? '/xb-activity' : '/daily-activity');
                               } else {
                                 navigate('/reports');
@@ -335,25 +333,25 @@ export default function Layout({ children }) {
                             }
                           }}
                           className={`w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-3 ${
-                            !n.read ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
+                            !n?.read ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
                           }`}
                         >
                           <div className={`p-2 rounded-xl shrink-0 ${
-                            n.type === NOTIFICATION_TYPES.SUCCESS ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50' :
-                            n.type === NOTIFICATION_TYPES.WARNING ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50' :
-                            n.type === NOTIFICATION_TYPES.ERROR ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50' :
-                            n.type === NOTIFICATION_TYPES.TASK ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50' :
-                            n.type === NOTIFICATION_TYPES.REPORT ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50' :
+                            n?.type === NOTIFICATION_TYPES.SUCCESS ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50' :
+                            n?.type === NOTIFICATION_TYPES.WARNING ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50' :
+                            n?.type === NOTIFICATION_TYPES.ERROR ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50' :
+                            n?.type === NOTIFICATION_TYPES.TASK ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50' :
+                            n?.type === NOTIFICATION_TYPES.REPORT ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50' :
                             'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50'
                           }`}>
                             <ICONS.info className="text-sm" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-snug">{n.title}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
-                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-medium">{n.date} {n.time}</p>
+                            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-snug">{n?.title}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">{n?.message}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-medium">{n?.date} {n?.time}</p>
                           </div>
-                          {!n.read && <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full shrink-0 mt-1.5" />}
+                          {!n?.read && <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full shrink-0 mt-1.5" />}
                         </button>
                       ))
                     )}
@@ -373,7 +371,7 @@ export default function Layout({ children }) {
                 </div>
                 <div className="text-left hidden md:block">
                   <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-none">{currentUser?.fullName?.split(' ')[0]}</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-none mt-1 font-medium">{ROLE_LABELS[currentUser?.role]}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-none mt-1 font-medium">{ROLE_LABELS[currentUser?.role] || currentUser?.role}</p>
                 </div>
                 <ICONS.chevronDown className="text-[10px] text-slate-400 hidden sm:block ml-1" />
               </button>
@@ -384,7 +382,7 @@ export default function Layout({ children }) {
                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{currentUser?.fullName}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{currentUser?.email || `@${currentUser?.username}`}</p>
                     <div className="mt-2.5">
-                      <Badge color={roleColor} withDot>{ROLE_LABELS[currentUser?.role]}</Badge>
+                      <Badge color={roleColor} withDot>{ROLE_LABELS[currentUser?.role] || currentUser?.role}</Badge>
                     </div>
                   </div>
                   <div className="p-2 space-y-1">
