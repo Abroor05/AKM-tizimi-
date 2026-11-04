@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
+import { ThemeProvider } from './context/ThemeContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Layout from './components/Layout.jsx';
 import { getLastRoute, setLastRoute } from './utils/api.js';
@@ -96,20 +97,20 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Navigate to={safeLastRoute} replace />} />
+      
+      {/* Dashboard ProtectedRoute to'sig'isiz to'g'ridan-to'g'ri ochiladi */}
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute requiredPermission="view_dashboard">
-            <Layout>
-              {/* Xodimlar boshligi gets their own dedicated dashboard */}
-              {currentUser?.role === ROLES.XODIMLAR_BOSHLIGI
-                ? <XBDashboard />
-                : <Dashboard />
-              }
-            </Layout>
-          </ProtectedRoute>
+          <Layout>
+            {currentUser?.role === ROLES.XODIMLAR_BOSHLIGI
+              ? <XBDashboard />
+              : <Dashboard />
+            }
+          </Layout>
         }
       />
+
       {/* Xodimlar boshligi dedicated daily-activity with staff reporting */}
       <Route
         path="/daily-activity"
@@ -124,6 +125,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       {/* Reports — Xodimlar boshligi gets dedicated report center */}
       <Route
         path="/reports"
@@ -138,6 +140,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       {MODULES.filter(m => m.path !== 'daily-activity' && m.path !== 'reports').map(m => (
         <Route
           key={m.path}
@@ -151,12 +154,11 @@ function AppRoutes() {
           }
         />
       ))}
+
       <Route path="*" element={<Navigate to={safeLastRoute} replace />} />
     </Routes>
   );
 }
-
-import { ThemeProvider } from './context/ThemeContext.jsx';
 
 export default function App() {
   return (
