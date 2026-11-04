@@ -183,8 +183,8 @@ export default function UsersPage() {
     setShowModal(true);
   };
 
-  const roleOptions = (() => {
-    if (isRole(ROLES.SUPER_ADMIN)) {
+const roleOptions = (() => {
+    if (isSuperAdmin) {
       return Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: v }));
     }
     if (isRole(ROLES.TUMAN_ADMIN, ROLES.VILOYAT_ADMIN)) {
