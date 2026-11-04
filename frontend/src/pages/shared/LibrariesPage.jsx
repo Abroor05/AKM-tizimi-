@@ -20,20 +20,21 @@ export default function LibrariesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
 
-  const allLibraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
+  const isSuperAdmin = currentUser?.role === ROLES.SUPER_ADMIN || currentUser?.role === 'superadmin';
+  const allLibraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
   const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.KUTUBXONA_XODIMI);
   const isXodimlarBoshligi = isRole(ROLES.XODIMLAR_BOSHLIGI);
 
   // Scope libraries based on user role
   const libraries = useMemo(() => {
-    if (isRole(ROLES.SUPER_ADMIN)) return allLibraries;
+    if (isSuperAdmin) return allLibraries;
     if (isRole(ROLES.VILOYAT_ADMIN)) return allLibraries.filter(l => l.viloyatId === currentUser?.viloyatId);
     if (isDistrictScopedUser) return allLibraries.filter(l => l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId);
     if (isXodimlarBoshligi) {
       return allLibraries.filter(l => l.id === currentUser?.libraryId || (l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId));
     }
     return allLibraries;
-  }, [allLibraries, currentUser, isRole, isDistrictScopedUser, isXodimlarBoshligi]);
+  }, [allLibraries, currentUser, isRole, isSuperAdmin, isDistrictScopedUser, isXodimlarBoshligi]);
 
   const filtered = useMemo(() => {
     return libraries.filter(l => {
@@ -45,7 +46,7 @@ export default function LibrariesPage() {
     });
   }, [libraries, search, viloyatFilter]);
 
-  const canManage = isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN);
+  const canManage = isSuperAdmin || isRole(ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN);
 
   const handleDelete = (lib) => {
     if (window.confirm(`"${lib.name}" kutubxonasi / bo'limini o'chirishni tasdiqlaysizmi?`)) {
@@ -105,7 +106,7 @@ export default function LibrariesPage() {
             className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
           />
         </div>
-        {isRole(ROLES.SUPER_ADMIN) && (
+        {isSuperAdmin && (
           <select
             value={viloyatFilter}
             onChange={e => setViloyatFilter(e.target.value)}
