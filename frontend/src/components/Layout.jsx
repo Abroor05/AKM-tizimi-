@@ -16,7 +16,7 @@ const MENU_SECTIONS = [
   },
   {
     title: 'Faoliyat & Ish tartibi',
-    ids: ['libraries', 'daily-activity', 'events', 'inventory'],
+    ids: ['libraries', 'staff', 'daily-activity', 'events', 'inventory'],
   },
   {
     title: 'Hisobot & Ijro',
@@ -140,12 +140,12 @@ export default function Layout({ children }) {
 
       {/* Senior Executive Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-72 bg-[#0b1120] border-r border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-72 bg-[#0b0f17] border-r border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Brand header */}
-        <div className="h-18 flex items-center justify-between px-5 border-b border-slate-800/80 shrink-0 bg-[#090d16]">
+        <div className="h-18 flex items-center justify-between px-5 border-b border-slate-800/80 shrink-0 bg-[#080b11]">
           <Logo size="md" theme="light" subtitle="Yagona Boshqaruv Tizimi" />
           <button
             className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
@@ -166,7 +166,7 @@ export default function Layout({ children }) {
 
             return (
               <div key={section.title} className="space-y-1">
-                <div className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 select-none">
+                <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 select-none">
                   {section.title}
                 </div>
                 {sectionItems.map(item => {
@@ -179,23 +179,23 @@ export default function Layout({ children }) {
                       key={item.id}
                       to={path}
                       className={({ isActive }) =>
-                        `group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        `group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${
                           isActive
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md shadow-blue-950/60 ring-1 ring-blue-400/30'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                            ? 'bg-slate-800/90 text-white font-semibold shadow-2xs border-l-2 border-blue-500 pl-2.5'
+                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
                         }`
                       }
                     >
                       {({ isActive }) => (
                         <>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Icon className={`text-base shrink-0 transition-colors ${
-                              isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon className={`text-sm shrink-0 transition-colors ${
+                              isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300'
                             }`} />
                             <span className="truncate">{item.label}</span>
                           </div>
                           {badge && (
-                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badge.color}`}>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badge.color}`}>
                               {badge.count}
                             </span>
                           )}
@@ -210,7 +210,7 @@ export default function Layout({ children }) {
         </nav>
 
         {/* User Card at bottom of sidebar */}
-        <div className="p-3.5 border-t border-slate-800/80 bg-[#090d16] shrink-0">
+        <div className="p-3.5 border-t border-slate-800/80 bg-[#080b11] shrink-0">
           <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-slate-900/80 border border-slate-800/90">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative shrink-0">
@@ -252,8 +252,8 @@ export default function Layout({ children }) {
             </button>
 
             <div className="min-w-0 hidden sm:flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200/60 dark:border-blue-900/50">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium border border-slate-200/80 dark:border-slate-700/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 {currentUser?.viloyatId ? getViloyatName(currentUser.viloyatId) : "O'zbekiston Respublikasi"}
               </span>
               {currentUser?.tumanId && (

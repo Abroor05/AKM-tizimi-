@@ -236,7 +236,7 @@ export default function Login() {
 
             <h1 className="text-3xl sm:text-4xl font-extrabold mt-6 leading-tight tracking-tight">
               Kutubxona faoliyatini <br className="hidden sm:inline" />
-              <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-400 bg-clip-text text-transparent">
+              <span className="text-blue-400">
                 markazlashgan boshqarish
               </span>
             </h1>

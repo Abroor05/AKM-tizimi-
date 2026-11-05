@@ -189,15 +189,15 @@ export default function Dashboard() {
       <ReportReminderBanner />
 
       {/* Executive Hero Banner */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-[#0b1120] via-[#111827] to-[#0f172a] border border-slate-800 p-6 sm:p-8 text-white shadow-executive-lg overflow-hidden">
+      <div className="relative rounded-2xl bg-slate-900 border border-slate-800/90 p-6 sm:p-7 text-white shadow-2xs overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 {ROLE_LABELS[role] || role}
               </span>
               <span className="text-xs text-slate-400 font-medium">

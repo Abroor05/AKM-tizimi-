@@ -239,7 +239,7 @@ export default function SocialMediaReportsView({
         {canCreate && (
           <Button
             onClick={onOpenCreateModal}
-            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 text-white hover:opacity-90 shadow-sm shrink-0"
+            className="shrink-0"
           >
             <ICONS.plus /> Ijtimoiy tarmoq hisobotini qo'shish
           </Button>
@@ -272,7 +272,7 @@ export default function SocialMediaReportsView({
         })}
 
         {/* JAMI KARTA */}
-        <Card className="relative overflow-hidden border border-purple-200 bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/50 shadow-2xs">
+        <Card className="relative overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between mb-2">
             <span className="w-8 h-8 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700">
               <ICONS.share className="text-base text-purple-600" />
@@ -480,7 +480,7 @@ export default function SocialMediaReportsView({
           >
             <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
               {/* Header card */}
-              <div className="p-4 rounded-xl bg-gradient-to-r from-purple-50 via-slate-50 to-indigo-50 border border-purple-100 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-purple-700">
                     Sana: {formatDate(detailItem.date)} {detailItem.time && `| ${detailItem.time}`}

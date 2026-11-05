@@ -90,7 +90,7 @@ export default function ReportReminderBanner() {
     <div className="space-y-3 mb-5">
       {/* 1. OYLIK HISOBOT BUGUN OXIRGI KUN (30-sana yoki oy oxiri) */}
       {isMonthlyDueToday && !dismissedMonthly && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-600 via-rose-700 to-red-800 p-4 sm:p-5 text-white shadow-lg shadow-rose-900/20 border border-rose-500/30 animate-pulse">
+        <div className="relative overflow-hidden rounded-2xl bg-rose-900 p-4 sm:p-5 text-white shadow-md border border-rose-700/80">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white text-lg">
@@ -133,7 +133,7 @@ export default function ReportReminderBanner() {
 
       {/* 2. OYLIK HISOBOT ERTAGA TOPSHIRISH KERAK (29-sana) */}
       {isMonthlyPreDue && !isMonthlyDueToday && !dismissedMonthly && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-600 via-amber-700 to-orange-700 p-4 sm:p-5 text-white shadow-lg shadow-amber-900/20 border border-amber-500/30">
+        <div className="relative overflow-hidden rounded-2xl bg-amber-900/90 p-4 sm:p-5 text-white shadow-md border border-amber-700/80">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white text-lg">
@@ -176,7 +176,7 @@ export default function ReportReminderBanner() {
 
       {/* 3. KUNLIK HISOBOT TOPSHIRILMAGAN (Har kungi eslatma) */}
       {!hasDaily && !dismissedDaily && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-700 via-blue-700 to-sky-700 p-4 sm:p-5 text-white shadow-lg shadow-indigo-950/20 border border-indigo-500/30">
+        <div className="relative overflow-hidden rounded-2xl bg-blue-900/90 p-4 sm:p-5 text-white shadow-md border border-blue-700/80">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white text-lg">
@@ -221,7 +221,7 @@ export default function ReportReminderBanner() {
 
       {/* 4. YILLIK HISOBOT ESLATMASI (Dekabr oyida) */}
       {isAnnualDue && !dismissedAnnual && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-700 via-purple-700 to-indigo-800 p-4 sm:p-5 text-white shadow-lg shadow-purple-950/20 border border-purple-500/30">
+        <div className="relative overflow-hidden rounded-2xl bg-slate-900 p-4 sm:p-5 text-white shadow-md border border-slate-700/80">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white text-lg">

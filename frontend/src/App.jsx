@@ -10,6 +10,7 @@ import { getLastRoute, setLastRoute } from './utils/api.js';
 import Login from './pages/auth/Login.jsx';
 import Dashboard from './pages/shared/Dashboard.jsx';
 import LibrariesPage from './pages/shared/LibrariesPage.jsx';
+import StaffPage from './pages/shared/StaffPage.jsx';
 import DailyActivityPage from './pages/shared/DailyActivityPage.jsx';
 import ReportsPage from './pages/shared/ReportsPage.jsx';
 import TasksPage from './pages/shared/TasksPage.jsx';
@@ -37,6 +38,7 @@ import { ROLES } from './data/constants.js';
 
 const MODULES = [
   { path: 'libraries', comp: LibrariesPage, perm: 'view_libraries' },
+  { path: 'staff', comp: StaffPage, perm: 'view_staff' },
   { path: 'daily-activity', comp: DailyActivityPage, perm: 'view_activities' },
   { path: 'reports', comp: ReportsPage, perm: 'view_reports' },
   { path: 'tasks', comp: TasksPage, perm: 'view_tasks' },

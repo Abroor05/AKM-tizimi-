@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
+import SearchInput from '../../components/ui/SearchInput.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Button from '../../components/ui/Button.jsx';
@@ -248,17 +249,12 @@ export default function TasksPage() {
         </Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="flex-1 relative">
-          <ICONS.search className="absolute left-3.5 top-3.5 text-slate-400 dark:text-slate-400" />
-          <input
-            type="text"
-            placeholder="Topshiriq nomi yoki tavsifi bo'yicha qidirish..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2.5 mb-4">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Topshiriqlarni qidirish..."
+        />
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
@@ -360,7 +356,7 @@ export default function TasksPage() {
           />
 
           {/* Qamrov tanlash: Barcha uchun yoki Ba'zilar uchun */}
-          <div className="p-4 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 dark:from-slate-800/90 dark:to-slate-900/90 rounded-2xl border border-blue-200/70 dark:border-slate-700/80 shadow-xs">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/70 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
             <label className="block text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2.5">
               Topshiriq kimga yuborilsin?
             </label>

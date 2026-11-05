@@ -11,6 +11,7 @@ import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES } from '../../data/constants.js';
 import { VILOYATLAR, getViloyatName, getTumanName } from '../../data/regions.js';
 import LibraryModal from '../../components/common/LibraryModal.jsx';
+import SearchInput from '../../components/ui/SearchInput.jsx';
 
 export default function LibrariesPage() {
   const { currentUser, getCollection, deleteEntity, isRole } = useApp();
@@ -22,23 +23,29 @@ export default function LibrariesPage() {
 
   const isSuperAdmin = currentUser?.role === ROLES.SUPER_ADMIN || currentUser?.role === 'superadmin';
   const allLibraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
+  const allStaff = useMemo(() => getCollection(STORAGE_KEYS.STAFF) || [], [getCollection]);
   const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.KUTUBXONA_XODIMI);
   const isXodimlarBoshligi = isRole(ROLES.XODIMLAR_BOSHLIGI);
 
   // Scope libraries based on user role
   const libraries = useMemo(() => {
     if (isSuperAdmin) return allLibraries;
-    if (isRole(ROLES.VILOYAT_ADMIN)) return allLibraries.filter(l => l.viloyatId === currentUser?.viloyatId);
-    if (isDistrictScopedUser) return allLibraries.filter(l => l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId);
+    if (isRole(ROLES.VILOYAT_ADMIN)) return allLibraries.filter((l) => l.viloyatId === currentUser?.viloyatId);
+    if (isDistrictScopedUser) {
+      return allLibraries.filter((l) => l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId);
+    }
     if (isXodimlarBoshligi) {
-      return allLibraries.filter(l => l.id === currentUser?.libraryId || (l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId));
+      return allLibraries.filter(
+        (l) => l.id === currentUser?.libraryId || (l.viloyatId === currentUser?.viloyatId && l.tumanId === currentUser?.tumanId)
+      );
     }
     return allLibraries;
   }, [allLibraries, currentUser, isRole, isSuperAdmin, isDistrictScopedUser, isXodimlarBoshligi]);
 
   const filtered = useMemo(() => {
-    return libraries.filter(l => {
-      const matchSearch = !search ||
+    return libraries.filter((l) => {
+      const matchSearch =
+        !search ||
         l.name?.toLowerCase().includes(search.toLowerCase()) ||
         l.address?.toLowerCase().includes(search.toLowerCase());
       const matchViloyat = !viloyatFilter || l.viloyatId === viloyatFilter;
@@ -95,36 +102,42 @@ export default function LibrariesPage() {
       />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 relative">
-          <ICONS.search className="absolute left-3.5 top-3.5 text-slate-400 dark:text-slate-400 text-sm" />
-          <input
-            type="text"
-            placeholder="Kutubxona nomi yoki manzili bo'yicha qidirish..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Kutubxonalarni qidirish..."
+        />
         {isSuperAdmin && (
           <select
             value={viloyatFilter}
-            onChange={e => setViloyatFilter(e.target.value)}
+            onChange={(e) => setViloyatFilter(e.target.value)}
             className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs cursor-pointer"
           >
             <option value="">Barcha viloyatlar</option>
-            {VILOYATLAR.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            {VILOYATLAR.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
           </select>
         )}
       </div>
 
       {/* Libraries grid */}
       {filtered.length === 0 ? (
-        <EmptyState icon={ICONS.library} title="Kutubxonalar topilmadi" message="Qidiruv shartlariga mos keluvchi kutubxona mavjud emas" />
+        <EmptyState
+          icon={ICONS.library}
+          title="Kutubxonalar topilmadi"
+          message="Qidiruv shartlariga mos keluvchi kutubxona mavjud emas"
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(lib => {
+          {filtered.map((lib) => {
             const hasCoords = Number.isFinite(Number(lib.latitude)) && Number.isFinite(Number(lib.longitude));
+            const staffInLib = allStaff.filter((s) => s.libraryId === lib.id).length;
+            const staffCount = staffInLib > 0 ? staffInLib : lib.staffCount || 1;
+
             return (
               <Card key={lib.id}>
                 <div className="flex items-start justify-between mb-3">
@@ -165,7 +178,9 @@ export default function LibrariesPage() {
                   <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                     <div className="flex items-center gap-2">
                       <ICONS.location className="text-slate-400" />
-                      <span>{getViloyatName(lib.viloyatId)} / {getTumanName(lib.viloyatId, lib.tumanId)}</span>
+                      <span>
+                        {getViloyatName(lib.viloyatId)} / {getTumanName(lib.viloyatId, lib.tumanId)}
+                      </span>
                     </div>
                     {hasCoords ? (
                       <div className="flex items-center gap-2">
@@ -204,7 +219,7 @@ export default function LibrariesPage() {
                   <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-2">
                       <ICONS.users className="text-slate-400" />
-                      <span>Xodimlar: {lib.staffCount || 1} kishi</span>
+                      <span>Xodimlar: {staffCount} kishi</span>
                     </div>
                     {lib.foundingYear && (
                       <span className="text-slate-400">{lib.foundingYear}-yil</span>

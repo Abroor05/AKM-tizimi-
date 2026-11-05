@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
+import SearchInput from '../../components/ui/SearchInput.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Button from '../../components/ui/Button.jsx';
@@ -103,17 +104,12 @@ export default function InventoryPage() {
         <Card className="text-center"><p className="text-2xl font-bold text-indigo-600">{formatMoney(totalValue)}</p><p className="text-xs text-gray-500">Umumiy qiymat</p></Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="flex-1 relative">
-          <ICONS.search className="absolute left-3.5 top-3.5 text-slate-400 dark:text-slate-400" />
-          <input
-            type="text"
-            placeholder="Nomi, seriya raqami..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2.5 mb-4">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Inventarlarni qidirish..."
+        />
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}

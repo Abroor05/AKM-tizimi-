@@ -8,11 +8,11 @@ export default function PageHeader({
   className = '',
 }) {
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 ${className}`}>
+    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 ${className}`}>
       <div className="flex items-start sm:items-center gap-3.5 min-w-0">
         {Icon && (
-          <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-100/80 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 shadow-xs shrink-0">
-            <Icon className="text-xl" />
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 shadow-2xs">
+            <Icon className="text-base" />
           </div>
         )}
         <div className="min-w-0">
@@ -22,17 +22,17 @@ export default function PageHeader({
             </div>
           )}
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               {title}
             </h1>
             {badge && (
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80">
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                 {badge}
               </span>
             )}
           </div>
           {subtitle && (
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-normal mt-0.5">
               {subtitle}
             </p>
           )}

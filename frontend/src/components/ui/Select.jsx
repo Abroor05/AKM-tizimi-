@@ -6,7 +6,7 @@ export default function Select({
   required = false,
   disabled = false,
   error = '',
-  placeholder = 'Tanlang...',
+  placeholder = null,
   className = '',
   ...rest
 }) {
@@ -29,7 +29,7 @@ export default function Select({
           focus:outline-none`}
         {...rest}
       >
-        {placeholder && !options.some(opt => opt.value === '') ? (
+        {placeholder ? (
           <option value="">{placeholder}</option>
         ) : null}
         {options.map(opt => (

@@ -211,6 +211,7 @@ export const STORAGE_TO_API = {
   [STORAGE_KEYS.NOTIFICATIONS]: 'notifications',
   [STORAGE_KEYS.KPI_DATA]: 'kpi-data',
   [STORAGE_KEYS.AUDIT_LOG]: 'audit-log',
+  [STORAGE_KEYS.STAFF]: 'staff',
 };
 
 export { apiFetch };

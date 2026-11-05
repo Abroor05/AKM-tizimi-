@@ -175,8 +175,11 @@ export async function initDb(retries = 3) {
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
     role VARCHAR(100) NOT NULL,
+    position VARCHAR(150),
+    birth_date TEXT,
     phone VARCHAR(50),
     email VARCHAR(255),
+    photo TEXT,
     viloyat_id VARCHAR(100),
     tuman_id VARCHAR(100),
     library_id VARCHAR(100),
@@ -392,11 +395,34 @@ export async function initDb(retries = 3) {
     value TEXT
   );
 
+  -- STAFF (Kutubxona xodimlari jadvali)
+  CREATE TABLE IF NOT EXISTS staff (
+    id VARCHAR(255) PRIMARY KEY,
+    library_id VARCHAR(100) NOT NULL,
+    viloyat_id VARCHAR(100),
+    tuman_id VARCHAR(100),
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    middle_name VARCHAR(100),
+    full_name VARCHAR(255) NOT NULL,
+    position VARCHAR(150) NOT NULL,
+    department VARCHAR(200),
+    specialty VARCHAR(200),
+    experience VARCHAR(100),
+    birth_date TEXT,
+    phone VARCHAR(50),
+    photo TEXT,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TEXT
+  );
+
   -- PERFORMANCE INDEXES
   CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
   CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
   CREATE INDEX IF NOT EXISTS idx_users_library_id ON users(library_id);
   CREATE INDEX IF NOT EXISTS idx_libraries_viloyat_tuman ON libraries(viloyat_id, tuman_id);
+  CREATE INDEX IF NOT EXISTS idx_staff_library_id ON staff(library_id);
+  CREATE INDEX IF NOT EXISTS idx_staff_viloyat_tuman ON staff(viloyat_id, tuman_id);
   CREATE INDEX IF NOT EXISTS idx_reports_library_id ON reports(library_id);
   CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
   CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
@@ -409,6 +435,19 @@ export async function initDb(retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       await pool.query(SCHEMA);
+      // Ensure new columns exist on existing databases
+      try {
+        await pool.query(`
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS position VARCHAR(150);
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date TEXT;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(200);
+          ALTER TABLE staff ADD COLUMN IF NOT EXISTS department VARCHAR(200);
+          ALTER TABLE staff ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100);
+          ALTER TABLE staff ADD COLUMN IF NOT EXISTS specialty VARCHAR(200);
+          ALTER TABLE staff ADD COLUMN IF NOT EXISTS experience VARCHAR(100);
+        `);
+      } catch {}
       await refreshColumnsCache();
       return;
     } catch (err) {
@@ -472,6 +511,13 @@ export function rowToObject(table, row) {
       obj[camelKey] = value;
     }
   }
+  if (table === 'users' && obj.role) {
+    if (obj.role === 'tuman_admin' && !obj.position) {
+      obj.position = 'Direktor';
+    } else if (obj.role === 'xodimlar_boshligi' && !obj.position) {
+      obj.position = 'Axborot-kommunikatsiya va raqamlashtirish xizmati rahbari';
+    }
+  }
   return obj;
 }
 
@@ -512,7 +558,7 @@ export function objectToRow(table, obj) {
 // ============================================================
 
 export async function resolveUserLibraryId(user) {
-  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
+  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi', 'tuman_admin'];
   if (!user || !libraryRoles.includes(user.role)) return user;
   if (user.libraryId || user.library_id) return user;
 

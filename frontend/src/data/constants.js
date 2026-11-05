@@ -14,10 +14,28 @@ export const ROLES = {
 export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: 'Super Admin',
   [ROLES.VILOYAT_ADMIN]: 'Viloyat Admini',
-  [ROLES.TUMAN_ADMIN]: 'Tuman/Shahar Admini',
-  [ROLES.XODIMLAR_BOSHLIGI]: "Xodimlar Boshlig'i (Bo'lim boshlig'i)",
-  [ROLES.KUTUBXONA_XODIMI]: 'Kutubxona Xodimi',
+  [ROLES.TUMAN_ADMIN]: 'Direktor',
+  [ROLES.XODIMLAR_BOSHLIGI]: "Bo'lim boshlig'i",
+  [ROLES.KUTUBXONA_XODIMI]: 'Kutubxona xodimi',
 };
+
+// Rasmiy AKM xodimlari lavozimlari ro'yxati
+export const STAFF_POSITIONS = [
+  'Direktor',
+  'Bosh hisobchi',
+  'Kadrlar bo\'yicha inspektor',
+  'Xizmat rahbari',
+  'Mutaxassis',
+  'Xo\'jalik mudiri',
+];
+
+// Rasmiy AKM xizmatlari va bo'limlari ro'yxati
+export const STAFF_DEPARTMENTS = [
+  'Axborot-kommunikatsiya va raqamlashtirish xizmati',
+  'Fondlarni saqlash, to\'ldirish va ularga ishlov berish xizmati',
+  'Abonement va foydalanuvchilarga xizmat ko\'rsatish xizmati',
+  'Bibliografiya xizmati',
+];
 
 export const ROLE_COLORS = {
   [ROLES.SUPER_ADMIN]: 'red',
@@ -42,23 +60,23 @@ export const DEFAULT_SETTINGS = {
 
 // Explicit Tailwind class strings (required for JIT - no dynamic class names)
 export const AVATAR_BG_CLASSES = {
-  red: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/80',
-  purple: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200/80',
-  blue: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/80',
-  teal: 'bg-teal-50 text-teal-700 ring-1 ring-teal-200/80',
-  green: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80',
-  amber: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/80',
-  indigo: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/80',
+  red: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 ring-1 ring-slate-300 dark:ring-slate-700',
+  purple: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 ring-1 ring-slate-300 dark:ring-slate-700',
+  blue: 'bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-800/60',
+  teal: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700',
+  green: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700',
+  amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-800/60',
+  indigo: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700',
 };
 
 export const BADGE_BG_CLASSES = {
-  red: 'bg-rose-50 text-rose-700 border border-rose-200/80',
-  purple: 'bg-purple-50 text-purple-700 border border-purple-200/80',
-  blue: 'bg-blue-50 text-blue-700 border border-blue-200/80',
-  teal: 'bg-teal-50 text-teal-700 border border-teal-200/80',
-  green: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
-  amber: 'bg-amber-50 text-amber-700 border border-amber-200/80',
-  indigo: 'bg-indigo-50 text-indigo-700 border border-indigo-200/80',
+  red: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700',
+  purple: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700',
+  blue: 'bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60',
+  teal: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700',
+  green: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60',
+  amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60',
+  indigo: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700',
 };
 
 export function avatarClass(roleColor) {
@@ -81,6 +99,10 @@ export const PERMISSIONS = {
   // Library management
   MANAGE_LIBRARIES: 'manage_libraries',
   VIEW_LIBRARIES: 'view_libraries',
+
+  // Staff (Kutubxona xodimlari)
+  VIEW_STAFF: 'view_staff',
+  MANAGE_STAFF: 'manage_staff',
 
   // Daily activity
   CREATE_ACTIVITY: 'create_activity',
@@ -167,6 +189,8 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_OWN_DISTRICT,
     PERMISSIONS.MANAGE_LIBRARIES,
     PERMISSIONS.VIEW_LIBRARIES,
+    PERMISSIONS.VIEW_STAFF,
+    PERMISSIONS.MANAGE_STAFF,
     PERMISSIONS.VIEW_ACTIVITIES,
     PERMISSIONS.APPROVE_ACTIVITY,
     PERMISSIONS.CREATE_REPORT,
@@ -195,6 +219,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_DASHBOARD,
     PERMISSIONS.VIEW_OWN_LIBRARY,
     PERMISSIONS.VIEW_LIBRARIES,
+    PERMISSIONS.VIEW_STAFF,
     PERMISSIONS.CREATE_ACTIVITY,
     PERMISSIONS.VIEW_ACTIVITIES,
     PERMISSIONS.APPROVE_ACTIVITY,
@@ -239,6 +264,7 @@ export const ROLE_PERMISSIONS = {
 export const MENU_ITEMS = [
   { id: 'dashboard', label: 'Boshqaruv paneli', icon: 'dashboard', permission: PERMISSIONS.VIEW_DASHBOARD },
   { id: 'libraries', label: 'AKM / Bo\'limlar', icon: 'library', permission: PERMISSIONS.VIEW_LIBRARIES },
+  { id: 'staff', label: 'Kutubxona xodimlari', icon: 'users', permission: PERMISSIONS.VIEW_STAFF },
   { id: 'daily-activity', label: 'Kunlik faoliyat', icon: 'activity', permission: PERMISSIONS.VIEW_ACTIVITIES },
   { id: 'reports', label: 'Hisobotlar', icon: 'reports', permission: PERMISSIONS.VIEW_REPORTS },
   { id: 'tasks', label: 'Topshiriqlar', icon: 'tasks', permission: PERMISSIONS.VIEW_TASKS },
@@ -648,4 +674,5 @@ export const STORAGE_KEYS = {
   AUDIT_LOG: 'kbt_audit_log',
   SETTINGS: 'kbt_settings',
   INITIALIZED: 'kbt_initialized',
+  STAFF: 'kbt_staff',
 };

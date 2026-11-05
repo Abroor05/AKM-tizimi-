@@ -147,7 +147,7 @@ export default function SocialMediaReportModal({
           <Button
             onClick={handleSave}
             disabled={isSubmitting}
-            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white hover:opacity-90"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <ICONS.save /> {isSubmitting ? "Saqlanmoqda..." : "Hisobotni saqlash"}
           </Button>
@@ -156,7 +156,7 @@ export default function SocialMediaReportModal({
     >
       <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
         {/* Banner */}
-        <div className="p-3.5 rounded-xl bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 border border-purple-200/80">
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2 mb-1">
             <span className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center text-sm shadow-sm">
               <ICONS.share />

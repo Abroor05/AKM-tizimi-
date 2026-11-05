@@ -10,7 +10,7 @@ import { authRateLimiter } from '../middleware/security.js';
 const router = Router();
 
 async function resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }) {
-  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
+  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi', 'tuman_admin'];
   if (!libraryRoles.includes(role)) return libraryId || null;
   if (libraryId) return libraryId;
   if (!viloyatId || !tumanId) return null;

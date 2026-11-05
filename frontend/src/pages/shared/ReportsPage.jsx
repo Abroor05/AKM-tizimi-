@@ -16,6 +16,7 @@ import { formatDate, formatMoney, formatNumber } from '../../utils/helpers.js';
 import { getViloyatName, getTumanName } from '../../data/regions.js';
 import SocialMediaReportsView from '../../components/common/SocialMediaReportsView.jsx';
 import SocialMediaReportModal from '../../components/common/SocialMediaReportModal.jsx';
+import SearchInput from '../../components/ui/SearchInput.jsx';
 
 export default function ReportsPage() {
   const { currentUser, getReports, createReport, submitReport, reviewReport, isRole, hasPermission, getCollection, createEntity } = useApp();
@@ -233,17 +234,12 @@ export default function ReportsPage() {
         <Card className="text-center"><p className="text-2xl font-bold text-red-600">{reports.filter(r => r.status === REPORT_STATUS.REJECTED).length}</p><p className="text-xs text-gray-500">Rad etilgan</p></Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="flex-1 relative">
-          <ICONS.search className="absolute left-3.5 top-3.5 text-slate-400 dark:text-slate-400" />
-          <input
-            type="text"
-            placeholder="Sarlavha bo'yicha qidirish..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 shadow-xs"
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2.5 mb-4">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Hisobotlarni qidirish..."
+        />
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
@@ -567,13 +563,13 @@ export default function ReportsPage() {
               const detailAuthor = allUsers.find(u => u.id === detailItem.userId || u.id === detailItem.createdBy);
               const detailLib = libraries.find(l => l.id === detailItem.libraryId || l.id === detailAuthor?.libraryId);
               return (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-slate-50 to-indigo-50/90 border border-blue-100">
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                     <ICONS.user className="text-xs" /> Yuboruvchi mas'ul xodim ma'lumotlari
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center shrink-0 shadow-sm shadow-blue-600/30 text-base">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center shrink-0 text-sm">
                         {detailAuthor?.fullName?.charAt(0) || 'U'}
                       </div>
                       <div>

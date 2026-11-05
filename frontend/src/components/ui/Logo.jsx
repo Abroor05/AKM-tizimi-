@@ -9,7 +9,7 @@ const SIZES = {
 
 export default function Logo({
   size = 'md',
-  theme = 'light', // 'light' (for dark backgrounds) or 'dark' (for light backgrounds)
+  theme = 'light',
   showText = true,
   subtitle = 'Xodimlar ish tartibi tizimi',
   className = '',
@@ -20,10 +20,8 @@ export default function Logo({
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {/* Emblem Icon */}
-      <div className={`relative ${currentSize.icon} rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-slate-900 shadow-md ring-1 ring-white/20 overflow-hidden`}>
-        {/* Ambient subtle glow */}
-        <div className="absolute inset-0 bg-radial-gradient from-blue-400/30 to-transparent pointer-events-none" />
-        <FaBookBookmark className="text-white relative z-10 drop-shadow-sm" />
+      <div className={`relative ${currentSize.icon} rounded-xl flex items-center justify-center shrink-0 bg-slate-800/90 border border-slate-700/80 shadow-2xs`}>
+        <FaBookBookmark className="text-blue-400 text-sm" />
       </div>
 
       {/* Brand Typography */}
@@ -33,12 +31,12 @@ export default function Logo({
             <span className={`font-extrabold tracking-tight ${currentSize.title} ${isLightText ? 'text-white' : 'text-slate-900'}`}>
               AKM
             </span>
-            <span className={`font-semibold tracking-wide ${currentSize.title} text-blue-500`}>
+            <span className={`font-semibold tracking-wider ${currentSize.title} ${isLightText ? 'text-slate-300' : 'text-slate-700'}`}>
               TIZIMI
             </span>
           </div>
           {subtitle && (
-            <span className={`uppercase font-medium tracking-wider truncate mt-0.5 ${currentSize.sub} ${isLightText ? 'text-slate-400' : 'text-slate-500'}`}>
+            <span className={`uppercase font-medium tracking-wider truncate mt-0.5 ${currentSize.sub} text-slate-400`}>
               {subtitle}
             </span>
           )}

@@ -164,11 +164,11 @@ export default function XBDashboard() {
       <ReportReminderBanner />
 
       {/* Welcome banner */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-[#042f2e] via-[#0b1329] to-[#0f172a] border border-teal-900/60 p-6 sm:p-8 mb-7 text-white shadow-executive-lg overflow-hidden">
+      <div className="relative rounded-2xl bg-slate-900 border border-slate-800 p-6 sm:p-7 mb-7 text-white shadow-2xs overflow-hidden">
         <div className="flex items-start justify-between flex-wrap gap-4 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+              <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">
                 Xodimlar Boshlig'i
               </span>
               <span className="text-xs text-slate-400 font-medium">

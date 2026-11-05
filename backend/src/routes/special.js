@@ -21,7 +21,7 @@ function generateId(prefix) {
 }
 
 async function resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }, currentUser = null) {
-  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi'];
+  const libraryRoles = ['kutubxona_xodimi', 'xodimlar_boshligi', 'tuman_admin'];
   if (!libraryRoles.includes(role)) return libraryId || null;
 
   const chosen = libraryId || currentUser?.libraryId || currentUser?.library_id || null;
@@ -149,15 +149,21 @@ usersRouter.post('/', authMiddleware, async (req, res, next) => {
     const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const passwordHash = bcrypt.hashSync(passwordValue || '', 10);
     const todayStr = new Date().toISOString().split('T')[0];
+    const userPosition = req.body.position || (
+      role === 'tuman_admin' ? 'Direktor' : (
+        role === 'xodimlar_boshligi' ? 'Axborot-kommunikatsiya va raqamlashtirish xizmati rahbari' : null
+      )
+    );
 
     await query(
-      `INSERT INTO users (id, username, password_hash, full_name, role, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (id, username, password_hash, full_name, role, position, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username.trim(),
         passwordHash,
         fullName,
         role,
+        userPosition,
         phone || null,
         normalizedEmail || null,
         viloyatId || null,
@@ -191,7 +197,8 @@ usersRouter.put('/:id', authMiddleware, async (req, res, next) => {
       }
     }
 
-    if (req.user.role !== 'super_admin') {
+    const isSelf = req.user.id === req.params.id;
+    if (!isSelf && req.user.role !== 'super_admin') {
       const targetRole = req.body.role || existing.role;
       if (targetRole !== 'kutubxona_xodimi' && targetRole !== 'xodimlar_boshligi') {
         return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
@@ -208,6 +215,16 @@ usersRouter.put('/:id', authMiddleware, async (req, res, next) => {
     }
 
     const updates = { ...req.body };
+    if (isSelf && req.user.role !== 'super_admin') {
+      delete updates.role;
+      delete updates.active;
+      delete updates.viloyatId;
+      delete updates.viloyat_id;
+      delete updates.tumanId;
+      delete updates.tuman_id;
+      delete updates.libraryId;
+      delete updates.library_id;
+    }
     if (updates.email) updates.email = updates.email.trim().toLowerCase();
     if ((updates.role === 'kutubxona_xodimi' || updates.role === 'xodimlar_boshligi') && !updates.libraryId && !updates.library_id) {
       updates.libraryId = await resolveLibraryIdForRole(
@@ -238,7 +255,8 @@ usersRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     const existing = await getById('users', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Topilmadi' });
 
-    if (req.user.role !== 'super_admin') {
+    const isSelf = req.user.id === req.params.id;
+    if (!isSelf && req.user.role !== 'super_admin') {
       const targetRole = req.body.role || existing.role;
       if (targetRole !== 'kutubxona_xodimi' && targetRole !== 'xodimlar_boshligi') {
         return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
@@ -255,6 +273,16 @@ usersRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     }
 
     const updates = { ...req.body };
+    if (isSelf && req.user.role !== 'super_admin') {
+      delete updates.role;
+      delete updates.active;
+      delete updates.viloyatId;
+      delete updates.viloyat_id;
+      delete updates.tumanId;
+      delete updates.tuman_id;
+      delete updates.libraryId;
+      delete updates.library_id;
+    }
     if (updates.email) updates.email = updates.email.trim().toLowerCase();
     if ((updates.role === 'kutubxona_xodimi' || updates.role === 'xodimlar_boshligi') && !updates.libraryId && !updates.library_id) {
       updates.libraryId = await resolveLibraryIdForRole(

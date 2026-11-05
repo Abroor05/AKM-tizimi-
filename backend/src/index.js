@@ -47,8 +47,8 @@ app.use(
   })
 );
 
-// DoS hujumlaridan himoya: JSON hajmi chegarasi 2mb
-app.use(express.json({ limit: '2mb' }));
+// DoS hujumlaridan himoya: JSON hajmi chegarasi 10mb (rasmlar va hujjatlar uchun)
+app.use(express.json({ limit: '10mb' }));
 
 // Input sanitization (XSS himoyasi)
 app.use(sanitizeInputs);
@@ -113,6 +113,7 @@ app.post('/api/reset', authMiddleware, async (req, res, next) => {
       'activities',
       'readers',
       'books',
+      'staff',
       'users',
       'libraries',
       'kpi_data',

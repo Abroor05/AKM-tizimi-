@@ -683,7 +683,7 @@ export default function XBReports() {
             </Button>
             <Button
               onClick={() => handleOpenCreateModal(REPORT_TYPES.ANNUAL)}
-              className="bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white shadow-md shadow-teal-700/20"
+              size="sm"
             >
               <ICONS.plus /> Yillik hisobot yaratish
             </Button>
@@ -693,27 +693,27 @@ export default function XBReports() {
 
       {/* ── Summary Stat Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-        <Card className="text-center bg-gradient-to-br from-teal-50/80 to-white border-teal-100">
+        <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
           <p className="text-2xl font-black text-teal-700">{myReports.length}</p>
           <p className="text-xs font-medium text-slate-500 mt-0.5">Jami hisobotlar</p>
         </Card>
-        <Card className="text-center bg-gradient-to-br from-blue-50/80 to-white border-blue-100">
+        <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
           <p className="text-2xl font-black text-blue-700">
             {myReports.filter(r => r.type === REPORT_TYPES.MONTHLY).length}
           </p>
           <p className="text-xs font-medium text-slate-500 mt-0.5">Oylik hisobotlar</p>
         </Card>
-        <Card className="text-center bg-gradient-to-br from-indigo-50/80 to-white border-indigo-100">
+        <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
           <p className="text-2xl font-black text-indigo-700">
             {myReports.filter(r => r.type === REPORT_TYPES.ANNUAL).length}
           </p>
           <p className="text-xs font-medium text-slate-500 mt-0.5">Yillik hisobotlar</p>
         </Card>
-        <Card className="text-center bg-gradient-to-br from-purple-50/80 to-white border-purple-100">
+        <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
           <p className="text-2xl font-black text-purple-700">{sentReports.length}</p>
           <p className="text-xs font-medium text-slate-500 mt-0.5">Adminga yuborilgan</p>
         </Card>
-        <Card className="text-center bg-gradient-to-br from-emerald-50/80 to-white border-emerald-100 col-span-2 sm:col-span-1">
+        <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs col-span-2 sm:col-span-1">
           <p className="text-2xl font-black text-emerald-700">
             {myReports.filter(r => r.status === REPORT_STATUS.APPROVED).length}
           </p>
@@ -805,7 +805,7 @@ export default function XBReports() {
       {activeTab === 'monthly_aggregate' && (
         <div className="space-y-6">
           {/* Information box */}
-          <div className="p-4 rounded-xl bg-gradient-to-r from-teal-50 via-slate-50 to-blue-50 border border-teal-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-teal-600 animate-pulse"></span>
@@ -857,7 +857,7 @@ export default function XBReports() {
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div className="flex items-start sm:items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-md shadow-teal-600/20">
+                      <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold text-sm flex items-center justify-center shrink-0">
                         {item.month.slice(5, 7)}
                       </div>
                       <div>
@@ -1038,25 +1038,25 @@ export default function XBReports() {
 
           {/* Yearly grand totals cards */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <Card className="text-center bg-gradient-to-br from-blue-50/70 to-white border-blue-200">
+            <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
               <p className="text-2xl font-black text-blue-700">{formatNumber(yearGrandTotals.totals.kitob_skanerlash)}</p>
               <p className="text-xs font-semibold text-slate-600 mt-1">Yillik skanerlangan kitoblar</p>
             </Card>
-            <Card className="text-center bg-gradient-to-br from-indigo-50/70 to-white border-indigo-200">
+            <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
               <p className="text-2xl font-black text-indigo-700">{formatNumber(yearGrandTotals.totals.kitob_pdf)}</p>
               <p className="text-xs font-semibold text-slate-600 mt-1">Yillik elektronlashtirilgan (PDF) fayllar</p>
             </Card>
-            <Card className="text-center bg-gradient-to-br from-purple-50/70 to-white border-purple-200">
+            <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
               <p className="text-2xl font-black text-purple-700">{formatNumber(yearGrandTotals.totals.ijtimoiy_tarmoq || 0)}</p>
               <p className="text-xs font-semibold text-slate-600 mt-1">Yillik ijtimoiy tarmoq post/e'lonlari</p>
             </Card>
-            <Card className="text-center bg-gradient-to-br from-teal-50/70 to-white border-teal-200">
+            <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
               <p className="text-2xl font-black text-teal-700">
                 {formatNumber(yearGrandTotals.totals.texnik_xizmat + yearGrandTotals.totals.jihozlash + yearGrandTotals.totals.tuzatish + yearGrandTotals.totals.boshqa)}
               </p>
               <p className="text-xs font-semibold text-slate-600 mt-1">Texnik & boshqa xizmatlar</p>
             </Card>
-            <Card className="text-center bg-gradient-to-br from-emerald-50/70 to-white border-emerald-200">
+            <Card className="text-center bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
               <p className="text-3xl font-black text-emerald-800">{formatNumber(yearGrandTotals.grand)}</p>
               <p className="text-xs font-bold text-emerald-950 mt-1">JAMI YILLIK ISHLAR</p>
             </Card>
@@ -1169,7 +1169,7 @@ export default function XBReports() {
               <Button
                 onClick={() => handleSendDailyToAdmins(today)}
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white shadow-sm text-xs"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-2xs text-xs"
               >
                 <ICONS.paperPlane /> Bugungi jamlanmani Super & Viloyat Adminga yuborish
               </Button>
@@ -1276,7 +1276,7 @@ export default function XBReports() {
                                   <button
                                     onClick={() => handleSendDailyToAdmins(act)}
                                     disabled={isSubmitting}
-                                    className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1"
+                                    className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs flex items-center gap-1"
                                     title="Super Admin va Viloyat Adminiga jo'natish"
                                   >
                                     <ICONS.paperPlane className="text-[10px]" /> Adminga jo'natish
@@ -1418,7 +1418,7 @@ export default function XBReports() {
                 <Button
                   onClick={() => handleSaveReport(true)}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white shadow-md shadow-indigo-600/30"
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
                 >
                   {isSubmitting ? (
                     <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1679,7 +1679,7 @@ export default function XBReports() {
             return (
               <div className="space-y-4 text-slate-800 print:text-black">
                 {/* Header banner */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-teal-50 via-slate-50 to-indigo-50 border border-slate-200">
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700">

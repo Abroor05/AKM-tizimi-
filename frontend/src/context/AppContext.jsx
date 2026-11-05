@@ -38,6 +38,7 @@ export function AppProvider({ children }) {
       [STORAGE_KEYS.NOTIFICATIONS, 'notifications'],
       [STORAGE_KEYS.KPI_DATA, 'kpi-data'],
       [STORAGE_KEYS.AUDIT_LOG, 'audit-log'],
+      [STORAGE_KEYS.STAFF, 'staff'],
     ];
 
     const results = await Promise.allSettled(

@@ -1,7 +1,7 @@
 // ============================================================
 // PROFILE PAGE — Barcha rollar uchun profil va sozlamalar
 // ============================================================
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import Card from '../../components/ui/Card.jsx';
@@ -13,10 +13,47 @@ import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import {
   ROLE_LABELS, ROLE_COLORS, ROLE_PERMISSIONS, PERMISSIONS,
-  avatarClass, STORAGE_KEYS, ROLES,
+  avatarClass, STORAGE_KEYS, ROLES, STAFF_POSITIONS, STAFF_DEPARTMENTS,
 } from '../../data/constants.js';
 import { getViloyatName, getTumanName } from '../../data/regions.js';
-import { formatDate } from '../../utils/helpers.js';
+import { formatDate, formatUzPhone } from '../../utils/helpers.js';
+
+function compressImage(file, maxDimension = 380, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height) {
+          if (width > maxDimension) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          }
+        } else {
+          if (height > maxDimension) {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 const PERM_LABELS = {
   [PERMISSIONS.VIEW_DASHBOARD]:    'Boshqaruv paneli',
@@ -74,12 +111,45 @@ export default function ProfilePage() {
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState('');
 
+  const fileInputRef = useRef(null);
+
+  const getDefaultPosition = (user) => {
+    if (user?.position) return user.position;
+    if (user?.role === ROLES.TUMAN_ADMIN) return 'Direktor';
+    if (user?.role === ROLES.XODIMLAR_BOSHLIGI) return 'Xizmat rahbari';
+    return '';
+  };
+
+  const getDefaultDepartment = (user) => {
+    if (user?.department && user.department !== "Ma'muriyat") return user.department;
+    if (user?.role === ROLES.XODIMLAR_BOSHLIGI) return 'Axborot-kommunikatsiya va raqamlashtirish xizmati';
+    return '';
+  };
+
   // Edit form state
   const [form, setForm] = useState({
-    fullName: currentUser?.fullName || '',
-    phone:    currentUser?.phone    || '',
-    email:    currentUser?.email    || '',
+    fullName:   currentUser?.fullName || '',
+    phone:      currentUser?.phone    || '',
+    email:      currentUser?.email    || '',
+    position:   getDefaultPosition(currentUser),
+    department: getDefaultDepartment(currentUser),
+    birthDate:  currentUser?.birthDate || currentUser?.birth_date || '',
+    photo:      currentUser?.photo    || '',
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      setForm({
+        fullName:   currentUser.fullName || '',
+        phone:      currentUser.phone    || '',
+        email:      currentUser.email    || '',
+        position:   getDefaultPosition(currentUser),
+        department: getDefaultDepartment(currentUser),
+        birthDate:  currentUser.birthDate || currentUser.birth_date || '',
+        photo:      currentUser.photo    || '',
+      });
+    }
+  }, [currentUser]);
 
   // Password form state
   const [pwForm, setPwForm] = useState({
@@ -96,6 +166,28 @@ export default function ProfilePage() {
   const myPerms    = ROLE_PERMISSIONS[currentUser?.role] || [];
 
   // ─── Handlers ──────────────────────────────────────────────
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError("Faqat rasm fayllarini yuklash mumkin (JPG, PNG, WEBP)");
+      return;
+    }
+    try {
+      const compressed = await compressImage(file, 380, 0.85);
+      setForm(prev => ({ ...prev, photo: compressed }));
+      setError('');
+    } catch {
+      setError("Rasmni qayta ishlashda xatolik yuz berdi");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setForm(prev => ({ ...prev, photo: '' }));
+  };
+
   const handleSave = async () => {
     if (!form.fullName.trim()) {
       setError('Ism-familya talab qilinadi');
@@ -106,11 +198,15 @@ export default function ProfilePage() {
     setSuccess('');
     try {
       await updateUser(currentUser.id, {
-        fullName: form.fullName.trim(),
-        phone:    form.phone.trim() || null,
-        email:    form.email.trim().toLowerCase() || null,
+        fullName:   form.fullName.trim(),
+        phone:      form.phone.trim() || null,
+        email:      form.email.trim().toLowerCase() || null,
+        position:   form.position.trim() || null,
+        department: form.department.trim() || null,
+        birthDate:  form.birthDate || null,
+        photo:      form.photo || null,
       });
-      setSuccess('Ma\'lumotlar muvaffaqiyatli yangilandi');
+      setSuccess("Ma'lumotlar muvaffaqiyatli yangilandi");
       setEditMode(false);
     } catch (err) {
       setError(err.message || 'Yangilashda xato yuz berdi');
@@ -121,9 +217,13 @@ export default function ProfilePage() {
 
   const handleCancelEdit = () => {
     setForm({
-      fullName: currentUser?.fullName || '',
-      phone:    currentUser?.phone    || '',
-      email:    currentUser?.email    || '',
+      fullName:   currentUser?.fullName || '',
+      phone:      currentUser?.phone    || '',
+      email:      currentUser?.email    || '',
+      position:   getDefaultPosition(currentUser),
+      department: getDefaultDepartment(currentUser),
+      birthDate:  currentUser?.birthDate || currentUser?.birth_date || '',
+      photo:      currentUser?.photo    || '',
     });
     setEditMode(false);
     setError('');
@@ -205,13 +305,33 @@ export default function ProfilePage() {
       <Card className="mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
           {/* Avatar */}
-          <div className={`w-20 h-20 rounded-full ${avatarClass(roleColor)} flex items-center justify-center text-3xl font-bold shrink-0`}>
-            {currentUser?.fullName?.charAt(0)}
+          <div className="relative shrink-0">
+            {currentUser?.photo ? (
+              <img
+                src={currentUser.photo}
+                alt={currentUser.fullName}
+                className="w-20 h-20 rounded-2xl object-cover ring-2 ring-blue-500/20 dark:ring-blue-400/30 shadow-sm"
+              />
+            ) : (
+              <div className={`w-20 h-20 rounded-2xl ${avatarClass(roleColor)} flex items-center justify-center text-3xl font-bold shadow-sm`}>
+                {currentUser?.fullName?.charAt(0) || 'U'}
+              </div>
+            )}
+            {currentUser?.position && (
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" title="Faol xodim" />
+            )}
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100">{currentUser?.fullName}</h2>
+            <div className="flex flex-wrap items-baseline gap-2">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100">{currentUser?.fullName}</h2>
+              {getDefaultPosition(currentUser) && (
+                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                  • {getDefaultPosition(currentUser)}
+                </span>
+              )}
+            </div>
             <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">@{currentUser?.username}</p>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Badge color={roleColor}>{roleLabel}</Badge>
@@ -229,6 +349,11 @@ export default function ProfilePage() {
               {currentUser?.email && (
                 <span className="flex items-center gap-1">
                   <ICONS.email className="text-xs" /> {currentUser.email}
+                </span>
+              )}
+              {(currentUser?.birthDate || currentUser?.birth_date) && (
+                <span className="flex items-center gap-1">
+                  <ICONS.calendar className="text-xs" /> {formatDate(currentUser.birthDate || currentUser.birth_date)}
                 </span>
               )}
               {currentUser?.viloyatId && (
@@ -299,19 +424,120 @@ export default function ProfilePage() {
           <Card title={editMode ? 'Ma\'lumotlarni tahrirlash' : 'Shaxsiy ma\'lumotlar'}>
             {editMode ? (
               <div className="space-y-4">
+                {/* Photo uploader */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase tracking-wider mb-2">
+                    Profil rasmi
+                  </label>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-200/70 dark:border-slate-700/60">
+                    {form.photo ? (
+                      <img
+                        src={form.photo}
+                        alt="Profil"
+                        className="w-16 h-16 rounded-xl object-cover ring-1 ring-gray-300 dark:ring-slate-600 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-400 flex items-center justify-center text-xl font-bold shrink-0">
+                        {form.fullName?.charAt(0) || <ICONS.user />}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <ICONS.upload className="text-sm" /> {form.photo ? "Rasmni o'zgartirish" : "Rasm tanlash"}
+                        </Button>
+                        {form.photo && (
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            onClick={handleRemovePhoto}
+                          >
+                            <ICONS.trash className="text-sm" /> O'chirish
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
+                        Format: JPG, PNG, WEBP (avtomatik ravishda optimal hajmda siqiladi)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <Input
                   label="Ism-familya"
                   value={form.fullName}
                   onChange={e => setForm({ ...form, fullName: e.target.value })}
+                  placeholder="Familiya Ism Otasining ismi"
                   required
                 />
-                <Input
-                  label="Telefon"
-                  type="tel"
-                  value={form.phone}
-                  onChange={e => setForm({ ...form, phone: e.target.value })}
-                  placeholder="+998901234567"
-                />
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase tracking-wider">
+                    Lavozimi
+                  </label>
+                  <select
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors cursor-pointer"
+                    value={form.position}
+                    onChange={e => setForm({ ...form, position: e.target.value })}
+                  >
+                    <option value=""></option>
+                    {STAFF_POSITIONS.map((pos) => (
+                      <option key={pos} value={pos}>{pos}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase tracking-wider">
+                    Bo'lim / Xizmat
+                  </label>
+                  <select
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors cursor-pointer"
+                    value={form.department}
+                    onChange={e => setForm({ ...form, department: e.target.value })}
+                  >
+                    <option value=""></option>
+                    {STAFF_DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Tug'ilgan sana
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                      value={form.birthDate}
+                      onChange={e => setForm({ ...form, birthDate: e.target.value })}
+                    />
+                  </div>
+
+                  <Input
+                    label="Telefon"
+                    type="tel"
+                    value={form.phone}
+                    onChange={e => setForm({ ...form, phone: formatUzPhone(e.target.value) })}
+                    placeholder="+998 90 123 45 67"
+                  />
+                </div>
+
                 <Input
                   label="Email"
                   type="email"
@@ -319,7 +545,8 @@ export default function ProfilePage() {
                   onChange={e => setForm({ ...form, email: e.target.value })}
                   placeholder="example@mail.com"
                 />
-                <div className="flex gap-3 pt-1">
+
+                <div className="flex gap-3 pt-2">
                   <Button onClick={handleSave} disabled={saving}>
                     <ICONS.save /> {saving ? 'Saqlanmoqda...' : 'Saqlash'}
                   </Button>
@@ -331,23 +558,26 @@ export default function ProfilePage() {
             ) : (
               <div className="space-y-4">
                 {[
-                  { label: 'Ism-familya',  value: currentUser?.fullName, icon: ICONS.user      },
-                  { label: 'Login',        value: currentUser?.username,  icon: ICONS.key       },
-                  { label: 'Telefon',      value: currentUser?.phone || '—', icon: ICONS.phone  },
-                  { label: 'Email',        value: currentUser?.email || '—', icon: ICONS.email  },
+                  { label: 'Ism-familya',  value: currentUser?.fullName, icon: ICONS.user },
+                  { label: 'Lavozimi',      value: getDefaultPosition(currentUser) || 'Ko\'rsatilmagan', icon: ICONS.users },
+                  { label: 'Bo\'lim / Xizmat', value: getDefaultDepartment(currentUser) || 'Ko\'rsatilmagan', icon: ICONS.library },
+                  { label: 'Tug\'ilgan sana', value: (currentUser?.birthDate || currentUser?.birth_date) ? formatDate(currentUser?.birthDate || currentUser?.birth_date) : 'Ko\'rsatilmagan', icon: ICONS.calendar },
+                  { label: 'Login',        value: currentUser?.username,  icon: ICONS.key },
+                  { label: 'Telefon',      value: currentUser?.phone || '—', icon: ICONS.phone },
+                  { label: 'Email',        value: currentUser?.email || '—', icon: ICONS.email },
                   { label: 'Viloyat',      value: currentUser?.viloyatId ? getViloyatName(currentUser.viloyatId) : '—', icon: ICONS.location },
                   { label: 'Tuman',        value: currentUser?.tumanId ? getTumanName(currentUser.viloyatId, currentUser.tumanId) : '—', icon: ICONS.location },
-                  { label: 'Kutubxona',    value: myLibrary?.name || '—', icon: ICONS.library   },
+                  { label: 'Kutubxona',    value: myLibrary?.name || '—', icon: ICONS.library },
                   { label: 'Ro\'yxatdan o\'tgan', value: formatDate(currentUser?.createdAt), icon: ICONS.calendar },
                   { label: 'Oxirgi kirish', value: formatDate(currentUser?.lastLogin) || '—', icon: ICONS.pending },
                 ].map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
-                    <div className="w-7 h-7 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center shrink-0 text-xs mt-0.5">
+                  <div key={label} className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-slate-800 last:border-0">
+                    <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 flex items-center justify-center shrink-0 text-xs mt-0.5">
                       <Icon />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400">{label}</p>
-                      <p className="text-sm font-medium text-gray-700">{value}</p>
+                      <p className="text-xs text-gray-400 dark:text-slate-500">{label}</p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-slate-200">{value}</p>
                     </div>
                   </div>
                 ))}
@@ -428,7 +658,7 @@ export default function ProfilePage() {
           {/* Super Admin Database Reset Card */}
           {isSuperAdmin && (
             <div className="lg:col-span-2">
-              <Card className="border-rose-200/90 dark:border-rose-900/50 bg-gradient-to-r from-rose-50/60 via-white to-amber-50/40 dark:from-rose-950/30 dark:via-slate-900 dark:to-amber-950/20">
+              <Card className="border-rose-200/90 dark:border-rose-900/50 bg-rose-50/30 dark:bg-rose-950/20">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3.5">
                     <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
