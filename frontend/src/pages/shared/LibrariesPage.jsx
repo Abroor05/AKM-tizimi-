@@ -11,6 +11,7 @@ import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES } from '../../data/constants.js';
 import { VILOYATLAR, getViloyatName, getTumanName } from '../../data/regions.js';
 import LibraryModal from '../../components/common/LibraryModal.jsx';
+import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import SearchInput from '../../components/ui/SearchInput.jsx';
 
 export default function LibrariesPage() {
@@ -20,6 +21,8 @@ export default function LibrariesPage() {
   const [viloyatFilter, setViloyatFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isSuperAdmin = currentUser?.role === ROLES.SUPER_ADMIN || currentUser?.role === 'superadmin';
   const allLibraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
@@ -55,10 +58,21 @@ export default function LibrariesPage() {
 
   const canManage = isSuperAdmin || isRole(ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN);
 
-  const handleDelete = (lib) => {
-    if (window.confirm(`"${lib.name}" kutubxonasi / bo'limini o'chirishni tasdiqlaysizmi?`)) {
-      deleteEntity(STORAGE_KEYS.LIBRARIES, lib.id);
+  const handleDeleteClick = (lib) => {
+    setDeleteTarget(lib);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteEntity(STORAGE_KEYS.LIBRARIES, deleteTarget.id);
       toast.success("Kutubxona muvaffaqiyatli o'chirildi!");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.message || "O'chirishda xatolik yuz berdi");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -158,7 +172,7 @@ export default function LibrariesPage() {
                           <ICONS.edit className="text-sm" />
                         </button>
                         <button
-                          onClick={() => handleDelete(lib)}
+                          onClick={() => handleDeleteClick(lib)}
                           className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/50 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                           title="O'chirish"
                         >
@@ -240,6 +254,18 @@ export default function LibrariesPage() {
           setEditItem(null);
         }}
         editItem={editItem}
+      />
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Kutubxona / Bo'limni o'chirish"
+        message={`Haqiqatan ham "${deleteTarget?.name || 'ushbu'}" kutubxonasini o'chirib tashlamoqchimisiz? Ushbu amalni ortga qaytarib bo'lmaydi.`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
       />
     </div>
   );

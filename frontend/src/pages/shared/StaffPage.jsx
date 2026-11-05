@@ -10,6 +10,7 @@ import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES, STAFF_POSITIONS, STAFF_DEPARTMENTS } from '../../data/constants.js';
 import { VILOYATLAR, getViloyatName, getTumanName } from '../../data/regions.js';
 import StaffModal from '../../components/common/StaffModal.jsx';
+import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import SearchInput from '../../components/ui/SearchInput.jsx';
 import { formatDate } from '../../utils/helpers.js';
 
@@ -40,6 +41,9 @@ export default function StaffPage() {
 
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewItem, setViewItem] = useState(null);
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isSuperAdmin = currentUser?.role === ROLES.SUPER_ADMIN || currentUser?.role === 'superadmin';
   const isViloyatAdmin = currentUser?.role === ROLES.VILOYAT_ADMIN;
@@ -140,11 +144,21 @@ export default function StaffPage() {
     setPositionFilter('');
   };
 
-  const handleDelete = (staff) => {
-    const name = staff.fullName || `${staff.firstName} ${staff.lastName}`;
-    if (window.confirm(`"${name}" xodimini o'chirishni tasdiqlaysizmi?`)) {
-      deleteEntity(STORAGE_KEYS.STAFF, staff.id);
-      toast.success("Xodim o'chirildi");
+  const openDeleteModal = (staff) => {
+    setDeleteTarget(staff);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteEntity(STORAGE_KEYS.STAFF, deleteTarget.id);
+      toast.success("Xodim muvaffaqiyatli o'chirildi");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.message || "Xodimni o'chirishda xatolik yuz berdi");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -466,7 +480,7 @@ export default function StaffPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDelete(staff)}
+                                onClick={() => openDeleteModal(staff)}
                                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-rose-600 cursor-pointer transition-colors"
                                 title="O'chirish"
                               >
@@ -556,7 +570,7 @@ export default function StaffPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(staff)}
+                            onClick={() => openDeleteModal(staff)}
                             className="p-1 rounded text-slate-400 hover:text-rose-600 cursor-pointer"
                             title="O'chirish"
                           >
@@ -744,6 +758,18 @@ export default function StaffPage() {
           );
         })()}
       </Modal>
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Xodimni o'chirish"
+        message={`Haqiqatan ham "${deleteTarget?.fullName || `${deleteTarget?.firstName || ''} ${deleteTarget?.lastName || ''}`.trim() || 'ushbu'}" xodimini o'chirib tashlamoqchimisiz? Ushbu amalni ortga qaytarib bo'lmaydi.`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
+      />
     </div>
   );
 }

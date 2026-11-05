@@ -9,6 +9,7 @@ import Input from '../../components/ui/Input.jsx';
 import Select from '../../components/ui/Select.jsx';
 import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
@@ -31,6 +32,8 @@ export default function DocumentsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const allDocs = useMemo(() => getCollection(STORAGE_KEYS.DOCUMENTS), [getCollection]);
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
@@ -151,10 +154,21 @@ export default function DocumentsPage() {
     setEditItem(null);
   };
 
-  const handleDelete = (doc) => {
-    if (window.confirm(`"${doc.title}" hujjati o'chirilsinmi?`)) {
-      deleteEntity(STORAGE_KEYS.DOCUMENTS, doc.id);
+  const handleDeleteClick = (doc) => {
+    setDeleteTarget(doc);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteEntity(STORAGE_KEYS.DOCUMENTS, deleteTarget.id);
       toast.success("Hujjat muvaffaqiyatli o'chirildi!");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.message || "O'chirishda xatolik yuz berdi");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -215,7 +229,7 @@ export default function DocumentsPage() {
                           <ICONS.edit className="text-sm" />
                         </button>
                         <button
-                          onClick={() => handleDelete(doc)}
+                          onClick={() => handleDeleteClick(doc)}
                           className="p-1.5 rounded hover:bg-red-50 text-red-600 transition-colors"
                           title="O'chirish"
                         >
@@ -329,6 +343,18 @@ export default function DocumentsPage() {
           />
         </div>
       </Modal>
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Hujjatni o'chirish"
+        message={`Haqiqatan ham "${deleteTarget?.title || 'ushbu'}" hujjatini o'chirib tashlamoqchimisiz? Ushbu amalni ortga qaytarib bo'lmaydi.`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
+      />
     </div>
   );
 }
