@@ -264,7 +264,7 @@ export const ROLE_PERMISSIONS = {
 export const MENU_ITEMS = [
   { id: 'dashboard', label: 'Boshqaruv paneli', icon: 'dashboard', permission: PERMISSIONS.VIEW_DASHBOARD },
   { id: 'libraries', label: 'AKM / Bo\'limlar', icon: 'library', permission: PERMISSIONS.VIEW_LIBRARIES },
-  { id: 'staff', label: 'Kutubxona xodimlari', icon: 'users', permission: PERMISSIONS.VIEW_STAFF },
+  { id: 'staff', label: 'Kutubxona xodimlari (Kadrlar)', icon: 'staff', permission: PERMISSIONS.VIEW_STAFF },
   { id: 'daily-activity', label: 'Kunlik faoliyat', icon: 'activity', permission: PERMISSIONS.VIEW_ACTIVITIES },
   { id: 'reports', label: 'Hisobotlar', icon: 'reports', permission: PERMISSIONS.VIEW_REPORTS },
   { id: 'tasks', label: 'Topshiriqlar', icon: 'tasks', permission: PERMISSIONS.VIEW_TASKS },
@@ -277,7 +277,7 @@ export const MENU_ITEMS = [
   { id: 'statistics', label: 'Statistika', icon: 'statistics', permission: PERMISSIONS.VIEW_STATISTICS },
   { id: 'analytics', label: 'BI Analytics', icon: 'analytics', permission: PERMISSIONS.VIEW_ANALYTICS },
   { id: 'map', label: 'Xarita', icon: 'map', permission: PERMISSIONS.VIEW_MAP },
-  { id: 'users', label: 'Xodimlar', icon: 'users', permission: PERMISSIONS.VIEW_USERS },
+  { id: 'users', label: 'Tizim foydalanuvchilari', icon: 'users', permission: PERMISSIONS.VIEW_USERS },
   { id: 'roles', label: 'Rollar va Permissionlar', icon: 'roles', permission: PERMISSIONS.MANAGE_ROLES },
   { id: 'audit', label: 'Audit Log', icon: 'audit', permission: PERMISSIONS.VIEW_AUDIT },
   { id: 'security', label: 'Xavfsizlik', icon: 'security', permission: PERMISSIONS.MANAGE_SECURITY },

@@ -185,9 +185,9 @@ export default function StaffPage() {
     <div className="space-y-3.5">
       {/* Sarlavha */}
       <PageHeader
-        title="Kutubxona xodimlari"
-        subtitle="Hududiy axborot-kutubxona markazlari xodimlari ro'yxati"
-        icon={ICONS.users}
+        title="Kutubxona xodimlari (Kadrlar)"
+        subtitle="Kutubxona shtatidagi barcha xodimlar va kadrlar hisobi"
+        icon={ICONS.staff}
         action={
           canManage && (
             <Button onClick={openCreate} className="flex items-center gap-1.5 text-xs py-2 px-3">

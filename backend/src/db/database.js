@@ -398,7 +398,7 @@ export async function initDb(retries = 3) {
   -- STAFF (Kutubxona xodimlari jadvali)
   CREATE TABLE IF NOT EXISTS staff (
     id VARCHAR(255) PRIMARY KEY,
-    library_id VARCHAR(100) NOT NULL,
+    library_id VARCHAR(100),
     viloyat_id VARCHAR(100),
     tuman_id VARCHAR(100),
     first_name VARCHAR(100) NOT NULL,
@@ -446,6 +446,7 @@ export async function initDb(retries = 3) {
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100);
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS specialty VARCHAR(200);
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS experience VARCHAR(100);
+          ALTER TABLE staff ALTER COLUMN library_id DROP NOT NULL;
         `);
       } catch {}
       await refreshColumnsCache();

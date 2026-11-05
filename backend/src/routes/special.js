@@ -113,39 +113,49 @@ usersRouter.post('/', authMiddleware, async (req, res, next) => {
       }
     }
 
-    if (
-      req.user.role !== 'super_admin' &&
-      req.user.role !== 'viloyat_admin' &&
-      req.user.role !== 'tuman_admin' &&
-      req.user.role !== 'xodimlar_boshligi'
-    ) {
+    const isSuperAdmin = req.user.role === 'super_admin' || req.user.role === 'superadmin';
+    const isDirector = req.user.role === 'tuman_admin' || req.user.role === 'direktor';
+    const isViloyatAdmin = req.user.role === 'viloyat_admin';
+    const isHead = req.user.role === 'xodimlar_boshligi';
+
+    if (!isSuperAdmin && !isViloyatAdmin && !isDirector && !isHead) {
       return res.status(403).json({ error: 'Siz foydalanuvchi yaratish uchun ruxsatga ega emassiz' });
     }
 
-    if (req.user.role !== 'super_admin') {
-      if (role !== 'kutubxona_xodimi' && role !== 'xodimlar_boshligi') {
-        return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini yaratishi mumkin' });
-      }
-      if ((viloyatId || req.user.viloyatId) !== req.user.viloyatId) {
-        return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni kiritishingiz mumkin' });
-      }
-      if (req.user.role === 'tuman_admin' && (tumanId || req.user.tumanId) !== req.user.tumanId) {
-        return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni kiritishingiz mumkin' });
-      }
-      if (req.user.role === 'xodimlar_boshligi') {
+    const userViloyatId = req.user.viloyatId || req.user.viloyat_id;
+    const userTumanId = req.user.tumanId || req.user.tuman_id;
+    const userLibraryId = req.user.libraryId || req.user.library_id;
+
+    let targetViloyatId = viloyatId || userViloyatId || null;
+    let targetTumanId = tumanId || userTumanId || null;
+    let targetLibraryId = libraryId || userLibraryId || null;
+
+    if (!isSuperAdmin) {
+      if (isDirector) {
+        if (role !== 'kutubxona_xodimi' && role !== 'xodimlar_boshligi') {
+          return res.status(403).json({ error: 'Direktor faqat "Kutubxona xodimi" yoki "Bo\'lim boshlig\'i" akkauntini yarata oladi' });
+        }
+        if (userViloyatId) targetViloyatId = userViloyatId;
+        if (userTumanId) targetTumanId = userTumanId;
+      } else if (isViloyatAdmin) {
+        if (role !== 'kutubxona_xodimi' && role !== 'xodimlar_boshligi' && role !== 'tuman_admin') {
+          return res.status(403).json({ error: 'Viloyat admini faqat tuman admini, bo\'lim boshlig\'i yoki kutubxona xodimi yarata oladi' });
+        }
+        if (userViloyatId) targetViloyatId = userViloyatId;
+      } else if (isHead) {
         if (role !== 'kutubxona_xodimi') {
-          return res.status(403).json({ error: 'Xodimlar boshligi faqat kutubxona xodimi yaratishi mumkin' });
+          return res.status(403).json({ error: 'Xodimlar boshlig\'i faqat kutubxona xodimi yarata oladi' });
         }
-        if ((libraryId || req.user.libraryId) !== req.user.libraryId) {
-          return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangizga xodim qo\'sha olasiz' });
-        }
+        if (userViloyatId) targetViloyatId = userViloyatId;
+        if (userTumanId) targetTumanId = userTumanId;
+        if (userLibraryId) targetLibraryId = userLibraryId;
       }
     }
 
     const existsRes = await query('SELECT id FROM users WHERE username = ?', [username.trim()]);
     if (existsRes.rows.length > 0) return res.status(409).json({ error: 'Bu login allaqachon mavjud' });
 
-    const effectiveLibraryId = await resolveLibraryIdForRole({ role, libraryId, viloyatId, tumanId }, req.user);
+    const effectiveLibraryId = await resolveLibraryIdForRole({ role, libraryId: targetLibraryId, viloyatId: targetViloyatId, tumanId: targetTumanId }, req.user);
     const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const passwordHash = bcrypt.hashSync(passwordValue || '', 10);
     const todayStr = new Date().toISOString().split('T')[0];
@@ -166,8 +176,8 @@ usersRouter.post('/', authMiddleware, async (req, res, next) => {
         userPosition,
         phone || null,
         normalizedEmail || null,
-        viloyatId || null,
-        tumanId || null,
+        targetViloyatId || null,
+        targetTumanId || null,
         effectiveLibraryId || null,
         1,
         todayStr,
@@ -198,18 +208,22 @@ usersRouter.put('/:id', authMiddleware, async (req, res, next) => {
     }
 
     const isSelf = req.user.id === req.params.id;
-    if (!isSelf && req.user.role !== 'super_admin') {
+    if (!isSelf && req.user.role !== 'super_admin' && req.user.role !== 'superadmin') {
       const targetRole = req.body.role || existing.role;
       if (targetRole !== 'kutubxona_xodimi' && targetRole !== 'xodimlar_boshligi') {
         return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
       }
-      if ((req.body.viloyatId || existing.viloyatId) !== req.user.viloyatId) {
+      const userViloyat = req.user.viloyatId || req.user.viloyat_id;
+      const targetViloyat = req.body.viloyatId || req.body.viloyat_id || existing.viloyatId || existing.viloyat_id;
+      if (userViloyat && targetViloyat && targetViloyat !== userViloyat) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni yangilay olasiz' });
       }
-      if (req.user.role === 'tuman_admin' && (req.body.tumanId || existing.tumanId) !== req.user.tumanId) {
+      const userTuman = req.user.tumanId || req.user.tuman_id;
+      const targetTuman = req.body.tumanId || req.body.tuman_id || existing.tumanId || existing.tuman_id;
+      if (['tuman_admin', 'direktor'].includes(req.user.role) && userTuman && targetTuman && targetTuman !== userTuman) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni yangilay olasiz' });
       }
-      if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== req.user.libraryId) {
+      if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== (req.user.libraryId || req.user.library_id)) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangiz xodimlarini yangilay olasiz' });
       }
     }
@@ -256,18 +270,22 @@ usersRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (!existing) return res.status(404).json({ error: 'Topilmadi' });
 
     const isSelf = req.user.id === req.params.id;
-    if (!isSelf && req.user.role !== 'super_admin') {
+    if (!isSelf && req.user.role !== 'super_admin' && req.user.role !== 'superadmin') {
       const targetRole = req.body.role || existing.role;
       if (targetRole !== 'kutubxona_xodimi' && targetRole !== 'xodimlar_boshligi') {
         return res.status(403).json({ error: 'Faqat super admin boshqa admin rolini o\'zgartira oladi' });
       }
-      if ((req.body.viloyatId || existing.viloyatId) !== req.user.viloyatId) {
+      const userViloyat = req.user.viloyatId || req.user.viloyat_id;
+      const targetViloyat = req.body.viloyatId || req.body.viloyat_id || existing.viloyatId || existing.viloyat_id;
+      if (userViloyat && targetViloyat && targetViloyat !== userViloyat) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni yangilay olasiz' });
       }
-      if (req.user.role === 'tuman_admin' && (req.body.tumanId || existing.tumanId) !== req.user.tumanId) {
+      const userTuman = req.user.tumanId || req.user.tuman_id;
+      const targetTuman = req.body.tumanId || req.body.tuman_id || existing.tumanId || existing.tuman_id;
+      if (['tuman_admin', 'direktor'].includes(req.user.role) && userTuman && targetTuman && targetTuman !== userTuman) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni yangilay olasiz' });
       }
-      if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== req.user.libraryId) {
+      if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== (req.user.libraryId || req.user.library_id)) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangiz xodimlarini yangilay olasiz' });
       }
     }
@@ -312,17 +330,21 @@ usersRouter.delete('/:id', authMiddleware, async (req, res, next) => {
     const existing = await getById('users', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Topilmadi' });
 
-    if (req.user.role !== 'super_admin') {
+    if (req.user.role !== 'super_admin' && req.user.role !== 'superadmin') {
       if (existing.role !== 'kutubxona_xodimi' && existing.role !== 'xodimlar_boshligi') {
         return res.status(403).json({ error: 'Faqat super admin boshqa adminlarni o\'chirishi mumkin' });
       }
-      if (existing.viloyatId !== req.user.viloyatId) {
+      const userViloyat = req.user.viloyatId || req.user.viloyat_id;
+      const targetViloyat = existing.viloyatId || existing.viloyat_id;
+      if (userViloyat && targetViloyat && targetViloyat !== userViloyat) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning viloyatidagi xodimlarni o\'chira olasiz' });
       }
-      if (req.user.role === 'tuman_admin' && existing.tumanId !== req.user.tumanId) {
+      const userTuman = req.user.tumanId || req.user.tuman_id;
+      const targetTuman = existing.tumanId || existing.tuman_id;
+      if (['tuman_admin', 'direktor'].includes(req.user.role) && userTuman && targetTuman && targetTuman !== userTuman) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning tumanidagi xodimlarni o\'chira olasiz' });
       }
-      if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== req.user.libraryId) {
+      if (req.user.role === 'xodimlar_boshligi' && (existing.libraryId || existing.library_id) !== (req.user.libraryId || req.user.library_id)) {
         return res.status(403).json({ error: 'Siz faqat o\'zingizning kutubxonangiz xodimlarini o\'chira olasiz' });
       }
     }

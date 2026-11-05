@@ -110,8 +110,8 @@ export default function UsersPage() {
     }
     if (isRole(ROLES.TUMAN_ADMIN)) {
       return [
-        { value: ROLES.XODIMLAR_BOSHLIGI, label: ROLE_LABELS[ROLES.XODIMLAR_BOSHLIGI] || "Bo'lim boshlig'i" },
         { value: ROLES.KUTUBXONA_XODIMI, label: ROLE_LABELS[ROLES.KUTUBXONA_XODIMI] || 'Kutubxona xodimi' },
+        { value: ROLES.XODIMLAR_BOSHLIGI, label: ROLE_LABELS[ROLES.XODIMLAR_BOSHLIGI] || "Bo'lim boshlig'i" },
       ];
     }
     return [{ value: ROLES.KUTUBXONA_XODIMI, label: ROLE_LABELS[ROLES.KUTUBXONA_XODIMI] }];

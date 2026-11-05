@@ -69,7 +69,7 @@ export function createCrudRouter(apiPath, tableName) {
 
       // Ruxsatlarni tekshirish (Staff uchun faqat adminlar)
       if (tableName === 'staff') {
-        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'xodimlar_boshligi'];
+        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'direktor', 'xodimlar_boshligi'];
         if (!allowedRoles.includes(req.user.role)) {
           return res.status(403).json({ error: "Xodimlarni ro'yxatga olish uchun ruxsat berilmagan" });
         }
@@ -80,7 +80,7 @@ export function createCrudRouter(apiPath, tableName) {
 
       // Staff uchun qo'shimcha maydonlarni to'ldirish
       if (tableName === 'staff') {
-        const isDistrictAdmin = ['tuman_admin', 'xodimlar_boshligi', 'kutubxona_xodimi'].includes(req.user.role);
+        const isDistrictAdmin = ['tuman_admin', 'direktor', 'xodimlar_boshligi', 'kutubxona_xodimi'].includes(req.user.role);
 
         let libId = null;
         let vId = null;
@@ -88,11 +88,14 @@ export function createCrudRouter(apiPath, tableName) {
 
         if (isDistrictAdmin) {
           // Tuman admini (Direktor): Xodim qat'iy ravishda o'sha tumanga va kutubxonasiga tegishli bo'ladi!
-          vId = req.user.viloyatId || req.user.viloyat_id;
-          tId = req.user.tumanId || req.user.tuman_id;
+          vId = req.user.viloyatId || req.user.viloyat_id || obj.viloyatId || obj.viloyat_id || '';
+          tId = req.user.tumanId || req.user.tuman_id || obj.tumanId || obj.tuman_id || '';
 
           if (req.user.libraryId || req.user.library_id) {
             libId = req.user.libraryId || req.user.library_id;
+          }
+          if (!libId && (obj.libraryId || obj.library_id)) {
+            libId = obj.libraryId || obj.library_id;
           }
 
           if (!libId && vId && tId) {
@@ -113,7 +116,7 @@ export function createCrudRouter(apiPath, tableName) {
             }
           }
         } else if (req.user.role === 'viloyat_admin') {
-          vId = req.user.viloyatId || req.user.viloyat_id;
+          vId = req.user.viloyatId || req.user.viloyat_id || obj.viloyatId || obj.viloyat_id || '';
           libId = obj.library_id || obj.libraryId;
           if (libId) {
             const checkLib = await getById('libraries', libId);
@@ -123,7 +126,7 @@ export function createCrudRouter(apiPath, tableName) {
               libId = null;
             }
           }
-          if (!libId) {
+          if (!libId && vId) {
             const libRes = await query('SELECT id, tuman_id FROM libraries WHERE viloyat_id = ? ORDER BY id ASC LIMIT 1', [vId]);
             if (libRes.rows[0]) {
               libId = libRes.rows[0].id;
@@ -149,25 +152,41 @@ export function createCrudRouter(apiPath, tableName) {
           }
         }
 
-        if (libId) {
-          obj.library_id = libId;
-          delete obj.libraryId;
-          const lib = await getById('libraries', libId);
-          if (lib) {
-            vId = vId || lib.viloyatId || lib.viloyat_id;
-            tId = tId || lib.tumanId || lib.tuman_id;
+        // Agar kutubxona umuman topilmasa, bazadagi ixtiyoriy kutubxonani olish yoki yaratish
+        if (!libId) {
+          const anyLib = await query('SELECT id, viloyat_id, tuman_id FROM libraries LIMIT 1');
+          if (anyLib.rows[0]) {
+            libId = anyLib.rows[0].id;
+            vId = vId || anyLib.rows[0].viloyat_id;
+            tId = tId || anyLib.rows[0].tuman_id;
+          } else {
+            libId = 'lib_main';
+            await query(
+              'INSERT INTO libraries (id, name, type, status, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING',
+              [libId, 'Markaziy kutubxona', 'markaz', 'active', new Date().toISOString()]
+            );
           }
         }
+
+        obj.library_id = libId;
+        delete obj.libraryId;
         obj.viloyat_id = vId || obj.viloyat_id || obj.viloyatId || '';
         obj.tuman_id = tId || obj.tuman_id || obj.tumanId || '';
         delete obj.viloyatId;
         delete obj.tumanId;
 
-        if (!obj.full_name && (obj.first_name || obj.last_name || obj.firstName || obj.lastName || obj.middle_name || obj.middleName)) {
-          const fn = obj.first_name || obj.firstName || '';
-          const ln = obj.last_name || obj.lastName || '';
-          const mn = obj.middle_name || obj.middleName || '';
-          obj.full_name = [ln, fn, mn].filter(Boolean).join(' ').trim() || `${fn} ${ln}`.trim();
+        const fn = obj.first_name || obj.firstName || '';
+        const ln = obj.last_name || obj.lastName || '';
+        const mn = obj.middle_name || obj.middleName || '';
+        obj.first_name = fn;
+        obj.last_name = ln;
+        obj.middle_name = mn;
+        delete obj.firstName;
+        delete obj.lastName;
+        delete obj.middleName;
+
+        if (!obj.full_name) {
+          obj.full_name = [ln, fn, mn].filter(Boolean).join(' ').trim() || `${fn} ${ln}`.trim() || 'Kutubxona xodimi';
         }
       }
 
@@ -210,7 +229,7 @@ export function createCrudRouter(apiPath, tableName) {
   router.put('/:id', authMiddleware, async (req, res, next) => {
     try {
       if (tableName === 'staff') {
-        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'xodimlar_boshligi'];
+        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'direktor', 'xodimlar_boshligi'];
         if (!allowedRoles.includes(req.user.role)) {
           return res.status(403).json({ error: "Xodimlarni tahrirlash uchun ruxsat berilmagan" });
         }
@@ -269,7 +288,7 @@ export function createCrudRouter(apiPath, tableName) {
   router.patch('/:id', authMiddleware, async (req, res, next) => {
     try {
       if (tableName === 'staff') {
-        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'xodimlar_boshligi'];
+        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'direktor', 'xodimlar_boshligi'];
         if (!allowedRoles.includes(req.user.role)) {
           return res.status(403).json({ error: "Xodimlarni tahrirlash uchun ruxsat berilmagan" });
         }
@@ -296,7 +315,7 @@ export function createCrudRouter(apiPath, tableName) {
   router.delete('/:id', authMiddleware, async (req, res, next) => {
     try {
       if (tableName === 'staff') {
-        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'xodimlar_boshligi'];
+        const allowedRoles = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'direktor', 'xodimlar_boshligi'];
         if (!allowedRoles.includes(req.user.role)) {
           return res.status(403).json({ error: "Xodimlarni o'chirish uchun ruxsat berilmagan" });
         }

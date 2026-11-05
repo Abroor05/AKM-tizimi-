@@ -58,6 +58,7 @@ const ICON_MAP = {
   statistics: FaChartBar,
   analytics: FaChartPie,
   map: FaMapLocationDot,
+  staff: FaUsersLine,
   users: FaUserGear,
   roles: FaUserShield,
   audit: FaShieldHalved,
