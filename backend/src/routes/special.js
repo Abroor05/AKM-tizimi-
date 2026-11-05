@@ -99,13 +99,79 @@ usersRouter.get('/:id', authMiddleware, async (req, res, next) => {
 
 usersRouter.post('/', authMiddleware, async (req, res, next) => {
   try {
-    const { username, password, fullName, role, phone, email, viloyatId, tumanId, libraryId } = req.body;
-    const passwordValue = (password || '').trim();
-    if (!username || !fullName || !role) {
-      return res.status(400).json({ error: 'Majburiy maydonlar to\'ldirilmadi' });
+    const callerRole = req.user.role;
+    const isSuperAdmin = callerRole === 'super_admin' || callerRole === 'superadmin';
+    const isDirector = callerRole === 'tuman_admin' || callerRole === 'direktor';
+    const isViloyatAdmin = callerRole === 'viloyat_admin';
+    const isHead = callerRole === 'xodimlar_boshligi';
+
+    if (!isSuperAdmin && !isViloyatAdmin && !isDirector && !isHead) {
+      return res.status(403).json({ error: 'Siz foydalanuvchi yaratish uchun ruxsatga ega emassiz' });
     }
 
-    const normalizedEmail = (email || '').trim().toLowerCase();
+    // 1. Rollarni tekshirish va xodim rollari sinonimlarini (staff, xodim, kutubxonachi) normallashtirish
+    let rawRole = (req.body.role || req.body.userRole || '').trim().toLowerCase();
+    const staffRoleAliases = ['kutubxona_xodimi', 'staff', 'xodim', 'kutubxonachi'];
+
+    let role = rawRole;
+    if (!role || staffRoleAliases.includes(role)) {
+      role = 'kutubxona_xodimi';
+    }
+
+    // Rol ruxsatlarini tekshirish
+    if (!isSuperAdmin) {
+      if (isDirector) {
+        if (role !== 'kutubxona_xodimi' && role !== 'xodimlar_boshligi') {
+          return res.status(403).json({ error: 'Direktor faqat kutubxona xodimi yoki bo\'lim boshlig\'i yarata oladi' });
+        }
+      } else if (isViloyatAdmin) {
+        if (!['kutubxona_xodimi', 'xodimlar_boshligi', 'tuman_admin', 'direktor'].includes(role)) {
+          return res.status(403).json({ error: 'Viloyat admini faqat tuman admini, bo\'lim boshlig\'i yoki kutubxona xodimi yarata oladi' });
+        }
+      } else if (isHead) {
+        if (role !== 'kutubxona_xodimi') {
+          return res.status(403).json({ error: 'Xodimlar boshlig\'i faqat kutubxona xodimi yarata oladi' });
+        }
+      }
+    }
+
+    // 2. Hududiy chegaralash (Tuman admini faqat o'z tumani va viloyatiga)
+    const userViloyatId = req.user.viloyatId || req.user.viloyat_id || null;
+    const userTumanId = req.user.tumanId || req.user.tuman_id || null;
+    const userLibraryId = req.user.libraryId || req.user.library_id || null;
+
+    let targetViloyatId = req.body.viloyatId || req.body.viloyat_id || null;
+    let targetTumanId = req.body.tumanId || req.body.tuman_id || null;
+    let targetLibraryId = req.body.libraryId || req.body.library_id || null;
+
+    if (isDirector) {
+      targetViloyatId = userViloyatId;
+      targetTumanId = userTumanId;
+    } else if (isViloyatAdmin) {
+      targetViloyatId = userViloyatId;
+    } else if (isHead) {
+      targetViloyatId = userViloyatId;
+      targetTumanId = userTumanId;
+      targetLibraryId = userLibraryId;
+    }
+
+    // 3. Fleksibil fullName (fullName, full_name, name yoki ism/familiya bo'laklari)
+    const fNameParts = [
+      req.body.lastName || req.body.last_name,
+      req.body.firstName || req.body.first_name,
+      req.body.middleName || req.body.middle_name,
+    ].filter(Boolean).join(' ').trim();
+
+    let fullName = (
+      req.body.fullName ||
+      req.body.full_name ||
+      req.body.name ||
+      fNameParts ||
+      'Kutubxona xodimi'
+    ).trim();
+
+    // 4. Fleksibil email va duplikat tekshiruvi
+    const normalizedEmail = (req.body.email || '').trim().toLowerCase();
     if (normalizedEmail) {
       const duplicateRes = await query('SELECT id FROM users WHERE LOWER(email) = ?', [normalizedEmail]);
       if (duplicateRes.rows.length > 0) {
@@ -113,68 +179,58 @@ usersRouter.post('/', authMiddleware, async (req, res, next) => {
       }
     }
 
-    const isSuperAdmin = req.user.role === 'super_admin' || req.user.role === 'superadmin';
-    const isDirector = req.user.role === 'tuman_admin' || req.user.role === 'direktor';
-    const isViloyatAdmin = req.user.role === 'viloyat_admin';
-    const isHead = req.user.role === 'xodimlar_boshligi';
-
-    if (!isSuperAdmin && !isViloyatAdmin && !isDirector && !isHead) {
-      return res.status(403).json({ error: 'Siz foydalanuvchi yaratish uchun ruxsatga ega emassiz' });
-    }
-
-    const userViloyatId = req.user.viloyatId || req.user.viloyat_id;
-    const userTumanId = req.user.tumanId || req.user.tuman_id;
-    const userLibraryId = req.user.libraryId || req.user.library_id;
-
-    let targetViloyatId = viloyatId || userViloyatId || null;
-    let targetTumanId = tumanId || userTumanId || null;
-    let targetLibraryId = libraryId || userLibraryId || null;
-
-    if (!isSuperAdmin) {
-      if (isDirector) {
-        if (role !== 'kutubxona_xodimi' && role !== 'xodimlar_boshligi') {
-          return res.status(403).json({ error: 'Direktor faqat "Kutubxona xodimi" yoki "Bo\'lim boshlig\'i" akkauntini yarata oladi' });
-        }
-        if (userViloyatId) targetViloyatId = userViloyatId;
-        if (userTumanId) targetTumanId = userTumanId;
-      } else if (isViloyatAdmin) {
-        if (role !== 'kutubxona_xodimi' && role !== 'xodimlar_boshligi' && role !== 'tuman_admin') {
-          return res.status(403).json({ error: 'Viloyat admini faqat tuman admini, bo\'lim boshlig\'i yoki kutubxona xodimi yarata oladi' });
-        }
-        if (userViloyatId) targetViloyatId = userViloyatId;
-      } else if (isHead) {
-        if (role !== 'kutubxona_xodimi') {
-          return res.status(403).json({ error: 'Xodimlar boshlig\'i faqat kutubxona xodimi yarata oladi' });
-        }
-        if (userViloyatId) targetViloyatId = userViloyatId;
-        if (userTumanId) targetTumanId = userTumanId;
-        if (userLibraryId) targetLibraryId = userLibraryId;
+    // 5. Fleksibil username (kelmasa email yoki ismdan avtomatik generatsiya)
+    let username = (req.body.username || req.body.userName || req.body.login || '').trim().toLowerCase();
+    if (!username) {
+      if (normalizedEmail) {
+        username = normalizedEmail.split('@')[0].replace(/[^a-z0-9._-]/g, '');
+      } else {
+        const cleanName = fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        username = cleanName ? `${cleanName}_${Math.random().toString(36).slice(2, 6)}` : `user_${Date.now().toString(36)}`;
       }
     }
 
-    const existsRes = await query('SELECT id FROM users WHERE username = ?', [username.trim()]);
-    if (existsRes.rows.length > 0) return res.status(409).json({ error: 'Bu login allaqachon mavjud' });
+    // Login takrorlanmasligini ta'minlash
+    const existsRes = await query('SELECT id FROM users WHERE LOWER(username) = ?', [username]);
+    if (existsRes.rows.length > 0) {
+      if (!req.body.username && !req.body.login) {
+        username = `${username}_${Math.random().toString(36).slice(2, 6)}`;
+      } else {
+        return res.status(409).json({ error: 'Bu login allaqachon mavjud' });
+      }
+    }
 
-    const effectiveLibraryId = await resolveLibraryIdForRole({ role, libraryId: targetLibraryId, viloyatId: targetViloyatId, tumanId: targetTumanId }, req.user);
-    const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const passwordHash = bcrypt.hashSync(passwordValue || '', 10);
-    const todayStr = new Date().toISOString().split('T')[0];
+    // 6. Fleksibil parol (kelmasa standart: 12345678)
+    const rawPassword = (req.body.password || req.body.pass || '').trim();
+    const passwordValue = rawPassword || '12345678';
+    const passwordHash = bcrypt.hashSync(passwordValue, 10);
+
+    // 7. Kutubxona ID sini avtomatik aniqlash
+    const effectiveLibraryId = await resolveLibraryIdForRole(
+      { role, libraryId: targetLibraryId, viloyatId: targetViloyatId, tumanId: targetTumanId },
+      req.user
+    );
+
+    const phone = req.body.phone || req.body.phone_number || null;
     const userPosition = req.body.position || (
       role === 'tuman_admin' ? 'Direktor' : (
-        role === 'xodimlar_boshligi' ? 'Axborot-kommunikatsiya va raqamlashtirish xizmati rahbari' : null
+        role === 'xodimlar_boshligi' ? 'Axborot-kommunikatsiya va raqamlashtirish xizmati rahbari' : 'Kutubxona xodimi'
       )
     );
+
+    const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const todayStr = new Date().toISOString().split('T')[0];
 
     await query(
       `INSERT INTO users (id, username, password_hash, full_name, role, position, phone, email, viloyat_id, tuman_id, library_id, active, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
-        username.trim(),
+        username,
         passwordHash,
         fullName,
         role,
         userPosition,
-        phone || null,
+        phone,
         normalizedEmail || null,
         targetViloyatId || null,
         targetTumanId || null,
