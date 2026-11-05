@@ -8,6 +8,12 @@ import ICONS from '../icons.jsx';
 import { STORAGE_KEYS, STAFF_POSITIONS, STAFF_DEPARTMENTS } from '../../data/constants.js';
 import { formatUzPhone } from '../../utils/helpers.js';
 
+function isXizmatRahbari(pos) {
+  if (!pos) return false;
+  const p = pos.toString().trim().toLowerCase();
+  return p === 'xizmat rahbari' || p === 'xizmat_rahbari' || p === 'xizmat-rahbari';
+}
+
 function compressImage(file, maxDimension = 320, quality = 0.85) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -122,12 +128,14 @@ export default function StaffModal({
       }
 
       if (editItem) {
+        const itemPos = editItem.position || editItem.lavozim || editItem.role || STAFF_POSITIONS[0];
+        const isRahbar = isXizmatRahbari(itemPos);
         setForm({
           firstName: editItem.firstName || editItem.first_name || '',
           lastName: editItem.lastName || editItem.last_name || '',
           middleName: editItem.middleName || editItem.middle_name || '',
-          position: editItem.position || STAFF_POSITIONS[0],
-          department: (editItem.department === "Ma'muriyat" ? '' : editItem.department) || STAFF_DEPARTMENTS[0],
+          position: itemPos,
+          department: isRahbar ? ((editItem.department === "Ma'muriyat" ? '' : editItem.department) || STAFF_DEPARTMENTS[0]) : '',
           specialty: editItem.specialty || '',
           experience: editItem.experience || '',
           birthDate: editItem.birthDate || editItem.birth_date || '',
@@ -138,13 +146,15 @@ export default function StaffModal({
         setPhotoPreview(editItem.photo || '');
       } else {
         const initialLibId = isDistrictUser ? districtLibId : (defaultLibraryId || accessibleLibraries[0]?.id || '');
+        const defaultPos = STAFF_POSITIONS[0];
+        const isRahbar = isXizmatRahbari(defaultPos);
 
         setForm({
           firstName: '',
           lastName: '',
           middleName: '',
-          position: STAFF_POSITIONS[0],
-          department: STAFF_DEPARTMENTS[0],
+          position: defaultPos,
+          department: isRahbar ? STAFF_DEPARTMENTS[0] : '',
           specialty: '',
           experience: '',
           birthDate: '',
@@ -181,6 +191,16 @@ export default function StaffModal({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handlePositionChange = (e) => {
+    const newPos = e.target.value;
+    const isRahbar = isXizmatRahbari(newPos);
+    setForm((prev) => ({
+      ...prev,
+      position: newPos,
+      department: isRahbar ? (prev.department || STAFF_DEPARTMENTS[0]) : '',
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e?.preventDefault();
 
@@ -202,8 +222,9 @@ export default function StaffModal({
       return;
     }
 
-    if (!department) {
-      toast.warning('Bo\'lim / xizmatni tanlang');
+    const isRahbar = isXizmatRahbari(position);
+    if (isRahbar && !department) {
+      toast.warning("Xizmat rahbari uchun bo'lim / xizmatni tanlash majburiy!");
       return;
     }
 
@@ -256,7 +277,7 @@ export default function StaffModal({
       middleName,
       fullName,
       position,
-      department,
+      department: isRahbar ? department : null,
       specialty,
       experience,
       libraryId: resolvedLibraryId,
@@ -394,7 +415,7 @@ export default function StaffModal({
             required
             options={positionOptions}
             value={form.position}
-            onChange={(e) => setForm((prev) => ({ ...prev, position: e.target.value }))}
+            onChange={handlePositionChange}
           />
           <Input
             label="Mutaxassisligi"
@@ -404,16 +425,18 @@ export default function StaffModal({
           />
         </div>
 
-        {/* 4. Bo'lim / Xizmat (uzun nomlar qisilib qolmasligi uchun to'liq kenglikda) */}
-        <div>
-          <Select
-            label="Bo'lim / Xizmat"
-            required
-            options={departmentOptions}
-            value={form.department}
-            onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value }))}
-          />
-        </div>
+        {/* 4. Faqat 'Xizmat rahbari' tanlangandagina Bo'lim / Xizmat maydoni ko'rinadi */}
+        {isXizmatRahbari(form.position) && (
+          <div>
+            <Select
+              label="Bo'lim / Xizmat"
+              required
+              options={departmentOptions}
+              value={form.department}
+              onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value }))}
+            />
+          </div>
+        )}
 
         {/* 5. Kutubxonadagi ish staji va Telefon raqami */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

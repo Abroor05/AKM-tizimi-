@@ -112,7 +112,7 @@ export default function StaffPage() {
       const matchTuman = !tumanFilter || s.tumanId === tumanFilter;
       const matchLibrary = !libraryFilter || s.libraryId === libraryFilter;
       const matchDepartment = !departmentFilter || s.department === departmentFilter;
-      const matchPosition = !positionFilter || s.position === positionFilter;
+      const matchPosition = !positionFilter || (s.position || s.lavozim || s.role) === positionFilter;
 
       return matchSearch && matchViloyat && matchTuman && matchLibrary && matchDepartment && matchPosition;
     });
@@ -403,12 +403,17 @@ export default function StaffPage() {
                       {/* Lavozimi */}
                       <td className="px-4 py-2.5">
                         <span className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] ${
-                          staff.position === 'Direktor'
+                          (staff.position || staff.lavozim || staff.role) === 'Direktor'
                             ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50 font-semibold'
                             : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 font-medium'
                         }`}>
-                          {staff.position || 'Lavozimsiz'}
+                          {staff.position || staff.lavozim || staff.jobTitle || staff.job_title || staff.role || 'Lavozimsiz'}
                         </span>
+                        {staff.department && ((staff.position || '').toLowerCase() === 'xizmat rahbari' || (staff.position || '').toLowerCase() === 'xizmat_rahbari') && (
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[200px]" title={staff.department}>
+                            {staff.department}
+                          </div>
+                        )}
                       </td>
 
                       {/* Hudud (faqat tuman) */}
@@ -520,11 +525,11 @@ export default function StaffPage() {
                         </h4>
                         <div className="mt-0.5">
                           <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] ${
-                            staff.position === 'Direktor'
+                            (staff.position || staff.lavozim || staff.role) === 'Direktor'
                               ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50 font-semibold'
                               : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 font-medium'
                           }`}>
-                            {staff.position || 'Lavozimsiz'}
+                            {staff.position || staff.lavozim || staff.jobTitle || staff.job_title || staff.role || 'Lavozimsiz'}
                           </span>
                         </div>
                       </div>
@@ -680,17 +685,19 @@ export default function StaffPage() {
               {/* Ma'lumotlar jadvali */}
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 <div className="py-2 flex justify-between">
-                  <span className="text-slate-500">Bo'lim / Xizmat:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                    {viewItem.department || '—'}
-                  </span>
-                </div>
-                <div className="py-2 flex justify-between">
                   <span className="text-slate-500">Lavozimi:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                    {viewItem.position || '—'}
+                    {viewItem.position || viewItem.lavozim || viewItem.role || '—'}
                   </span>
                 </div>
+                {viewItem.department && ((viewItem.position || '').toLowerCase() === 'xizmat rahbari' || (viewItem.position || '').toLowerCase() === 'xizmat_rahbari') && (
+                  <div className="py-2 flex justify-between">
+                    <span className="text-slate-500">Bo'lim / Xizmat:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {viewItem.department}
+                    </span>
+                  </div>
+                )}
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-500">Mutaxassisligi:</span>
                   <span className="font-medium text-slate-700 dark:text-slate-300 text-right">

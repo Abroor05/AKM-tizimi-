@@ -447,6 +447,7 @@ export async function initDb(retries = 3) {
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS specialty VARCHAR(200);
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS experience VARCHAR(100);
           ALTER TABLE staff ALTER COLUMN library_id DROP NOT NULL;
+          ALTER TABLE staff ALTER COLUMN position DROP NOT NULL;
         `);
       } catch {}
       await refreshColumnsCache();
@@ -517,6 +518,13 @@ export function rowToObject(table, row) {
       obj.position = 'Direktor';
     } else if (obj.role === 'xodimlar_boshligi' && !obj.position) {
       obj.position = 'Axborot-kommunikatsiya va raqamlashtirish xizmati rahbari';
+    }
+  }
+  if (table === 'staff') {
+    obj.position = obj.position || obj.lavozim || 'Mutaxassis';
+    const isRahbar = (obj.position || '').toLowerCase() === 'xizmat rahbari' || (obj.position || '').toLowerCase() === 'xizmat_rahbari';
+    if (!isRahbar) {
+      obj.department = null;
     }
   }
   return obj;

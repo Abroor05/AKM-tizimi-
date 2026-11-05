@@ -16,7 +16,6 @@ const ENTITY_CONFIG = {
   'documents': 'documents',
   'appeals': 'appeals',
   'kpi-data': 'kpi_data',
-  'staff': 'staff',
 };
 
 function generateId(prefix) {
@@ -34,7 +33,6 @@ const ID_PREFIXES = {
   'documents': 'doc',
   'appeals': 'ap',
   'kpi-data': 'kpi',
-  'staff': 'stf',
 };
 
 export function createCrudRouter(apiPath, tableName) {

@@ -7,6 +7,7 @@ import { initDb, query } from './db/database.js';
 import { mountCrudRoutes } from './routes/crud.js';
 import { mountSpecialRoutes } from './routes/special.js';
 import authRouter from './routes/auth.js';
+import staffRouter from './routes/staff.js';
 import { setupSwagger } from './swagger.js';
 import { authMiddleware } from './middleware/auth.js';
 import { securityHeaders, apiRateLimiter, sanitizeInputs } from './middleware/security.js';
@@ -77,6 +78,9 @@ setupSwagger(app);
 
 // --- Auth routes ---
 app.use('/api/auth', authRouter);
+
+// --- Staff routes (Kutubxona xodimlari - faqat staff jadvali) ---
+app.use('/api/staff', staffRouter);
 
 // --- CRUD routes (libraries, books, readers, activities, events, inventory, documents, appeals, kpi-data) ---
 mountCrudRoutes(app);
