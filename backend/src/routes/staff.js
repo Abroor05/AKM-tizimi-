@@ -8,14 +8,13 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const staffRouter = Router();
 
-// Ruxsat etilgan admin rollari
+// Ruxsat etilgan admin rollari (Faqat Super Admin, Viloyat Admini va Tuman direktori)
 const ALLOWED_STAFF_MANAGERS = [
   'super_admin',
   'superadmin',
   'viloyat_admin',
   'tuman_admin',
   'direktor',
-  'xodimlar_boshligi',
 ];
 
 // Helper: Xizmat rahbari lavozimini tekshirish
@@ -50,7 +49,7 @@ staffRouter.get('/:id', authMiddleware, async (req, res, next) => {
 staffRouter.post('/', authMiddleware, async (req, res, next) => {
   try {
     if (!ALLOWED_STAFF_MANAGERS.includes(req.user.role)) {
-      return res.status(403).json({ error: "Xodimlarni ro'yxatga olish uchun ruxsat berilmagan" });
+      return res.status(403).json({ error: "Xodimlarni ro'yxatga olish uchun faqat Super Admin, Viloyat Admini va Tuman direktori ruxsatga ega" });
     }
 
     const body = req.body || {};
@@ -76,6 +75,9 @@ staffRouter.post('/', authMiddleware, async (req, res, next) => {
     const department = isRahbar
       ? (body.department || body.bolim || body.division || null)
       : null;
+
+    // 4. Ma'lumoti
+    const education = (body.education || body.malumoti || '').trim();
 
     // 4. Hudud va kutubxona aniqlash
     const isDistrictUser = ['tuman_admin', 'direktor', 'xodimlar_boshligi', 'kutubxona_xodimi'].includes(req.user.role);
@@ -149,6 +151,8 @@ staffRouter.post('/', authMiddleware, async (req, res, next) => {
       department,
       specialty: body.specialty || '',
       experience: body.experience || '',
+      education,
+      malumoti: education,
       birth_date: body.birthDate || body.birth_date || '',
       phone: body.phone || '',
       photo: body.photo || '',
@@ -177,7 +181,7 @@ staffRouter.post('/', authMiddleware, async (req, res, next) => {
 staffRouter.put('/:id', authMiddleware, async (req, res, next) => {
   try {
     if (!ALLOWED_STAFF_MANAGERS.includes(req.user.role)) {
-      return res.status(403).json({ error: "Xodimlarni tahrirlash uchun ruxsat berilmagan" });
+      return res.status(403).json({ error: "Xodimlarni tahrirlash uchun faqat Super Admin, Viloyat Admini va Tuman direktori ruxsatga ega" });
     }
 
     const existing = await getById('staff', req.params.id);
@@ -202,6 +206,13 @@ staffRouter.put('/:id', authMiddleware, async (req, res, next) => {
       updates.department = isRahbar ? (updates.department || updates.bolim || updates.division || existing.department || null) : null;
     }
 
+    // Ma'lumoti
+    if (updates.education !== undefined || updates.malumoti !== undefined) {
+      const edu = (updates.education !== undefined ? updates.education : updates.malumoti || '').trim();
+      updates.education = edu;
+      updates.malumoti = edu;
+    }
+
     const updated = await updateRow('staff', req.params.id, updates);
 
     // Kutubxona xodimlar sonini yangilash
@@ -224,7 +235,7 @@ staffRouter.put('/:id', authMiddleware, async (req, res, next) => {
 staffRouter.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
     if (!ALLOWED_STAFF_MANAGERS.includes(req.user.role)) {
-      return res.status(403).json({ error: "Xodimlarni o'chirish uchun ruxsat berilmagan" });
+      return res.status(403).json({ error: "Xodimlarni o'chirish uchun faqat Super Admin, Viloyat Admini va Tuman direktori ruxsatga ega" });
     }
 
     const existing = await getById('staff', req.params.id);

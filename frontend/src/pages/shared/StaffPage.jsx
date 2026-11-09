@@ -51,7 +51,8 @@ export default function StaffPage() {
   const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.KUTUBXONA_XODIMI, ROLES.XODIMLAR_BOSHLIGI);
   const isXodimlarBoshligi = isRole(ROLES.XODIMLAR_BOSHLIGI);
 
-  const canManage = isSuperAdmin || isViloyatAdmin || isTumanAdmin || isXodimlarBoshligi;
+  // Faqat Super Admin, Viloyat Admini va Tuman direktori (tuman_admin) xodimlarni boshqara oladi
+  const canManage = isSuperAdmin || isViloyatAdmin || isTumanAdmin;
 
   const allLibraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
   const allStaff = useMemo(() => getCollection(STORAGE_KEYS.STAFF) || [], [getCollection]);
@@ -110,6 +111,9 @@ export default function StaffPage() {
         s.lastName?.toLowerCase().includes(q) ||
         s.position?.toLowerCase().includes(q) ||
         s.department?.toLowerCase().includes(q) ||
+        s.education?.toLowerCase().includes(q) ||
+        s.malumoti?.toLowerCase().includes(q) ||
+        s.specialty?.toLowerCase().includes(q) ||
         s.phone?.toLowerCase().includes(q);
 
       const matchViloyat = !viloyatFilter || s.viloyatId === viloyatFilter;
@@ -368,6 +372,7 @@ export default function StaffPage() {
                 <tr>
                   <th className="px-4 py-2.5">Xodim</th>
                   <th className="px-4 py-2.5">Lavozimi</th>
+                  <th className="px-4 py-2.5">Ma'lumoti</th>
                   <th className="px-4 py-2.5">Hudud</th>
                   <th className="px-4 py-2.5">Telefon raqami</th>
                   <th className="px-4 py-2.5 text-right">Amallar</th>
@@ -428,6 +433,11 @@ export default function StaffPage() {
                             {staff.department}
                           </div>
                         )}
+                      </td>
+
+                      {/* Ma'lumoti */}
+                      <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300 font-medium">
+                        {staff.education || staff.malumoti || '—'}
                       </td>
 
                       {/* Hudud (faqat tuman) */}
@@ -582,6 +592,15 @@ export default function StaffPage() {
                   </div>
                 </div>
 
+                {(staff.education || staff.malumoti) && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Ma'lumoti:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      {staff.education || staff.malumoti}
+                    </span>
+                  </div>
+                )}
+
                 <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                   <span className="text-slate-400">Hudud:</span>
                   <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1">
@@ -712,6 +731,12 @@ export default function StaffPage() {
                     </span>
                   </div>
                 )}
+                <div className="py-2 flex justify-between">
+                  <span className="text-slate-500">Ma'lumoti:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                    {viewItem.education || viewItem.malumoti || '—'}
+                  </span>
+                </div>
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-500">Mutaxassisligi:</span>
                   <span className="font-medium text-slate-700 dark:text-slate-300 text-right">

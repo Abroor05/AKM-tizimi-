@@ -409,6 +409,8 @@ export async function initDb(retries = 3) {
     department VARCHAR(200),
     specialty VARCHAR(200),
     experience VARCHAR(100),
+    education VARCHAR(255),
+    malumoti VARCHAR(255),
     birth_date TEXT,
     phone VARCHAR(50),
     photo TEXT,
@@ -446,6 +448,8 @@ export async function initDb(retries = 3) {
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100);
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS specialty VARCHAR(200);
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS experience VARCHAR(100);
+          ALTER TABLE staff ADD COLUMN IF NOT EXISTS education VARCHAR(255);
+          ALTER TABLE staff ADD COLUMN IF NOT EXISTS malumoti VARCHAR(255);
           ALTER TABLE staff ALTER COLUMN library_id DROP NOT NULL;
           ALTER TABLE staff ALTER COLUMN position DROP NOT NULL;
         `);
@@ -526,6 +530,8 @@ export function rowToObject(table, row) {
     if (!isRahbar) {
       obj.department = null;
     }
+    obj.education = obj.education || obj.malumoti || '';
+    obj.malumoti = obj.education;
   }
   return obj;
 }

@@ -70,6 +70,7 @@ export default function StaffModal({
     department: STAFF_DEPARTMENTS[0],
     specialty: '',
     experience: '',
+    education: '',
     birthDate: '',
     phone: '+998',
     libraryId: '',
@@ -138,6 +139,7 @@ export default function StaffModal({
           department: isRahbar ? ((editItem.department === "Ma'muriyat" ? '' : editItem.department) || STAFF_DEPARTMENTS[0]) : '',
           specialty: editItem.specialty || '',
           experience: editItem.experience || '',
+          education: editItem.education || editItem.malumoti || '',
           birthDate: editItem.birthDate || editItem.birth_date || '',
           phone: editItem.phone || '+998',
           libraryId: editItem.libraryId || editItem.library_id || districtLibId || defaultLibraryId || '',
@@ -157,6 +159,7 @@ export default function StaffModal({
           department: isRahbar ? STAFF_DEPARTMENTS[0] : '',
           specialty: '',
           experience: '',
+          education: '',
           birthDate: '',
           phone: '+998',
           libraryId: initialLibId,
@@ -211,6 +214,7 @@ export default function StaffModal({
     const department = form.department.trim();
     const specialty = form.specialty.trim();
     const experience = form.experience.trim();
+    const education = form.education.trim();
 
     if (!lastName || !firstName) {
       toast.warning('Familiya va ismni kiriting');
@@ -280,6 +284,8 @@ export default function StaffModal({
       department: isRahbar ? department : null,
       specialty,
       experience,
+      education,
+      malumoti: education,
       libraryId: resolvedLibraryId,
       viloyatId,
       tumanId,
@@ -408,20 +414,14 @@ export default function StaffModal({
           />
         </div>
 
-        {/* 3. Lavozimi va Mutaxassisligi */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* 3. Lavozimi */}
+        <div>
           <Select
             label="Lavozimi"
             required
             options={positionOptions}
             value={form.position}
             onChange={handlePositionChange}
-          />
-          <Input
-            label="Mutaxassisligi"
-            placeholder="Masalan: Axborot tizimlari, Filologiya..."
-            value={form.specialty}
-            onChange={(e) => setForm((prev) => ({ ...prev, specialty: e.target.value }))}
           />
         </div>
 
@@ -438,7 +438,23 @@ export default function StaffModal({
           </div>
         )}
 
-        {/* 5. Kutubxonadagi ish staji va Telefon raqami */}
+        {/* 5. Ma'lumoti va Mutaxassisligi */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Ma'lumoti"
+            placeholder="Masalan: Oliy, O'rta maxsus..."
+            value={form.education}
+            onChange={(e) => setForm((prev) => ({ ...prev, education: e.target.value }))}
+          />
+          <Input
+            label="Mutaxassisligi"
+            placeholder="Masalan: Axborot tizimlari, Filologiya..."
+            value={form.specialty}
+            onChange={(e) => setForm((prev) => ({ ...prev, specialty: e.target.value }))}
+          />
+        </div>
+
+        {/* 6. Kutubxonadagi ish staji va Telefon raqami */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Kutubxonadagi ish staji"
