@@ -1721,14 +1721,20 @@ export default function XBReports() {
                     Bajarilgan ishlar hajmi
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {Object.entries(TYPE_SHORT).map(([k, label]) => (
-                      <div key={k} className="p-3 rounded-lg bg-white border border-slate-200 shadow-2xs">
-                        <p className="text-[11px] text-slate-500 font-medium">{label}</p>
-                        <p className="text-base font-extrabold text-slate-900 mt-0.5">
-                          {formatNumber(totals[k] || 0)}
-                        </p>
-                      </div>
-                    ))}
+                    {(() => {
+                      const doneItems = Object.entries(TYPE_SHORT).filter(([k]) => Number(totals[k] || 0) > 0);
+                      if (doneItems.length === 0) {
+                        return <p className="text-xs text-slate-400 italic col-span-full py-2">Bajarilgan ishlar qayd etilmagan</p>;
+                      }
+                      return doneItems.map(([k, label]) => (
+                        <div key={k} className="p-3 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                          <p className="text-[11px] text-slate-500 font-medium">{label}</p>
+                          <p className="text-base font-extrabold text-slate-900 mt-0.5">
+                            {formatNumber(totals[k] || 0)}
+                          </p>
+                        </div>
+                      ));
+                    })()}
                   </div>
 
                   <div className="mt-2.5 p-3 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-between">

@@ -43,6 +43,65 @@ const STATUS_LABELS = {
   completed: "Yuborilgan",
 };
 
+export function getCompletedActivities(data) {
+  if (!data || typeof data !== "object") return [];
+  const notes = data.notes || {};
+  const items = [];
+
+  if (Number(data.kitob_skanerlash) > 0) {
+    items.push({
+      key: "kitob_skanerlash",
+      label: "Skanerlash",
+      count: Number(data.kitob_skanerlash),
+      text: `${formatNumber(data.kitob_skanerlash)} ta kitob`,
+      badgeClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800",
+    });
+  }
+
+  if (Number(data.kitob_pdf) > 0) {
+    items.push({
+      key: "kitob_pdf",
+      label: "PDF / Elektron",
+      count: Number(data.kitob_pdf),
+      text: `${formatNumber(data.kitob_pdf)} fayl`,
+      badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800",
+    });
+  }
+
+  if (Number(data.ijtimoiy_tarmoq) > 0) {
+    items.push({
+      key: "ijtimoiy_tarmoq",
+      label: "Ijtimoiy tarmoq",
+      count: Number(data.ijtimoiy_tarmoq),
+      text: `${formatNumber(data.ijtimoiy_tarmoq)} ta post`,
+      badgeClass: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800",
+    });
+  }
+
+  const TASK_META = {
+    texnik_xizmat: { label: "Texnik xizmat", color: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800" },
+    jihozlash: { label: "Jihozlash", color: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800" },
+    tuzatish: { label: "Ta'mirlash", color: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800" },
+    boshqa: { label: "Boshqa vazifa", color: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700" },
+  };
+
+  Object.entries(TASK_META).forEach(([key, meta]) => {
+    if (Boolean(data[key] && Number(data[key]) > 0)) {
+      const note = notes[key];
+      items.push({
+        key,
+        label: meta.label,
+        isTask: true,
+        note: note || "",
+        text: note ? `${meta.label} (${note})` : `${meta.label}: Bajarildi`,
+        badgeClass: meta.color,
+      });
+    }
+  });
+
+  return items;
+}
+
 const TASK_ACTIVITY_CONFIG = [
   {
     key: "texnik_xizmat",
@@ -417,36 +476,38 @@ export default function DailyActivityPage() {
       {/* Oylik/yillik jami */}
       {(viewTab === "monthly" || viewTab === "yearly") &&
         filtered.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-2.5 mb-4">
-            {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => {
-              const isNumeric =
-                key === "kitob_skanerlash" || key === "kitob_pdf" || key === "ijtimoiy_tarmoq";
-              const unit =
-                key === "kitob_skanerlash"
-                  ? "ta kitob"
-                  : key === "kitob_pdf"
-                    ? "fayl"
-                    : key === "ijtimoiy_tarmoq"
-                      ? "ta post"
-                      : "marta";
-              return (
-                <Card
-                  key={key}
-                  noPadding
-                  className="p-2 sm:p-2.5 text-center flex flex-col justify-center items-center rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-blue-300 dark:hover:border-blue-700 transition-all min-h-[68px]"
-                >
-                  <p className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400 flex items-baseline justify-center gap-1 leading-none">
-                    {formatNumber(monthTotals[key] || 0)}
-                    <span className="text-[10px] sm:text-[11px] font-normal text-slate-400 dark:text-slate-500">
-                      {unit}
-                    </span>
-                  </p>
-                  <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400 mt-1.5 leading-tight font-medium line-clamp-2">
-                    {label}
-                  </p>
-                </Card>
-              );
-            })}
+          <div className="flex flex-wrap gap-2 sm:gap-2.5 mb-4">
+            {Object.entries(ACTIVITY_TYPE_LABELS)
+              .filter(([key]) => Number(monthTotals[key] || 0) > 0)
+              .map(([key, label]) => {
+                const isNumeric =
+                  key === "kitob_skanerlash" || key === "kitob_pdf" || key === "ijtimoiy_tarmoq";
+                const unit =
+                  key === "kitob_skanerlash"
+                    ? "ta kitob"
+                    : key === "kitob_pdf"
+                      ? "fayl"
+                      : key === "ijtimoiy_tarmoq"
+                        ? "ta post"
+                        : "marta";
+                return (
+                  <Card
+                    key={key}
+                    noPadding
+                    className="p-2 sm:p-2.5 text-center flex flex-col justify-center items-center rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-blue-300 dark:hover:border-blue-700 transition-all min-h-[68px] min-w-[130px] flex-1"
+                  >
+                    <p className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400 flex items-baseline justify-center gap-1 leading-none">
+                      {formatNumber(monthTotals[key] || 0)}
+                      <span className="text-[10px] sm:text-[11px] font-normal text-slate-400 dark:text-slate-500">
+                        {unit}
+                      </span>
+                    </p>
+                    <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400 mt-1.5 leading-tight font-medium line-clamp-2">
+                      {label}
+                    </p>
+                  </Card>
+                );
+              })}
           </div>
         )}
 
@@ -471,14 +532,7 @@ export default function DailyActivityPage() {
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Sana</th>
                   <th className="text-left px-4 py-3 font-medium">Kim</th>
-                  {Object.entries(TYPE_SHORT).map(([k, v]) => (
-                    <th
-                      key={k}
-                      className="text-center px-3 py-3 font-medium whitespace-nowrap"
-                    >
-                      {v}
-                    </th>
-                  ))}
+                  <th className="text-left px-4 py-3 font-medium">Bajarilgan ishlar</th>
                   <th className="text-left px-4 py-3 font-medium">Holat</th>
                   <th className="text-center px-4 py-3 font-medium">Amallar</th>
                 </tr>
@@ -532,42 +586,34 @@ export default function DailyActivityPage() {
                           </div>
                         </div>
                       </td>
-                      {Object.keys(TYPE_SHORT).map((k) => {
-                        const val = data[k];
-                        const isNumeric =
-                          k === "kitob_skanerlash" || k === "kitob_pdf" || k === "ijtimoiy_tarmoq";
-                        if (isNumeric) {
-                          return (
-                            <td
-                              key={k}
-                              className="text-center px-3 py-3 font-semibold text-gray-800"
-                            >
-                              {val ? (
-                                formatNumber(val)
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )}
-                            </td>
-                          );
-                        }
-                        const isDone = Boolean(val && Number(val) > 0);
-                        const note = data?.notes?.[k];
-                        return (
-                          <td key={k} className="text-center px-3 py-3">
-                            {isDone ? (
-                              <span
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                title={note ? `Izoh: ${note}` : "Bajarildi"}
-                              >
-                                <ICONS.check className="text-[10px]" />{" "}
-                                Bajarildi
+                      {/* Bajarilgan ishlar (faqat bajarilganlari ko'rinadi) */}
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const items = getCompletedActivities(data);
+                          if (items.length === 0) {
+                            return (
+                              <span className="text-xs text-slate-400 italic">
+                                Bajarilgan ishlar kiritilmagan
                               </span>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                        );
-                      })}
+                            );
+                          }
+                          return (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {items.map((item) => (
+                                <span
+                                  key={item.key}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${item.badgeClass}`}
+                                  title={item.note ? `Izoh: ${item.note}` : item.label}
+                                >
+                                  {item.isTask && <ICONS.check className="text-[10px]" />}
+                                  <span className="font-bold">{item.label}:</span>
+                                  <span>{item.isTask ? (item.note || 'Bajarildi') : item.text.replace(`${item.label}: `, '')}</span>
+                                </span>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge color={STATUS_COLORS[badgeStatus] || "green"}>
                           {STATUS_LABELS[badgeStatus] || "Yuborilgan"}
@@ -806,13 +852,9 @@ export default function DailyActivityPage() {
                         </div>
                       </label>
                       <div className="ml-auto shrink-0">
-                        {isChecked ? (
+                        {isChecked && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                            <ICONS.check className="text-[10px]" /> Faol
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-gray-400 font-medium">
-                            Bajarilmagan
+                            <ICONS.check className="text-[10px]" /> Bajarildi
                           </span>
                         )}
                       </div>

@@ -656,43 +656,43 @@ export default function ReportsPage() {
                         )}
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                        {totals.kitob_skanerlash !== undefined && (
+                        {Number(totals.kitob_skanerlash) > 0 && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Skanerlash:</span>
                             <span className="font-extrabold text-blue-700 text-sm">{formatNumber(totals.kitob_skanerlash)} ta kitob</span>
                           </div>
                         )}
-                        {totals.kitob_pdf !== undefined && (
+                        {Number(totals.kitob_pdf) > 0 && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">PDF / Elektron:</span>
                             <span className="font-extrabold text-indigo-700 text-sm">{formatNumber(totals.kitob_pdf)} fayl</span>
                           </div>
                         )}
-                        {totals.ijtimoiy_tarmoq !== undefined && (
+                        {Number(totals.ijtimoiy_tarmoq) > 0 && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Ijtimoiy tarmoqlar:</span>
                             <span className="font-extrabold text-purple-700 text-sm">{formatNumber(totals.ijtimoiy_tarmoq)} ta post/e'lon</span>
                           </div>
                         )}
-                        {totals.texnik_xizmat !== undefined && (
+                        {Number(totals.texnik_xizmat) > 0 && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Texnik xizmat:</span>
                             <span className="font-extrabold text-teal-700 text-sm">{formatNumber(totals.texnik_xizmat)} ta</span>
                           </div>
                         )}
-                        {totals.jihozlash !== undefined && (
+                        {Number(totals.jihozlash) > 0 && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Jihozlash:</span>
                             <span className="font-extrabold text-amber-700 text-sm">{formatNumber(totals.jihozlash)} ta</span>
                           </div>
                         )}
-                        {totals.tuzatish !== undefined && (
+                        {Number(totals.tuzatish) > 0 && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Ta'mirlash:</span>
                             <span className="font-extrabold text-purple-700 text-sm">{formatNumber(totals.tuzatish)} ta</span>
                           </div>
                         )}
-                        {totals.boshqa !== undefined && (
+                        {Number(totals.boshqa) > 0 && (
                           <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                             <span className="text-slate-500 block">Boshqa ishlar:</span>
                             <span className="font-extrabold text-slate-700 text-sm">{formatNumber(totals.boshqa)} ta</span>

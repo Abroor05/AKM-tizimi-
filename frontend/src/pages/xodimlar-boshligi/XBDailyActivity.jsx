@@ -41,6 +41,65 @@ const ACT_STATUS_LABELS = {
   accepted:  'Qabul qilindi',
 };
 
+function getCompletedActivities(data) {
+  if (!data || typeof data !== 'object') return [];
+  const notes = data.notes || {};
+  const items = [];
+
+  if (Number(data.kitob_skanerlash) > 0) {
+    items.push({
+      key: 'kitob_skanerlash',
+      label: 'Skanerlash',
+      count: Number(data.kitob_skanerlash),
+      text: `${formatNumber(data.kitob_skanerlash)} ta kitob`,
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+    });
+  }
+
+  if (Number(data.kitob_pdf) > 0) {
+    items.push({
+      key: 'kitob_pdf',
+      label: 'PDF / Elektron',
+      count: Number(data.kitob_pdf),
+      text: `${formatNumber(data.kitob_pdf)} fayl`,
+      badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800',
+    });
+  }
+
+  if (Number(data.ijtimoiy_tarmoq) > 0) {
+    items.push({
+      key: 'ijtimoiy_tarmoq',
+      label: 'Ijtimoiy tarmoq',
+      count: Number(data.ijtimoiy_tarmoq),
+      text: `${formatNumber(data.ijtimoiy_tarmoq)} ta post`,
+      badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800',
+    });
+  }
+
+  const TASK_META = {
+    texnik_xizmat: { label: 'Texnik xizmat', color: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800' },
+    jihozlash: { label: 'Jihozlash', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800' },
+    tuzatish: { label: "Ta'mirlash", color: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800' },
+    boshqa: { label: 'Boshqa vazifa', color: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
+  };
+
+  Object.entries(TASK_META).forEach(([key, meta]) => {
+    if (Boolean(data[key] && Number(data[key]) > 0)) {
+      const note = notes[key];
+      items.push({
+        key,
+        label: meta.label,
+        isTask: true,
+        note: note || '',
+        text: note ? `${meta.label} (${note})` : `${meta.label}: Bajarildi`,
+        badgeClass: meta.color,
+      });
+    }
+  });
+
+  return items;
+}
+
 function parseData(a) {
   try { return typeof a.data === 'object' && a.data ? a.data : JSON.parse(a.data || '{}'); }
   catch { return {}; }
@@ -426,9 +485,7 @@ export default function XBDailyActivity() {
                     <tr>
                       <th className="text-left px-4 py-3 font-medium">Sana</th>
                       <th className="text-left px-4 py-3 font-medium">Xodim</th>
-                      {Object.entries(TYPE_SHORT).map(([k, v]) => (
-                        <th key={k} className="text-center px-3 py-3 font-medium">{v}</th>
-                      ))}
+                      <th className="text-left px-4 py-3 font-medium">Bajarilgan ishlar</th>
                       <th className="text-center px-4 py-3 font-medium">Amallar</th>
                     </tr>
                   </thead>
@@ -436,6 +493,7 @@ export default function XBDailyActivity() {
                     {incomingActs.map(a => {
                       const data  = parseData(a);
                       const owner = allUsers.find(u => u.id === a.userId);
+                      const items = getCompletedActivities(data);
                       return (
                         <tr key={a.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
@@ -456,33 +514,25 @@ export default function XBDailyActivity() {
                               </div>
                             </div>
                           </td>
-                          {Object.keys(TYPE_SHORT).map(k => {
-                            const val = data[k];
-                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf' || k === 'ijtimoiy_tarmoq';
-                            if (isNumeric) {
-                              return (
-                                <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
-                                  {val ? formatNumber(val) : <span className="text-gray-300">—</span>}
-                                </td>
-                              );
-                            }
-                            const isDone = Boolean(val && Number(val) > 0);
-                            const note = data?.notes?.[k];
-                            return (
-                              <td key={k} className="text-center px-3 py-3">
-                                {isDone ? (
+                          <td className="px-4 py-3">
+                            {items.length === 0 ? (
+                              <span className="text-xs text-slate-400 italic">Bajarilgan ishlar kiritilmagan</span>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {items.map((item) => (
                                   <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200"
-                                    title={note ? `Izoh: ${note}` : "Bajarildi"}
+                                    key={item.key}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${item.badgeClass}`}
+                                    title={item.note ? `Izoh: ${item.note}` : item.label}
                                   >
-                                    <ICONS.check className="text-[10px]" /> Bajarildi
+                                    {item.isTask && <ICONS.check className="text-[10px]" />}
+                                    <span className="font-bold">{item.label}:</span>
+                                    <span>{item.isTask ? (item.note || 'Bajarildi') : item.text.replace(`${item.label}: `, '')}</span>
                                   </span>
-                                ) : (
-                                  <span className="text-gray-300">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
+                                ))}
+                              </div>
+                            )}
+                          </td>
                           <td className="text-center px-4 py-3">
                             <div className="flex items-center justify-center gap-2">
                               <button onClick={() => setShowDetail(a)}
@@ -546,24 +596,26 @@ export default function XBDailyActivity() {
           </div>
 
           {/* Oylik jami kartalar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-2.5 mb-4">
-            {Object.entries(ACTIVITY_TYPE_LABELS).map(([key, label]) => {
-              const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf' || key === 'ijtimoiy_tarmoq';
-              const unit = key === 'kitob_skanerlash' ? 'ta kitob' : key === 'kitob_pdf' ? 'fayl' : key === 'ijtimoiy_tarmoq' ? 'ta post' : 'marta';
-              return (
-                <Card
-                  key={key}
-                  noPadding
-                  className="p-2 sm:p-2.5 text-center flex flex-col justify-center items-center rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-teal-300 dark:hover:border-teal-700 transition-all min-h-[68px]"
-                >
-                  <p className="text-base sm:text-lg font-bold text-teal-600 dark:text-teal-400 flex items-baseline justify-center gap-1 leading-none">
-                    {formatNumber(monthTotals[key] || 0)}
-                    <span className="text-[10px] sm:text-[11px] font-normal text-slate-400 dark:text-slate-500 ml-0.5">{unit}</span>
-                  </p>
-                  <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400 mt-1.5 leading-tight font-medium line-clamp-2">{label}</p>
-                </Card>
-              );
-            })}
+          <div className="flex flex-wrap gap-2 sm:gap-2.5 mb-4">
+            {Object.entries(ACTIVITY_TYPE_LABELS)
+              .filter(([key]) => Number(monthTotals[key] || 0) > 0)
+              .map(([key, label]) => {
+                const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf' || key === 'ijtimoiy_tarmoq';
+                const unit = key === 'kitob_skanerlash' ? 'ta kitob' : key === 'kitob_pdf' ? 'fayl' : key === 'ijtimoiy_tarmoq' ? 'ta post' : 'marta';
+                return (
+                  <Card
+                    key={key}
+                    noPadding
+                    className="p-2 sm:p-2.5 text-center flex flex-col justify-center items-center rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-teal-300 dark:hover:border-teal-700 transition-all min-h-[68px] min-w-[130px] flex-1"
+                  >
+                    <p className="text-base sm:text-lg font-bold text-teal-600 dark:text-teal-400 flex items-baseline justify-center gap-1 leading-none">
+                      {formatNumber(monthTotals[key] || 0)}
+                      <span className="text-[10px] sm:text-[11px] font-normal text-slate-400 dark:text-slate-500 ml-0.5">{unit}</span>
+                    </p>
+                    <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400 mt-1.5 leading-tight font-medium line-clamp-2">{label}</p>
+                  </Card>
+                );
+              })}
           </div>
 
           {/* Xodim bo'yicha jadval */}
@@ -574,33 +626,43 @@ export default function XBDailyActivity() {
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
                       <th className="text-left px-4 py-3 font-medium">Xodim</th>
-                      {Object.entries(TYPE_SHORT).map(([k, v]) => (
-                        <th key={k} className="text-center px-3 py-3 font-medium">{v}</th>
-                      ))}
+                      <th className="text-left px-4 py-3 font-medium">Bajarilgan ishlar</th>
                       <th className="text-center px-3 py-3 font-medium">Jami</th>
                       <th className="text-center px-3 py-3 font-medium">Kunlar</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {monthStaffSummary.map(({ staff, totals, grand, count }) => (
-                      <tr key={staff.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-semibold shrink-0">
-                              {staff.fullName?.charAt(0)}
+                    {monthStaffSummary.map(({ staff, totals, grand, count }) => {
+                      const doneEntries = Object.entries(TYPE_SHORT).filter(([k]) => Number(totals[k] || 0) > 0);
+                      return (
+                        <tr key={staff.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-semibold shrink-0">
+                                {staff.fullName?.charAt(0)}
+                              </div>
+                              <span className="text-gray-700 font-medium text-sm">{staff.fullName}</span>
                             </div>
-                            <span className="text-gray-700 font-medium text-sm">{staff.fullName}</span>
-                          </div>
-                        </td>
-                        {Object.keys(TYPE_SHORT).map(k => (
-                          <td key={k} className="text-center px-3 py-3 font-semibold text-gray-700">
-                            {totals[k] ? formatNumber(totals[k]) : <span className="text-gray-300">—</span>}
                           </td>
-                        ))}
-                        <td className="text-center px-3 py-3 font-bold text-teal-700">{formatNumber(grand)}</td>
-                        <td className="text-center px-3 py-3 text-gray-500">{count}</td>
-                      </tr>
-                    ))}
+                          <td className="px-4 py-3">
+                            {doneEntries.length === 0 ? (
+                              <span className="text-xs text-slate-400 italic">Bajarilmagan</span>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {doneEntries.map(([k, label]) => (
+                                  <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+                                    <span className="font-bold">{label}:</span>
+                                    <span>{formatNumber(totals[k])}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="text-center px-3 py-3 font-bold text-teal-700">{formatNumber(grand)}</td>
+                          <td className="text-center px-3 py-3 text-gray-500">{count}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -618,9 +680,7 @@ export default function XBDailyActivity() {
                     <tr>
                       <th className="text-left px-4 py-3 font-medium">Sana</th>
                       <th className="text-left px-4 py-3 font-medium">Xodim</th>
-                      {Object.entries(TYPE_SHORT).map(([k, v]) => (
-                        <th key={k} className="text-center px-3 py-3 font-medium">{v}</th>
-                      ))}
+                      <th className="text-left px-4 py-3 font-medium">Bajarilgan ishlar</th>
                       <th className="text-left px-4 py-3 font-medium">Holat</th>
                       <th className="text-center px-4 py-3 font-medium"></th>
                     </tr>
@@ -629,37 +689,30 @@ export default function XBDailyActivity() {
                     {monthActs.map(a => {
                       const data  = parseData(a);
                       const owner = allUsers.find(u => u.id === a.userId);
+                      const items = getCompletedActivities(data);
                       return (
                         <tr key={a.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{formatDate(a.date)}</td>
-                          <td className="px-4 py-3 text-gray-600 text-xs">{owner?.fullName || '—'}</td>
-                          {Object.keys(TYPE_SHORT).map(k => {
-                            const val = data[k];
-                            const isNumeric = k === 'kitob_skanerlash' || k === 'kitob_pdf' || k === 'ijtimoiy_tarmoq';
-                            if (isNumeric) {
-                              return (
-                                <td key={k} className="text-center px-3 py-3 font-semibold text-gray-800">
-                                  {val ? formatNumber(val) : <span className="text-gray-300">—</span>}
-                                </td>
-                              );
-                            }
-                            const isDone = Boolean(val && Number(val) > 0);
-                            const note = data?.notes?.[k];
-                            return (
-                              <td key={k} className="text-center px-3 py-3">
-                                {isDone ? (
+                          <td className="px-4 py-3 text-gray-600 text-xs font-medium">{owner?.fullName || '—'}</td>
+                          <td className="px-4 py-3">
+                            {items.length === 0 ? (
+                              <span className="text-xs text-slate-400 italic">Bajarilgan ishlar kiritilmagan</span>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {items.map((item) => (
                                   <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200"
-                                    title={note ? `Izoh: ${note}` : "Bajarildi"}
+                                    key={item.key}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${item.badgeClass}`}
+                                    title={item.note ? `Izoh: ${item.note}` : item.label}
                                   >
-                                    <ICONS.check className="text-[10px]" /> Bajarildi
+                                    {item.isTask && <ICONS.check className="text-[10px]" />}
+                                    <span className="font-bold">{item.label}:</span>
+                                    <span>{item.isTask ? (item.note || 'Bajarildi') : item.text.replace(`${item.label}: `, '')}</span>
                                   </span>
-                                ) : (
-                                  <span className="text-gray-300">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
+                                ))}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-4 py-3">
                             <Badge color={ACT_STATUS_COLORS[a.status] || 'gray'}>
                               {ACT_STATUS_LABELS[a.status] || a.status}
@@ -668,7 +721,7 @@ export default function XBDailyActivity() {
                           <td className="text-center px-4 py-3">
                             <div className="flex items-center justify-center gap-1">
                               <button onClick={() => setShowDetail(a)}
-                                className="p-1.5 rounded hover:bg-blue-50 text-blue-600">
+                                className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Ko'rish">
                                 <ICONS.eye className="text-sm" />
                               </button>
                               {a.status === 'sent' && (
@@ -879,12 +932,10 @@ export default function XBDailyActivity() {
                         </div>
                       </label>
                       <div className="ml-auto shrink-0">
-                        {isChecked ? (
+                        {isChecked && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
-                            <ICONS.check className="text-[10px]" /> Faol
+                            <ICONS.check className="text-[10px]" /> Bajarildi
                           </span>
-                        ) : (
-                          <span className="text-[11px] text-gray-400 font-medium">Bajarilmagan</span>
                         )}
                       </div>
                     </div>
