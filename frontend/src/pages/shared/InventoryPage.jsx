@@ -158,7 +158,7 @@ export default function InventoryPage() {
       const matchSearch =
         !q ||
         i.name?.toLowerCase().includes(q) ||
-        i.serialNumber?.toLowerCase().includes(q) ||
+        (i.serialNumber || i.serial_number)?.toLowerCase().includes(q) ||
         tumanName.includes(q) ||
         libName.includes(q);
 
@@ -173,7 +173,7 @@ export default function InventoryPage() {
   }, [scopedInventory, search, typeFilter, statusFilter, tumanFilter, libraries]);
 
   const totalValue = useMemo(() => {
-    return filtered.reduce((sum, i) => sum + ((Number(i.unitPrice) || 0) * (Number(i.quantity) || 1)), 0);
+    return filtered.reduce((sum, i) => sum + ((Number(i.unitPrice ?? i.unit_price) || 0) * (Number(i.quantity) || 1)), 0);
   }, [filtered]);
 
   // Form State
@@ -220,10 +220,10 @@ export default function InventoryPage() {
       name: item.name || '',
       type: item.type || INVENTORY_TYPES.FURNITURE,
       quantity: item.quantity != null ? item.quantity : 1,
-      unitPrice: item.unitPrice != null ? item.unitPrice : 0,
+      unitPrice: (item.unitPrice ?? item.unit_price) != null ? (item.unitPrice ?? item.unit_price) : 0,
       status: item.status || INVENTORY_STATUS.GOOD,
-      purchaseDate: item.purchaseDate || '',
-      serialNumber: item.serialNumber || '',
+      purchaseDate: item.purchaseDate || item.purchase_date || '',
+      serialNumber: item.serialNumber || item.serial_number || '',
       tumanId: itemTuman || currentTumanId,
       libraryId: item.libraryId || item.library_id || '',
       notes: item.notes || '',
@@ -437,9 +437,6 @@ export default function InventoryPage() {
                   <th className="px-4 py-3">Tegishli tuman</th>
                   <th className="px-4 py-3">Kutubxona / Filial</th>
                   <th className="px-4 py-3 text-center">Miqdori</th>
-                  <th className="px-4 py-3 whitespace-nowrap">Narxi</th>
-                  <th className="px-4 py-3">Seriya raqami</th>
-                  <th className="px-4 py-3">Sotib olingan</th>
                   <th className="px-4 py-3">Holati</th>
                   <th className="px-4 py-3 text-right">Amallar</th>
                 </tr>
@@ -453,6 +450,7 @@ export default function InventoryPage() {
                         type="button"
                         onClick={() => openView(item)}
                         className="text-left hover:text-blue-600 cursor-pointer font-bold"
+                        title="Batafsil ma'lumotlarni ko'rish"
                       >
                         {item.name}
                       </button>
@@ -472,28 +470,13 @@ export default function InventoryPage() {
                     </td>
 
                     {/* Kutubxona / Filial */}
-                    <td className="px-4 py-3 text-slate-600 max-w-[180px] truncate" title={resolveLibraryName(item)}>
+                    <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate" title={resolveLibraryName(item)}>
                       {resolveLibraryName(item)}
                     </td>
 
                     {/* Miqdori */}
                     <td className="px-4 py-3 text-center font-bold text-slate-800">
                       {item.quantity} dona
-                    </td>
-
-                    {/* Narxi */}
-                    <td className="px-4 py-3 font-medium text-slate-700 whitespace-nowrap">
-                      {formatMoney((Number(item.unitPrice) || 0) * (Number(item.quantity) || 1))} so'm
-                    </td>
-
-                    {/* Seriya raqami */}
-                    <td className="px-4 py-3 font-mono text-slate-500 text-[11px]">
-                      {item.serialNumber || '—'}
-                    </td>
-
-                    {/* Sotib olingan sana */}
-                    <td className="px-4 py-3 text-slate-500">
-                      {formatDate(item.purchaseDate) || '—'}
                     </td>
 
                     {/* Holati */}
@@ -506,12 +489,12 @@ export default function InventoryPage() {
                     {/* Amallar: Ko'z icon + Tahrirlash/O'chirish */}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Ko'z ikonkasi — to'liq ma'lumotlarni ko'rish */}
+                        {/* Ko'z ikonkasi — to'liq ma'lumotlarni (narx, seriya, sana) ko'rish */}
                         <button
                           type="button"
                           onClick={() => openView(item)}
-                          className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
-                          title="To'liq ma'lumotlarni ko'rish"
+                          className="p-1.5 rounded-md hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+                          title="Batafsil ko'rish (Narxi, seriya raqami, sotib olingan sana)"
                         >
                           <ICONS.eye className="text-sm" />
                         </button>
@@ -581,9 +564,12 @@ export default function InventoryPage() {
         {viewItem && (() => {
           const tumanName = resolveTumanName(viewItem);
           const libName = resolveLibraryName(viewItem);
-          const unitPriceNum = Number(viewItem.unitPrice) || 0;
+          const unitPriceNum = Number(viewItem.unitPrice ?? viewItem.unit_price) || 0;
           const quantityNum = Number(viewItem.quantity) || 1;
           const totalItemValue = unitPriceNum * quantityNum;
+          const serialNumberVal = viewItem.serialNumber || viewItem.serial_number || '—';
+          const rawDate = viewItem.purchaseDate || viewItem.purchase_date;
+          const purchaseDateVal = formatDate(rawDate) || (rawDate ? String(rawDate) : '—');
 
           return (
             <div className="space-y-3.5 text-xs">
@@ -605,6 +591,46 @@ export default function InventoryPage() {
                 <Badge color={INVENTORY_STATUS_COLORS[viewItem.status] || 'gray'}>
                   {INVENTORY_STATUS_LABELS[viewItem.status] || viewItem.status}
                 </Badge>
+              </div>
+
+              {/* Asosiy ko'rsatkichlar: Narxi, Seriya raqami, Sotib olingan sana */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* Narxi */}
+                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex flex-col justify-between">
+                  <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
+                    Narxi
+                  </span>
+                  <div className="mt-1">
+                    <div className="text-sm font-extrabold text-emerald-800 font-mono">
+                      {formatMoney(totalItemValue)} so'm
+                    </div>
+                    {quantityNum > 1 && (
+                      <div className="text-[10px] text-emerald-600 mt-0.5">
+                        {formatMoney(unitPriceNum)} × {quantityNum} dona
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Seriya raqami */}
+                <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 flex flex-col justify-between">
+                  <span className="text-[10px] font-semibold text-blue-700 uppercase tracking-wider">
+                    Seriya raqami
+                  </span>
+                  <div className="mt-1 text-sm font-mono font-bold text-blue-900 break-all">
+                    {serialNumberVal}
+                  </div>
+                </div>
+
+                {/* Sotib olingan sana */}
+                <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex flex-col justify-between">
+                  <span className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider">
+                    Sotib olingan sana
+                  </span>
+                  <div className="mt-1 text-sm font-bold text-indigo-900">
+                    {purchaseDateVal}
+                  </div>
+                </div>
               </div>
 
               {/* Data table */}
@@ -641,11 +667,11 @@ export default function InventoryPage() {
                 </div>
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-500">Seriya / Inventar raqami:</span>
-                  <span className="font-mono text-slate-800 text-right">{viewItem.serialNumber || '—'}</span>
+                  <span className="font-mono text-slate-800 text-right">{serialNumberVal}</span>
                 </div>
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-500">Sotib olingan sana:</span>
-                  <span className="font-medium text-slate-700 text-right">{formatDate(viewItem.purchaseDate) || '—'}</span>
+                  <span className="font-medium text-slate-700 text-right">{purchaseDateVal}</span>
                 </div>
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-500">Holati:</span>
