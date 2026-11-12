@@ -63,11 +63,24 @@ export default function AppealsPage() {
     <div>
       <PageHeader title="Murojaatlar" subtitle="Fuqarolar murojaatlari va shikoyatlar" icon={ICONS.appeals} />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <Card className="text-center"><p className="text-2xl font-bold text-blue-600">{appeals.filter(a => a.status === APPEAL_STATUS.NEW).length}</p><p className="text-xs text-gray-500">Yangi</p></Card>
-        <Card className="text-center"><p className="text-2xl font-bold text-amber-600">{appeals.filter(a => a.status === APPEAL_STATUS.IN_PROGRESS).length}</p><p className="text-xs text-gray-500">Ko'rib chiqilmoqda</p></Card>
-        <Card className="text-center"><p className="text-2xl font-bold text-green-600">{appeals.filter(a => a.status === APPEAL_STATUS.RESOLVED).length}</p><p className="text-xs text-gray-500">Hal qilingan</p></Card>
-        <Card className="text-center"><p className="text-2xl font-bold text-gray-600">{appeals.length}</p><p className="text-xs text-gray-500">Jami</p></Card>
+      {/* Ixcham statistika kartochkalari */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Yangi:</span>
+          <span className="text-sm font-bold text-blue-600">{appeals.filter(a => a.status === APPEAL_STATUS.NEW).length} ta</span>
+        </div>
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Ko'rib chiqilmoqda:</span>
+          <span className="text-sm font-bold text-amber-600">{appeals.filter(a => a.status === APPEAL_STATUS.IN_PROGRESS).length} ta</span>
+        </div>
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Hal qilingan:</span>
+          <span className="text-sm font-bold text-emerald-600">{appeals.filter(a => a.status === APPEAL_STATUS.RESOLVED).length} ta</span>
+        </div>
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Jami:</span>
+          <span className="text-sm font-bold text-slate-700">{appeals.length} ta</span>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5 mb-4">

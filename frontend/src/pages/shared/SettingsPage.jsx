@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
-import { useTheme } from '../../context/ThemeContext.jsx';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Button from '../../components/ui/Button.jsx';
@@ -12,16 +11,12 @@ import ICONS from '../../components/icons.jsx';
 
 export default function SettingsPage() {
   const { getSettings, updateSettings } = useApp();
-  const { theme, setTheme } = useTheme();
   const settings = getSettings();
-  const [form, setForm] = useState({ ...settings, theme: settings.theme || theme });
+  const [form, setForm] = useState({ ...settings });
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
     updateSettings(form);
-    if (form.theme) {
-      setTheme(form.theme);
-    }
     setSaved(true);
     toast.success("Tizim sozlamalari muvaffaqiyatli saqlandi!");
     setTimeout(() => setSaved(false), 3000);
@@ -37,20 +32,6 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <Input label="Tizim nomi" value={form.systemName} onChange={e => setForm({ ...form, systemName: e.target.value })} />
             <Input label="Tashkilot" value={form.organization} onChange={e => setForm({ ...form, organization: e.target.value })} />
-            <Select
-              label="Mavzu (Theme)"
-              value={form.theme || theme}
-              onChange={e => {
-                const val = e.target.value;
-                setForm({ ...form, theme: val });
-                setTheme(val);
-              }}
-              options={[
-                { value: 'light', label: '☀️ Yorug‘ rejim (Light)' },
-                { value: 'dark', label: '🌙 Qorong‘i rejim (Dark)' },
-                { value: 'system', label: '💻 Tizim sozlamasi (Avtomatik)' },
-              ]}
-            />
             <Select label="Til" value={form.language} onChange={e => setForm({ ...form, language: e.target.value })}
               options={[{ value: 'uz', label: "O'zbekcha" }, { value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }]} />
             <Input label="Sahifa hajmi" type="number" value={form.itemsPerPage} onChange={e => {

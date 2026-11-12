@@ -8,7 +8,7 @@ import EmptyState from '../../components/ui/EmptyState.jsx';
 import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES, STAFF_POSITIONS, STAFF_DEPARTMENTS } from '../../data/constants.js';
-import { VILOYATLAR, getViloyatName, getTumanName } from '../../data/regions.js';
+import { VILOYATLAR, getViloyatName, getTumanName, getAllTumanlar } from '../../data/regions.js';
 import StaffModal from '../../components/common/StaffModal.jsx';
 import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import SearchInput from '../../components/ui/SearchInput.jsx';
@@ -31,7 +31,6 @@ export default function StaffPage() {
   const [search, setSearch] = useState('');
   const [viloyatFilter, setViloyatFilter] = useState('');
   const [tumanFilter, setTumanFilter] = useState('');
-  const [libraryFilter, setLibraryFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
@@ -60,45 +59,98 @@ export default function StaffPage() {
   const scopedLibraries = useMemo(() => {
     if (isSuperAdmin) return allLibraries;
     if (isViloyatAdmin) {
-      return allLibraries.filter((l) => l.viloyatId === currentUser?.viloyatId || l.viloyat_id === currentUser?.viloyatId);
+      const vId = currentUser?.viloyatId || currentUser?.viloyat_id || 'v01';
+      return allLibraries.filter((l) => (l.viloyatId || l.viloyat_id) === vId);
     }
     if (isDistrictScopedUser) {
+      const vId = currentUser?.viloyatId || currentUser?.viloyat_id;
+      const tId = currentUser?.tumanId || currentUser?.tuman_id;
       return allLibraries.filter(
         (l) =>
-          (l.viloyatId === currentUser?.viloyatId || l.viloyat_id === currentUser?.viloyatId) &&
-          (l.tumanId === currentUser?.tumanId || l.tuman_id === currentUser?.tumanId)
+          (!vId || (l.viloyatId || l.viloyat_id) === vId) &&
+          (l.tumanId || l.tuman_id) === tId
       );
     }
     return allLibraries;
   }, [allLibraries, currentUser, isSuperAdmin, isViloyatAdmin, isDistrictScopedUser]);
 
-  const currentViloyatId = isSuperAdmin ? viloyatFilter : currentUser?.viloyatId;
-  const currentViloyatObj = useMemo(() => {
-    return VILOYATLAR.find((v) => v.id === currentViloyatId);
-  }, [currentViloyatId]);
+  // Xodimning tuman ID sini aniqlash (o'zida saqlangan yoki u ishlaydigan kutubxona / filial orqali)
+  const resolveTumanId = (staff) => {
+    if (!staff) return '';
+    const directTId = staff.tumanId || staff.tuman_id;
+    if (directTId) return directTId;
+
+    const staffLibId = staff.libraryId || staff.library_id;
+    if (staffLibId) {
+      const targetLib = allLibraries.find((l) => l.id === staffLibId);
+      if (targetLib && (targetLib.tumanId || targetLib.tuman_id)) {
+        return targetLib.tumanId || targetLib.tuman_id;
+      }
+    }
+    return '';
+  };
+
+  // Filtr uchun tumanlar ro'yxati
+  const availableTumanlar = useMemo(() => {
+    if (isSuperAdmin) {
+      if (viloyatFilter) {
+        const v = VILOYATLAR.find((item) => item.id === viloyatFilter);
+        return v?.tumanlar || [];
+      }
+      return VILOYATLAR[0]?.tumanlar || getAllTumanlar();
+    }
+    if (isViloyatAdmin) {
+      const vId = currentUser?.viloyatId || currentUser?.viloyat_id || 'v01';
+      const v = VILOYATLAR.find((item) => item.id === vId) || VILOYATLAR[0];
+      return v?.tumanlar || [];
+    }
+    return [];
+  }, [isSuperAdmin, isViloyatAdmin, viloyatFilter, currentUser]);
+
+  // Tanlangan tuman (tumanFilter) ga tegishli barcha kutubxonalar (markaziy AKM va filiallar) ID lari
+  const districtLibraryIds = useMemo(() => {
+    if (!tumanFilter) return null;
+    const ids = new Set();
+    allLibraries.forEach((lib) => {
+      const libTumanId = lib.tumanId || lib.tuman_id;
+      if (libTumanId === tumanFilter) {
+        ids.add(lib.id);
+      }
+    });
+    return ids;
+  }, [allLibraries, tumanFilter]);
 
   const scopedStaff = useMemo(() => {
     if (isSuperAdmin) return allStaff;
     if (isViloyatAdmin) {
+      const currentViloyatId = currentUser?.viloyatId || currentUser?.viloyat_id || 'v01';
       const validLibIds = new Set(scopedLibraries.map((l) => l.id));
       return allStaff.filter(
         (s) =>
           validLibIds.has(s.libraryId || s.library_id) ||
-          s.viloyatId === currentUser?.viloyatId ||
-          s.viloyat_id === currentUser?.viloyatId
+          (s.viloyatId || s.viloyat_id) === currentViloyatId
       );
     }
     if (isDistrictScopedUser) {
+      const currentTumanId = currentUser?.tumanId || currentUser?.tuman_id;
       const validLibIds = new Set(scopedLibraries.map((l) => l.id));
-      return allStaff.filter(
-        (s) =>
-          validLibIds.has(s.libraryId || s.library_id) ||
-          ((s.viloyatId === currentUser?.viloyatId || s.viloyat_id === currentUser?.viloyatId) &&
-            (s.tumanId === currentUser?.tumanId || s.tuman_id === currentUser?.tumanId))
-      );
+      return allStaff.filter((s) => {
+        const staffLibId = s.libraryId || s.library_id;
+        if (staffLibId && validLibIds.has(staffLibId)) return true;
+
+        const staffTumanId = s.tumanId || s.tuman_id;
+        if (staffTumanId && staffTumanId === currentTumanId) return true;
+
+        if (staffLibId) {
+          const lib = allLibraries.find((l) => l.id === staffLibId);
+          if (lib && (lib.tumanId || lib.tuman_id) === currentTumanId) return true;
+        }
+
+        return false;
+      });
     }
     return allStaff;
-  }, [allStaff, scopedLibraries, isSuperAdmin, isViloyatAdmin, isDistrictScopedUser, currentUser]);
+  }, [allStaff, scopedLibraries, isSuperAdmin, isViloyatAdmin, isDistrictScopedUser, currentUser, allLibraries]);
 
   const filteredStaff = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -116,34 +168,50 @@ export default function StaffPage() {
         s.specialty?.toLowerCase().includes(q) ||
         s.phone?.toLowerCase().includes(q);
 
-      const matchViloyat = !viloyatFilter || s.viloyatId === viloyatFilter;
-      const matchTuman = !tumanFilter || s.tumanId === tumanFilter;
-      const matchLibrary = !libraryFilter || s.libraryId === libraryFilter;
+      const staffViloyatId = s.viloyatId || s.viloyat_id;
+      const matchViloyat = !viloyatFilter || staffViloyatId === viloyatFilter;
+
+      // Tuman filtri:
+      // Xodim o'zi to'g'ridan-to'g'ri shu tumanga biriktirilgan bo'lsa,
+      // yoki shu tumandagi istalgan kutubxona (markaziy AKM yoki har qanday filial) xodimi bo'lsa chiqadi
+      const matchTuman = !tumanFilter || (() => {
+        const staffTumanId = resolveTumanId(s);
+        if (staffTumanId === tumanFilter) return true;
+
+        const staffLibId = s.libraryId || s.library_id;
+        if (staffLibId) {
+          if (districtLibraryIds && districtLibraryIds.has(staffLibId)) return true;
+          const targetLib = allLibraries.find((l) => l.id === staffLibId);
+          if (targetLib && (targetLib.tumanId || targetLib.tuman_id) === tumanFilter) return true;
+        }
+
+        return false;
+      })();
+
       const matchDepartment = !departmentFilter || s.department === departmentFilter;
       const matchPosition = !positionFilter || (s.position || s.lavozim || s.role) === positionFilter;
 
-      return matchSearch && matchViloyat && matchTuman && matchLibrary && matchDepartment && matchPosition;
+      return matchSearch && matchViloyat && matchTuman && matchDepartment && matchPosition;
     });
-  }, [scopedStaff, search, viloyatFilter, tumanFilter, libraryFilter, departmentFilter, positionFilter]);
+  }, [scopedStaff, search, viloyatFilter, tumanFilter, departmentFilter, positionFilter, districtLibraryIds, allLibraries]);
 
   const metrics = useMemo(() => {
-    const uniqueDistricts = new Set(filteredStaff.map((s) => `${s.viloyatId}_${s.tumanId}`).filter(Boolean));
-    const uniqueLibraries = new Set(filteredStaff.map((s) => s.libraryId).filter(Boolean));
+    const uniqueDistricts = new Set(filteredStaff.map((s) => resolveTumanId(s)).filter(Boolean));
+    const uniqueLibraries = new Set(filteredStaff.map((s) => s.libraryId || s.library_id).filter(Boolean));
 
     return {
       totalStaff: filteredStaff.length,
       totalDistricts: uniqueDistricts.size,
       totalLibraries: uniqueLibraries.size,
     };
-  }, [filteredStaff]);
+  }, [filteredStaff, allLibraries]);
 
-  const hasActiveFilters = Boolean(search || viloyatFilter || tumanFilter || libraryFilter || departmentFilter || positionFilter);
+  const hasActiveFilters = Boolean(search || viloyatFilter || tumanFilter || departmentFilter || positionFilter);
 
   const resetFilters = () => {
     setSearch('');
     setViloyatFilter('');
     setTumanFilter('');
-    setLibraryFilter('');
     setDepartmentFilter('');
     setPositionFilter('');
   };
@@ -248,7 +316,6 @@ export default function StaffPage() {
             onChange={(e) => {
               setViloyatFilter(e.target.value);
               setTumanFilter('');
-              setLibraryFilter('');
             }}
             className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
           >
@@ -259,36 +326,17 @@ export default function StaffPage() {
           </select>
         )}
 
-        {/* Tuman (Super / Viloyat Admin) */}
-        {(isSuperAdmin || isViloyatAdmin) && currentViloyatObj?.tumans?.length > 0 && (
+        {/* Tuman filtri (Super Admin va Viloyat Admin uchun) - Kutubxonalar o'rniga faqat Tumanlar */}
+        {(isSuperAdmin || isViloyatAdmin) && availableTumanlar.length > 0 && (
           <select
             value={tumanFilter}
-            onChange={(e) => {
-              setTumanFilter(e.target.value);
-              setLibraryFilter('');
-            }}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+            onChange={(e) => setTumanFilter(e.target.value)}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer min-w-[150px]"
           >
             <option value="">Barcha tumanlar</option>
-            {currentViloyatObj.tumans.map((t) => (
+            {availableTumanlar.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
-          </select>
-        )}
-
-        {/* Kutubxona (Super / Viloyat Admin uchun) */}
-        {!isDistrictScopedUser && (
-          <select
-            value={libraryFilter}
-            onChange={(e) => setLibraryFilter(e.target.value)}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[170px]"
-          >
-            <option value="">Barcha kutubxonalar</option>
-            {scopedLibraries
-              .filter((l) => (!viloyatFilter || l.viloyatId === viloyatFilter) && (!tumanFilter || l.tumanId === tumanFilter))
-              .map((lib) => (
-                <option key={lib.id} value={lib.id}>{lib.name}</option>
-              ))}
           </select>
         )}
 
@@ -634,7 +682,12 @@ export default function StaffPage() {
           setEditItem(null);
         }}
         editItem={editItem}
-        defaultLibraryId={isDistrictScopedUser ? (scopedLibraries[0]?.id || currentUser?.libraryId || '') : (libraryFilter || scopedLibraries[0]?.id || '')}
+        defaultTumanId={tumanFilter}
+        defaultLibraryId={
+          isDistrictScopedUser
+            ? (scopedLibraries[0]?.id || currentUser?.libraryId || '')
+            : (allLibraries.find((l) => (l.tumanId || l.tuman_id) === tumanFilter)?.id || scopedLibraries[0]?.id || '')
+        }
         libraries={allLibraries}
         currentUser={currentUser}
         createEntity={createEntity}

@@ -226,13 +226,29 @@ export default function ReportsPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-        <Card className="text-center"><p className="text-2xl font-bold text-blue-600">{reports.length}</p><p className="text-xs text-gray-500">Jami</p></Card>
-        <Card className="text-center"><p className="text-2xl font-bold text-gray-600">{reports.filter(r => r.status === REPORT_STATUS.DRAFT).length}</p><p className="text-xs text-gray-500">Qoralama</p></Card>
-        <Card className="text-center"><p className="text-2xl font-bold text-amber-600">{reports.filter(r => r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW).length}</p><p className="text-xs text-gray-500">Kutilmoqda</p></Card>
-        <Card className="text-center"><p className="text-2xl font-bold text-green-600">{reports.filter(r => r.status === REPORT_STATUS.APPROVED).length}</p><p className="text-xs text-gray-500">Tasdiqlangan</p></Card>
-        <Card className="text-center"><p className="text-2xl font-bold text-red-600">{reports.filter(r => r.status === REPORT_STATUS.REJECTED).length}</p><p className="text-xs text-gray-500">Rad etilgan</p></Card>
-      </div>
+          {/* Ixcham statistika kartochkalari */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+              <span className="text-xs text-slate-500 font-medium">Jami:</span>
+              <span className="text-sm font-bold text-blue-600">{reports.length} ta</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+              <span className="text-xs text-slate-500 font-medium">Qoralama:</span>
+              <span className="text-sm font-bold text-slate-600">{reports.filter(r => r.status === REPORT_STATUS.DRAFT).length} ta</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+              <span className="text-xs text-slate-500 font-medium">Kutilmoqda:</span>
+              <span className="text-sm font-bold text-amber-600">{reports.filter(r => r.status === REPORT_STATUS.SUBMITTED || r.status === REPORT_STATUS.UNDER_REVIEW).length} ta</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+              <span className="text-xs text-slate-500 font-medium">Tasdiqlangan:</span>
+              <span className="text-sm font-bold text-emerald-600">{reports.filter(r => r.status === REPORT_STATUS.APPROVED).length} ta</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+              <span className="text-xs text-slate-500 font-medium">Rad etilgan:</span>
+              <span className="text-sm font-bold text-rose-600">{reports.filter(r => r.status === REPORT_STATUS.REJECTED).length} ta</span>
+            </div>
+          </div>
 
       <div className="flex flex-wrap items-center gap-2.5 mb-4">
         <SearchInput

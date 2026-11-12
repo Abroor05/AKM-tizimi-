@@ -6,7 +6,6 @@ import { getViloyatName, getTumanName } from '../data/regions.js';
 import ICONS from './icons.jsx';
 import Logo from './ui/Logo.jsx';
 import Badge from './ui/Badge.jsx';
-import ThemeToggle from './common/ThemeToggle.jsx';
 import { NOTIFICATION_TYPES } from '../data/constants.js';
 
 const MENU_SECTIONS = [
@@ -272,8 +271,6 @@ export default function Layout({ children }) {
               <ICONS.calendar className="text-slate-400" />
               <span className="capitalize">{todayStr}</span>
             </div>
-
-            <ThemeToggle />
 
             {/* Notifications Dropdown */}
             <div className="relative" ref={notifRef}>

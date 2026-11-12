@@ -24,7 +24,7 @@ export const VILOYATLAR = [
       { id: 't0111', name: "Toshloq tumani", lat: 40.6834, lng: 71.4784 },
       { id: 't0112', name: "Uchko'prik tumani", lat: 40.2492, lng: 71.8362 },
       { id: 't0113', name: "O'zbekiston tumani", lat: 40.5718, lng: 71.6237 },
-      { id: 't0114', name: "Yo'lwotan tumani", lat: 40.3315, lng: 71.4389 },
+      { id: 't0114', name: "Yozyavon tumani", lat: 40.3315, lng: 71.4389 },
       { id: 't0115', name: "Oltiariq tumani", lat: 40.8724, lng: 71.9147 },
       { id: 't0116', name: "Farg'ona shahri", lat: 40.3864, lng: 71.7864 },
       { id: 't0117', name: "Marg'ilon shahri", lat: 40.4709, lng: 71.7286 },

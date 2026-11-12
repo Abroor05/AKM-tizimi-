@@ -226,27 +226,28 @@ export default function TasksPage() {
         action={canCreate ? <Button onClick={openCreateModal}><ICONS.plus /> Yangi topshiriq</Button> : null}
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-        <Card className="text-center">
-          <p className="text-2xl font-bold text-gray-600">{tasks.filter(t => t.status === TASK_STATUS.PENDING).length}</p>
-          <p className="text-xs text-gray-500">Kutilmoqda</p>
-        </Card>
-        <Card className="text-center">
-          <p className="text-2xl font-bold text-blue-600">{tasks.filter(t => t.status === TASK_STATUS.IN_PROGRESS).length}</p>
-          <p className="text-xs text-gray-500">Bajarilmoqda</p>
-        </Card>
-        <Card className="text-center">
-          <p className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === TASK_STATUS.COMPLETED).length}</p>
-          <p className="text-xs text-gray-500">Bajarilgan</p>
-        </Card>
-        <Card className="text-center">
-          <p className="text-2xl font-bold text-red-600">{tasks.filter(t => t.status === TASK_STATUS.OVERDUE || (t.status !== TASK_STATUS.COMPLETED && isOverdue(t.dueDate))).length}</p>
-          <p className="text-xs text-gray-500">Muddati o'tgan</p>
-        </Card>
-        <Card className="text-center">
-          <p className="text-2xl font-bold text-amber-600">{tasks.filter(t => t.priority === TASK_PRIORITY.URGENT && t.status !== TASK_STATUS.COMPLETED).length}</p>
-          <p className="text-xs text-gray-500">Shoshilinch</p>
-        </Card>
+      {/* Ixcham statistika kartochkalari */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Kutilmoqda:</span>
+          <span className="text-sm font-bold text-slate-600">{tasks.filter(t => t.status === TASK_STATUS.PENDING).length} ta</span>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Bajarilmoqda:</span>
+          <span className="text-sm font-bold text-blue-600">{tasks.filter(t => t.status === TASK_STATUS.IN_PROGRESS).length} ta</span>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Bajarilgan:</span>
+          <span className="text-sm font-bold text-emerald-600">{tasks.filter(t => t.status === TASK_STATUS.COMPLETED).length} ta</span>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Muddati o'tgan:</span>
+          <span className="text-sm font-bold text-rose-600">{tasks.filter(t => t.status === TASK_STATUS.OVERDUE || (t.status !== TASK_STATUS.COMPLETED && isOverdue(t.dueDate))).length} ta</span>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <span className="text-xs text-slate-500 font-medium">Shoshilinch:</span>
+          <span className="text-sm font-bold text-amber-600">{tasks.filter(t => t.priority === TASK_PRIORITY.URGENT && t.status !== TASK_STATUS.COMPLETED).length} ta</span>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5 mb-4">

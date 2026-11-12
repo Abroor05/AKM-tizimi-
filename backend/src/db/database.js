@@ -316,11 +316,15 @@ export async function initDb(retries = 3) {
     name TEXT NOT NULL,
     type VARCHAR(100),
     library_id VARCHAR(100),
+    viloyat_id VARCHAR(100),
+    tuman_id VARCHAR(100),
+    created_by VARCHAR(100),
     quantity INTEGER DEFAULT 1,
     unit_price NUMERIC,
     status VARCHAR(50) DEFAULT 'good',
     purchase_date TEXT,
-    serial_number VARCHAR(100)
+    serial_number VARCHAR(100),
+    notes TEXT
   );
 
   -- DOCUMENTS
@@ -452,6 +456,10 @@ export async function initDb(retries = 3) {
           ALTER TABLE staff ADD COLUMN IF NOT EXISTS malumoti VARCHAR(255);
           ALTER TABLE staff ALTER COLUMN library_id DROP NOT NULL;
           ALTER TABLE staff ALTER COLUMN position DROP NOT NULL;
+          ALTER TABLE inventory ADD COLUMN IF NOT EXISTS viloyat_id VARCHAR(100);
+          ALTER TABLE inventory ADD COLUMN IF NOT EXISTS tuman_id VARCHAR(100);
+          ALTER TABLE inventory ADD COLUMN IF NOT EXISTS created_by VARCHAR(100);
+          ALTER TABLE inventory ADD COLUMN IF NOT EXISTS notes TEXT;
         `);
       } catch {}
       await refreshColumnsCache();

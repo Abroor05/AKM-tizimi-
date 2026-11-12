@@ -188,6 +188,34 @@ export function createCrudRouter(apiPath, tableName) {
         }
       }
 
+      if (tableName === 'inventory') {
+        const userViloyat = req.user?.viloyatId || req.user?.viloyat_id || '';
+        const userTuman = req.user?.tumanId || req.user?.tuman_id || '';
+        const userLib = req.user?.libraryId || req.user?.library_id || '';
+
+        let libId = obj.libraryId || obj.library_id || userLib;
+        let vId = obj.viloyatId || obj.viloyat_id || userViloyat;
+        let tId = obj.tumanId || obj.tuman_id || userTuman;
+
+        if (libId) {
+          const checkLib = await getById('libraries', libId);
+          if (checkLib) {
+            vId = vId || checkLib.viloyatId || checkLib.viloyat_id;
+            tId = tId || checkLib.tumanId || checkLib.tuman_id;
+          }
+        }
+
+        obj.library_id = libId || null;
+        obj.viloyat_id = vId || null;
+        obj.tuman_id = tId || null;
+        if (!obj.created_by && req.user?.id) {
+          obj.created_by = req.user.id;
+        }
+        delete obj.libraryId;
+        delete obj.viloyatId;
+        delete obj.tumanId;
+      }
+
       const tableCols = await getTableColumns(tableName);
       if (tableCols.has('created_at')) {
         obj.created_at = body.createdAt || obj.created_at || new Date().toISOString();
@@ -252,6 +280,29 @@ export function createCrudRouter(apiPath, tableName) {
         updates.full_name = [ln, fn, mn].filter(Boolean).join(' ').trim() || `${fn} ${ln}`.trim();
         if (updates.libraryId && !isDistrictAdmin) {
           updates.library_id = updates.libraryId;
+        }
+      }
+
+      if (tableName === 'inventory') {
+        if ('libraryId' in updates || 'library_id' in updates) {
+          const libId = updates.libraryId || updates.library_id;
+          updates.library_id = libId || null;
+          delete updates.libraryId;
+          if (libId) {
+            const checkLib = await getById('libraries', libId);
+            if (checkLib) {
+              updates.viloyat_id = checkLib.viloyatId || checkLib.viloyat_id || updates.viloyat_id || updates.viloyatId;
+              updates.tuman_id = checkLib.tumanId || checkLib.tuman_id || updates.tuman_id || updates.tumanId;
+            }
+          }
+        }
+        if ('tumanId' in updates) {
+          updates.tuman_id = updates.tumanId;
+          delete updates.tumanId;
+        }
+        if ('viloyatId' in updates) {
+          updates.viloyat_id = updates.viloyatId;
+          delete updates.viloyatId;
         }
       }
 

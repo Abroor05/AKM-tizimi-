@@ -52,6 +52,7 @@ export default function StaffModal({
   onClose,
   editItem = null,
   defaultLibraryId = '',
+  defaultTumanId = '',
   libraries = [],
   currentUser = null,
   onSaved = null,
@@ -258,7 +259,7 @@ export default function StaffModal({
         accessibleLibraries.find((l) => l.viloyatId === viloyatId)?.id ||
         '';
       targetLib = libraries.find((l) => l.id === resolvedLibraryId);
-      tumanId = targetLib?.tumanId || targetLib?.tuman_id || '';
+      tumanId = targetLib?.tumanId || targetLib?.tuman_id || defaultTumanId || '';
     } else {
       resolvedLibraryId =
         editItem?.libraryId ||
@@ -269,7 +270,17 @@ export default function StaffModal({
         '';
       targetLib = libraries.find((l) => l.id === resolvedLibraryId);
       viloyatId = targetLib?.viloyatId || targetLib?.viloyat_id || '';
-      tumanId = targetLib?.tumanId || targetLib?.tuman_id || '';
+      tumanId = targetLib?.tumanId || targetLib?.tuman_id || defaultTumanId || '';
+    }
+
+    if (!targetLib && (tumanId || defaultTumanId)) {
+      const searchTuman = tumanId || defaultTumanId;
+      targetLib = libraries.find((l) => (l.tumanId === searchTuman || l.tuman_id === searchTuman));
+      if (targetLib) {
+        resolvedLibraryId = targetLib.id;
+        viloyatId = targetLib.viloyatId || targetLib.viloyat_id || viloyatId;
+        tumanId = searchTuman;
+      }
     }
 
     const fullName = [lastName, firstName, middleName].filter(Boolean).join(' ').trim();
