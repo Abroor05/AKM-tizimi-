@@ -3,11 +3,15 @@ import Card from '../ui/Card.jsx';
 import Badge from '../ui/Badge.jsx';
 import Button from '../ui/Button.jsx';
 import Modal from '../ui/Modal.jsx';
+import ConfirmModal from '../ui/ConfirmModal.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
+import { toast } from '../ui/Toast.jsx';
 import ICONS from '../icons.jsx';
 import { STORAGE_KEYS, SOCIAL_PLATFORMS, ROLES, ROLE_LABELS } from '../../data/constants.js';
 import { formatDate, formatNumber } from '../../utils/helpers.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useApp } from '../../context/AppContext.jsx';
+import SocialMediaReportModal from './SocialMediaReportModal.jsx';
 
 function parseSocialData(act) {
   try {
@@ -26,6 +30,7 @@ export default function SocialMediaReportsView({
   onOpenCreateModal,
   canCreate = true,
 }) {
+  const { updateEntity, deleteEntity, createEntity } = useApp();
   const [viewTab, setViewTab] = useState('daily'); // 'daily' | 'monthly' | 'yearly'
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7));
@@ -33,6 +38,30 @@ export default function SocialMediaReportsView({
   const [platformFilter, setPlatformFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [detailItem, setDetailItem] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const canModifySocial = (act) => {
+    if (!act || !currentUser) return false;
+    if (act.userId === currentUser.id) return true;
+    return [ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI].includes(currentUser.role);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteEntity(STORAGE_KEYS.ACTIVITIES, deleteTarget.id);
+      if (detailItem?.id === deleteTarget.id) setDetailItem(null);
+      toast.success("Ijtimoiy tarmoq hisoboti o'chirildi!");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error("O'chirishda xatolik: " + (err.message || 'Server xatosi'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Faqat ijtimoiy tarmoq hisobotlarini filtrlash
   const socialActs = useMemo(() => {
@@ -82,14 +111,12 @@ export default function SocialMediaReportsView({
   // Umumiy statistika hisobi (jami postlar, platformalar kesimida)
   const stats = useMemo(() => {
     const res = {
-      telegram: 0,
-      instagram: 0,
-      facebook: 0,
-      twitter: 0,
-      youtube: 0,
       total: 0,
       recordsCount: filtered.length,
     };
+    SOCIAL_PLATFORMS.forEach(p => {
+      res[p.key] = 0;
+    });
 
     filtered.forEach(a => {
       const d = parseSocialData(a);
@@ -106,12 +133,18 @@ export default function SocialMediaReportsView({
 
   // Diagramma ma'lumotlari (Oylar yoki Kunlar kesimida)
   const chartData = useMemo(() => {
+    const buildEmptyItem = (name) => {
+      const obj = { name, jami: 0 };
+      SOCIAL_PLATFORMS.forEach(p => { obj[p.key] = 0; });
+      return obj;
+    };
+
     if (viewTab === 'yearly') {
       const months = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
       return months.map((mName, idx) => {
         const prefix = `${yearFilter}-${String(idx + 1).padStart(2, '0')}`;
         const items = socialActs.filter(a => a.date?.startsWith(prefix));
-        const itemStats = { name: mName, telegram: 0, instagram: 0, facebook: 0, twitter: 0, youtube: 0, jami: 0 };
+        const itemStats = buildEmptyItem(mName);
         items.forEach(a => {
           const d = parseSocialData(a);
           const platforms = d.platforms || {};
@@ -133,7 +166,7 @@ export default function SocialMediaReportsView({
         const dStr = `${monthFilter}-${String(i).padStart(2, '0')}`;
         const items = socialActs.filter(a => a.date === dStr);
         if (items.length > 0 || i % 5 === 0) {
-          const itemStats = { name: `${i}-kun`, telegram: 0, instagram: 0, facebook: 0, twitter: 0, youtube: 0, jami: 0 };
+          const itemStats = buildEmptyItem(`${i}-kun`);
           items.forEach(a => {
             const d = parseSocialData(a);
             const platforms = d.platforms || {};
@@ -246,8 +279,8 @@ export default function SocialMediaReportsView({
         )}
       </div>
 
-      {/* 5 ta tarmoq + JAMI umumiy statistika kartalari */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* 6 ta tarmoq (Web sahifa bilan) + JAMI umumiy statistika kartalari */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
         {SOCIAL_PLATFORMS.map(p => {
           const IconComp = ICONS[p.icon] || ICONS.globe;
           const count = stats[p.key] || 0;
@@ -298,19 +331,17 @@ export default function SocialMediaReportsView({
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
                 <Tooltip
-                  formatter={(val, name) => [
-                    `${formatNumber(val)} ta post`,
-                    name === 'telegram' ? 'Telegram' : name === 'instagram' ? 'Instagram' : name === 'facebook' ? 'Facebook' : name === 'twitter' ? 'Twitter' : 'YouTube'
-                  ]}
+                  formatter={(val, name) => {
+                    const found = SOCIAL_PLATFORMS.find(p => p.key === name);
+                    return [`${formatNumber(val)} ta`, found?.label || name];
+                  }}
                 />
                 <Legend
-                  formatter={(val) => val === 'telegram' ? 'Telegram' : val === 'instagram' ? 'Instagram' : val === 'facebook' ? 'Facebook' : val === 'twitter' ? 'Twitter' : 'YouTube'}
+                  formatter={(val) => SOCIAL_PLATFORMS.find(p => p.key === val)?.label || val}
                 />
-                <Bar dataKey="telegram" fill="#229ED9" radius={[3, 3, 0, 0]} name="telegram" />
-                <Bar dataKey="instagram" fill="#E1306C" radius={[3, 3, 0, 0]} name="instagram" />
-                <Bar dataKey="facebook" fill="#1877F2" radius={[3, 3, 0, 0]} name="facebook" />
-                <Bar dataKey="twitter" fill="#0f172a" radius={[3, 3, 0, 0]} name="twitter" />
-                <Bar dataKey="youtube" fill="#FF0000" radius={[3, 3, 0, 0]} name="youtube" />
+                {SOCIAL_PLATFORMS.map(p => (
+                  <Bar key={p.key} dataKey={p.key} fill={p.color} radius={[3, 3, 0, 0]} name={p.key} />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -361,31 +392,16 @@ export default function SocialMediaReportsView({
                 <tr>
                   <th className="text-left px-4 py-3">Sana va vaqt</th>
                   <th className="text-left px-4 py-3">Mas'ul xodim</th>
-                  <th className="text-center px-3 py-3">
-                    <span className="inline-flex items-center gap-1.5 justify-center">
-                      <ICONS.telegram className="text-sky-500 text-sm" /> Telegram
-                    </span>
-                  </th>
-                  <th className="text-center px-3 py-3">
-                    <span className="inline-flex items-center gap-1.5 justify-center">
-                      <ICONS.instagram className="text-pink-600 text-sm" /> Instagram
-                    </span>
-                  </th>
-                  <th className="text-center px-3 py-3">
-                    <span className="inline-flex items-center gap-1.5 justify-center">
-                      <ICONS.facebook className="text-blue-600 text-sm" /> Facebook
-                    </span>
-                  </th>
-                  <th className="text-center px-3 py-3">
-                    <span className="inline-flex items-center gap-1.5 justify-center">
-                      <ICONS.twitter className="text-slate-800 text-sm" /> Twitter
-                    </span>
-                  </th>
-                  <th className="text-center px-3 py-3">
-                    <span className="inline-flex items-center gap-1.5 justify-center">
-                      <ICONS.youtube className="text-red-600 text-sm" /> YouTube
-                    </span>
-                  </th>
+                  {SOCIAL_PLATFORMS.map(platform => {
+                    const IconComp = ICONS[platform.icon] || ICONS.globe;
+                    return (
+                      <th key={platform.key} className="text-center px-3 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 justify-center">
+                          <IconComp className={`text-sm ${platform.textColor || ''}`} style={{ color: platform.color }} /> {platform.label}
+                        </span>
+                      </th>
+                    );
+                  })}
                   <th className="text-center px-3 py-3">Jami post</th>
                   <th className="text-left px-4 py-3">Mazmuni va ishlar</th>
                   <th className="text-center px-4 py-3">Amallar</th>
@@ -420,21 +436,14 @@ export default function SocialMediaReportsView({
                           </div>
                         </div>
                       </td>
-                      <td className="text-center px-3 py-3 font-semibold text-sky-600">
-                        {p.telegram?.count ? formatNumber(p.telegram.count) : <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="text-center px-3 py-3 font-semibold text-pink-600">
-                        {p.instagram?.count ? formatNumber(p.instagram.count) : <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="text-center px-3 py-3 font-semibold text-blue-600">
-                        {p.facebook?.count ? formatNumber(p.facebook.count) : <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="text-center px-3 py-3 font-semibold text-slate-700">
-                        {p.twitter?.count ? formatNumber(p.twitter.count) : <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="text-center px-3 py-3 font-semibold text-red-600">
-                        {p.youtube?.count ? formatNumber(p.youtube.count) : <span className="text-slate-300">—</span>}
-                      </td>
+                      {SOCIAL_PLATFORMS.map(platform => (
+                        <td
+                          key={platform.key}
+                          className={`text-center px-3 py-3 font-semibold ${platform.textColor || 'text-slate-700'}`}
+                        >
+                          {p[platform.key]?.count ? formatNumber(p[platform.key].count) : <span className="text-slate-300">—</span>}
+                        </td>
+                      ))}
                       <td className="text-center px-3 py-3 font-extrabold text-purple-700 text-sm">
                         {formatNumber(total)} ta
                       </td>
@@ -442,12 +451,33 @@ export default function SocialMediaReportsView({
                         {act.description || "Tafsilotlar mavjud"}
                       </td>
                       <td className="text-center px-4 py-3">
-                        <button
-                          onClick={() => setDetailItem(act)}
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors inline-flex items-center gap-1"
-                        >
-                          <ICONS.eye className="text-xs" /> Ko'rish
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setDetailItem(act)}
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors inline-flex items-center gap-1"
+                            title="Ko'rish"
+                          >
+                            <ICONS.eye className="text-xs" /> Ko'rish
+                          </button>
+                          {canModifySocial(act) && (
+                            <>
+                              <button
+                                onClick={() => setEditingItem(act)}
+                                className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 transition-colors"
+                                title="Tahrirlash"
+                              >
+                                <ICONS.edit className="text-xs" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget(act)}
+                                className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"
+                                title="O'chirish"
+                              >
+                                <ICONS.trash className="text-xs" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -473,9 +503,35 @@ export default function SocialMediaReportsView({
             title="Ijtimoiy tarmoqlar hisoboti tafsilotlari"
             size="lg"
             footer={
-              <Button variant="secondary" onClick={() => setDetailItem(null)}>
-                Yopish
-              </Button>
+              <div className="flex items-center justify-between w-full gap-2">
+                {canModifySocial(detailItem) ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        const target = detailItem;
+                        setDetailItem(null);
+                        setEditingItem(target);
+                      }}
+                      className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                    >
+                      <ICONS.edit className="text-xs" /> Tahrirlash
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setDeleteTarget(detailItem)}
+                      className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                    >
+                      <ICONS.trash className="text-xs" /> O'chirish
+                    </Button>
+                  </div>
+                ) : <div />}
+                <Button variant="secondary" onClick={() => setDetailItem(null)}>
+                  Yopish
+                </Button>
+              </div>
             }
           >
             <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
@@ -566,6 +622,30 @@ export default function SocialMediaReportsView({
           </Modal>
         );
       })()}
+      {/* Tahrirlash modali */}
+      {editingItem && (
+        <SocialMediaReportModal
+          isOpen={Boolean(editingItem)}
+          onClose={() => setEditingItem(null)}
+          currentUser={currentUser}
+          libraries={libraries}
+          createEntity={createEntity}
+          updateEntity={updateEntity}
+          editItem={editingItem}
+        />
+      )}
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Ijtimoiy tarmoq hisobotini o'chirish"
+        message={`Haqiqatan ham ${deleteTarget ? formatDate(deleteTarget.date) : ''} sanasidagi ijtimoiy tarmoq hisobotini o'chirmoqchimisiz?`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
+      />
     </div>
   );
 }

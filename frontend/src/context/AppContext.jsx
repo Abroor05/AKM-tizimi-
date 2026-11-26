@@ -269,7 +269,7 @@ const hasPermission = useCallback((permission) => {
     return items.find(i => i.id === id);
   }, [updateCollection, addAuditLog]);
 
-  const deleteEntity = useCallback((storageKey, id, userId = null, action = null, module = null) => {
+  const deleteEntity = useCallback(async (storageKey, id, userId = null, action = null, module = null) => {
     const apiEndpoint = STORAGE_TO_API[storageKey];
     // Save original for potential rollback
     const originalItems = collectionsRef.current[storageKey] || [];
@@ -278,13 +278,16 @@ const hasPermission = useCallback((permission) => {
     updateCollection(storageKey, (items) => (items || []).filter(item => item.id !== id));
     // API call
     if (apiEndpoint) {
-      api.remove(apiEndpoint, id).catch(err => {
+      try {
+        await api.remove(apiEndpoint, id);
+      } catch (err) {
         console.error('Delete failed:', err);
         // Rollback: restore the deleted item
         if (original) {
           updateCollection(storageKey, (items) => [...(items || []), original]);
         }
-      });
+        throw err;
+      }
     }
     if (userId && action) {
       addAuditLog(userId, action, module || 'unknown', `${action}: ${id}`);

@@ -121,7 +121,7 @@ export default function MapPage() {
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
   const allDistricts = useMemo(() => getAllTumanlar(), []);
 
-  const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.KUTUBXONA_XODIMI);
+  const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI, ROLES.KUTUBXONA_XODIMI);
   const canManage = isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN);
 
   const accessibleDistricts = useMemo(() => {

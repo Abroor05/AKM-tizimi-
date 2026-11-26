@@ -10,6 +10,7 @@ import Card from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
@@ -173,30 +174,37 @@ function buildEmptyForm() {
 
 export default function XBDailyActivity() {
   const navigate = useNavigate();
-  const { currentUser, getCollection, createEntity, acceptActivity, forwardDailyActivityToAdmins, forwardMonthlyReportToAdmins } = useApp();
+  const { currentUser, getCollection, createEntity, updateEntity, deleteEntity, acceptActivity, forwardDailyActivityToAdmins, forwardMonthlyReportToAdmins } = useApp();
 
   const allActs   = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
   const allUsers  = useMemo(() => getCollection(STORAGE_KEYS.USERS),      [getCollection]);
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
-
-  // Faqat o'z kutubxonasidagi barcha faoliyatlar (daily va social)
-  const myAllActs = useMemo(() =>
-    allActs.filter(a => ((currentUser?.libraryId && a.libraryId === currentUser?.libraryId) || a.userId === currentUser?.id)),
-    [allActs, currentUser]);
-
-  // Faqat o'z kutubxonasidagi daily_report lar
-  const myLibActs = useMemo(() =>
-    myAllActs.filter(a => a.type === 'daily_report'),
-    [myAllActs]);
 
   // Xodimlar
   const myStaff = useMemo(() =>
     allUsers.filter(u => u.role === ROLES.KUTUBXONA_XODIMI && u.tumanId === currentUser?.tumanId && u.viloyatId === currentUser?.viloyatId),
     [allUsers, currentUser]);
 
+  // Faqat o'z kutubxonasi va xodimlarining barcha faoliyatlari (daily va social)
+  const myAllActs = useMemo(() =>
+    allActs.filter(a =>
+      (currentUser?.libraryId && a.libraryId === currentUser.libraryId) ||
+      a.userId === currentUser?.id ||
+      myStaff.some(s => s.id === a.userId)
+    ),
+    [allActs, currentUser, myStaff]);
+
+  // Faqat o'z kutubxonasidagi daily_report lar
+  const myLibActs = useMemo(() =>
+    myAllActs.filter(a => a.type === 'daily_report'),
+    [myAllActs]);
+
   const today = new Date().toISOString().split('T')[0];
   const [activeTab,       setActiveTab]       = useState('incoming');
   const [showModal,       setShowModal]       = useState(false);
+  const [editingAct,      setEditingAct]      = useState(null);
+  const [deleteTarget,    setDeleteTarget]    = useState(null);
+  const [isDeleting,      setIsDeleting]      = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showDetail,      setShowDetail]      = useState(null);
   const [accepting,       setAccepting]       = useState(null);
@@ -301,15 +309,67 @@ export default function XBDailyActivity() {
     }
   };
 
-  // O'zi ham hisobot qo'sha oladi
-  const handleSave = () => {
+  const openEditAct = (a) => {
+    const d = parseData(a);
+    const notesObj = d.notes || {};
+    setEditingAct(a);
+    setForm({
+      date: a.date || today,
+      time: a.time || new Date().toTimeString().slice(0, 5),
+      counts: {
+        kitob_skanerlash: d.kitob_skanerlash ? String(d.kitob_skanerlash) : '',
+        kitob_pdf: d.kitob_pdf ? String(d.kitob_pdf) : '',
+      },
+      tasks: {
+        texnik_xizmat: Boolean(d.texnik_xizmat && Number(d.texnik_xizmat) > 0),
+        jihozlash: Boolean(d.jihozlash && Number(d.jihozlash) > 0),
+        tuzatish: Boolean(d.tuzatish && Number(d.tuzatish) > 0),
+        boshqa: Boolean(d.boshqa && Number(d.boshqa) > 0),
+      },
+      notes: {
+        texnik_xizmat: notesObj.texnik_xizmat || '',
+        jihozlash: notesObj.jihozlash || '',
+        tuzatish: notesObj.tuzatish || '',
+        boshqa: notesObj.boshqa || '',
+      },
+      description: a.description || '',
+    });
+    setShowModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteEntity(STORAGE_KEYS.ACTIVITIES, deleteTarget.id);
+      if (showDetail?.id === deleteTarget.id) {
+        setShowDetail(null);
+      }
+      toast.success("Kunlik hisobot muvaffaqiyatli o'chirildi!");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error("O'chirishda xatolik: " + (err.message || 'Server xatosi'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // O'zi ham hisobot qo'sha oladi va tahrirlay oladi
+  const handleSave = async () => {
     const hasNumeric = (Number(form.counts.kitob_skanerlash) > 0) || (Number(form.counts.kitob_pdf) > 0);
     const hasTasks = Object.values(form.tasks).some(Boolean);
-    if (!hasNumeric && !hasTasks) {
+    const hasDesc = Boolean(form.description?.trim());
+    if (!hasNumeric && !hasTasks && !hasDesc) {
       toast.warning("Kamida bitta faoliyat turini belgilang yoki sonini kiriting!");
       return;
     }
     const data = {};
+    if (editingAct) {
+      const existingData = parseData(editingAct);
+      if (Number(existingData.ijtimoiy_tarmoq) > 0) {
+        data.ijtimoiy_tarmoq = Number(existingData.ijtimoiy_tarmoq);
+      }
+    }
     if (Number(form.counts.kitob_skanerlash) > 0) {
       data.kitob_skanerlash = Number(form.counts.kitob_skanerlash);
     }
@@ -333,23 +393,36 @@ export default function XBDailyActivity() {
     if (form.description?.trim()) descParts.push(form.description.trim());
     Object.entries(taskNotes).forEach(([k, note]) => {
       const label = ACTIVITY_TYPE_LABELS[k] || k;
-      descParts.push(`${label}: ${note}`);
+      if (!form.description?.includes(`${label}: ${note}`)) {
+        descParts.push(`${label}: ${note}`);
+      }
     });
 
     try {
-      createEntity(STORAGE_KEYS.ACTIVITIES, {
-        type:      'daily_report',
-        data:      JSON.stringify(data),
-        description: descParts.join(' | ') || form.description,
-        date:      form.date,
-        time:      form.time,
-        libraryId: currentUser?.libraryId || (libraries && libraries[0]?.id) || null,
-        userId:    currentUser?.id,
-        status:    'accepted', // Boshliq o'zi qo'shsa — to'g'ridan qabul qilingan
-      });
+      if (editingAct) {
+        await updateEntity(STORAGE_KEYS.ACTIVITIES, editingAct.id, {
+          data: JSON.stringify(data),
+          description: descParts.join(' | ') || form.description || '',
+          date: form.date,
+          time: form.time,
+        });
+        toast.success("Kunlik hisobot muvaffaqiyatli yangilandi!");
+      } else {
+        await createEntity(STORAGE_KEYS.ACTIVITIES, {
+          type:      'daily_report',
+          data:      JSON.stringify(data),
+          description: descParts.join(' | ') || form.description,
+          date:      form.date,
+          time:      form.time,
+          libraryId: currentUser?.libraryId || (libraries && libraries[0]?.id) || null,
+          userId:    currentUser?.id,
+          status:    'accepted', // Boshliq o'zi qo'shsa — to'g'ridan qabul qilingan
+        });
+        toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
+      }
       setShowModal(false);
+      setEditingAct(null);
       setForm(buildEmptyForm());
-      toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
     } catch (err) {
       toast.error("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
     }
@@ -539,6 +612,14 @@ export default function XBDailyActivity() {
                                 className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Ko'rish">
                                 <ICONS.eye className="text-sm" />
                               </button>
+                              <button onClick={() => openEditAct(a)}
+                                className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Tahrirlash">
+                                <ICONS.edit className="text-sm" />
+                              </button>
+                              <button onClick={() => setDeleteTarget(a)}
+                                className="p-1.5 rounded hover:bg-rose-50 text-rose-600" title="O'chirish">
+                                <ICONS.trash className="text-sm" />
+                              </button>
                               <button
                                 onClick={() => handleAccept(a)}
                                 disabled={accepting === a.id}
@@ -724,6 +805,14 @@ export default function XBDailyActivity() {
                                 className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Ko'rish">
                                 <ICONS.eye className="text-sm" />
                               </button>
+                              <button onClick={() => openEditAct(a)}
+                                className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Tahrirlash">
+                                <ICONS.edit className="text-sm" />
+                              </button>
+                              <button onClick={() => setDeleteTarget(a)}
+                                className="p-1.5 rounded hover:bg-rose-50 text-rose-600" title="O'chirish">
+                                <ICONS.trash className="text-sm" />
+                              </button>
                               {a.status === 'sent' && (
                                 <button onClick={() => handleAccept(a)}
                                   disabled={accepting === a.id}
@@ -801,16 +890,16 @@ export default function XBDailyActivity() {
         </>
       )}
 
-      {/* ── O'z hisobotini qo'shish modali ── */}
+      {/* ── O'z hisobotini qo'shish / tahrirlash modali ── */}
       <Modal
         isOpen={showModal}
-        onClose={() => { setShowModal(false); setForm(buildEmptyForm()); }}
-        title="O'zim bajargan ishlar hisoboti"
+        onClose={() => { setShowModal(false); setEditingAct(null); setForm(buildEmptyForm()); }}
+        title={editingAct ? "Kunlik hisobotni tahrirlash" : "O'zim bajargan ishlar hisoboti"}
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setShowModal(false); setForm(buildEmptyForm()); }}>Bekor</Button>
-            <Button onClick={handleSave}><ICONS.save /> Saqlash</Button>
+            <Button variant="secondary" onClick={() => { setShowModal(false); setEditingAct(null); setForm(buildEmptyForm()); }}>Bekor</Button>
+            <Button onClick={handleSave}><ICONS.save /> {editingAct ? "Yangilash" : "Saqlash"}</Button>
           </>
         }
       >
@@ -1127,6 +1216,18 @@ export default function XBDailyActivity() {
           createEntity={createEntity}
         />
       )}
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Kunlik hisobotni o'chirish"
+        message={`Haqiqatan ham ${deleteTarget ? formatDate(deleteTarget.date) : ''} sanasidagi kunlik hisobotni o'chirmoqchimisiz?`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
+      />
     </div>
   );
 }

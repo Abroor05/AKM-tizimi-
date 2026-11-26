@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
 import { toast } from '../ui/Toast.jsx';
 import ICONS from '../icons.jsx';
 import { STORAGE_KEYS, SOCIAL_PLATFORMS, ROLES } from '../../data/constants.js';
+import { useApp } from '../../context/AppContext.jsx';
 
 function buildInitialSocialForm() {
   const platformsData = {};
@@ -29,11 +30,51 @@ export default function SocialMediaReportModal({
   onClose,
   currentUser,
   libraries,
-  createEntity,
+  createEntity: createEntityProp,
+  updateEntity: updateEntityProp,
+  editItem = null,
   onSuccess,
 }) {
+  const appCtx = useApp();
+  const createEntity = createEntityProp || appCtx.createEntity;
+  const updateEntity = updateEntityProp || appCtx.updateEntity;
+
   const [form, setForm] = useState(buildInitialSocialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editItem) {
+      let parsed = {};
+      try {
+        parsed = typeof editItem.data === 'object' && editItem.data
+          ? editItem.data
+          : JSON.parse(editItem.data || '{}');
+      } catch {
+        parsed = {};
+      }
+      const existingPlatforms = parsed.platforms || {};
+      const platformsData = {};
+      SOCIAL_PLATFORMS.forEach(p => {
+        const ep = existingPlatforms[p.key];
+        const active = Boolean(ep && (Number(ep.count) > 0 || ep.posts || ep.link));
+        platformsData[p.key] = {
+          active,
+          count: ep?.count != null && Number(ep.count) > 0 ? String(ep.count) : (active ? '1' : ''),
+          posts: ep?.posts || '',
+          link: ep?.link || '',
+        };
+      });
+      setForm({
+        date: editItem.date || new Date().toISOString().split('T')[0],
+        time: editItem.time || new Date().toTimeString().slice(0, 5),
+        description: parsed.generalNote || '',
+        platforms: platformsData,
+      });
+    } else {
+      setForm(buildInitialSocialForm());
+    }
+  }, [isOpen, editItem]);
 
   const handlePlatformToggle = (key, active) => {
     setForm(prev => ({
@@ -98,30 +139,58 @@ export default function SocialMediaReportModal({
 
       const isXodim = currentUser?.role === ROLES.KUTUBXONA_XODIMI;
       const targetLibId =
+        editItem?.libraryId ||
         currentUser?.libraryId ||
         (libraries && libraries[0]?.id) ||
         null;
 
-      const payload = {
-        type: 'social_report',
-        data: JSON.stringify({
-          platforms: formattedPlatforms,
-          totalPosts,
-          generalNote: form.description?.trim() || '',
-          authorName: currentUser?.fullName || 'Xodim',
-          authorRole: currentUser?.role || 'kutubxona_xodimi',
-        }),
-        description: descParts.join(' | ') || `${totalPosts} ta post/e'lon joylandi`,
-        date: form.date,
-        time: form.time,
-        count: totalPosts,
-        libraryId: targetLibId,
-        userId: currentUser?.id,
-        status: isXodim ? 'submitted' : 'accepted',
-      };
+      if (editItem) {
+        let existingData = {};
+        try {
+          existingData = typeof editItem.data === 'object' && editItem.data
+            ? editItem.data
+            : JSON.parse(editItem.data || '{}');
+        } catch {
+          existingData = {};
+        }
 
-      await createEntity(STORAGE_KEYS.ACTIVITIES, payload);
-      toast.success("Ijtimoiy tarmoqlar hisoboti muvaffaqiyatli saqlandi!");
+        const updatePayload = {
+          data: JSON.stringify({
+            ...existingData,
+            platforms: formattedPlatforms,
+            totalPosts,
+            generalNote: form.description?.trim() || '',
+          }),
+          description: descParts.join(' | ') || `${totalPosts} ta post/e'lon joylandi`,
+          date: form.date,
+          time: form.time,
+          count: totalPosts,
+        };
+        await updateEntity(STORAGE_KEYS.ACTIVITIES, editItem.id, updatePayload);
+        toast.success("Ijtimoiy tarmoqlar hisoboti muvaffaqiyatli yangilandi!");
+      } else {
+        const payload = {
+          type: 'social_report',
+          data: JSON.stringify({
+            platforms: formattedPlatforms,
+            totalPosts,
+            generalNote: form.description?.trim() || '',
+            authorName: currentUser?.fullName || 'Xodim',
+            authorRole: currentUser?.role || 'kutubxona_xodimi',
+          }),
+          description: descParts.join(' | ') || `${totalPosts} ta post/e'lon joylandi`,
+          date: form.date,
+          time: form.time,
+          count: totalPosts,
+          libraryId: targetLibId,
+          userId: currentUser?.id,
+          status: isXodim ? 'submitted' : 'accepted',
+        };
+
+        await createEntity(STORAGE_KEYS.ACTIVITIES, payload);
+        toast.success("Ijtimoiy tarmoqlar hisoboti muvaffaqiyatli saqlandi!");
+      }
+
       setForm(buildInitialSocialForm());
       if (onSuccess) onSuccess();
       onClose();
@@ -137,7 +206,7 @@ export default function SocialMediaReportModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Ijtimoiy tarmoqlar hisobotini kiritish"
+      title={editItem ? "Ijtimoiy tarmoqlar hisobotini tahrirlash" : "Ijtimoiy tarmoqlar hisobotini kiritish"}
       size="lg"
       footer={
         <>
@@ -149,7 +218,7 @@ export default function SocialMediaReportModal({
             disabled={isSubmitting}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            <ICONS.save /> {isSubmitting ? "Saqlanmoqda..." : "Hisobotni saqlash"}
+            <ICONS.save /> {isSubmitting ? "Saqlanmoqda..." : (editItem ? "Yangilash" : "Hisobotni saqlash")}
           </Button>
         </>
       }

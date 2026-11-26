@@ -370,6 +370,18 @@ export const SOCIAL_PLATFORMS = [
     placeholder: 'YouTube kanalga qanday video, shorts yoki efir yuklandi?...',
     unit: 'ta video/shorts',
   },
+  {
+    key: 'website',
+    label: 'Web sahifa',
+    icon: 'globe',
+    color: '#059669',
+    textColor: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    badgeColor: 'emerald',
+    placeholder: "Web sahifaga (rasmiy saytga) qanday yangilik, maqola yoki e'lon joylandi?...",
+    unit: 'ta yangilik/maqola',
+  },
 ];
 
 // --- REPORT STATUS ---

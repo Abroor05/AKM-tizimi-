@@ -10,6 +10,7 @@ import Card from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
@@ -79,6 +80,8 @@ export default function XBReports() {
     submitReport,
     getCollection,
     createEntity,
+    updateEntity,
+    deleteEntity,
     acceptActivity,
     forwardDailyActivityToAdmins,
     forwardMonthlyReportToAdmins,
@@ -145,11 +148,15 @@ export default function XBReports() {
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingReport, setEditingReport] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { kind: 'report'|'activity', item }
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [createType, setCreateType] = useState(REPORT_TYPES.MONTHLY);
   const [detailReport, setDetailReport] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDailyAddModal, setShowDailyAddModal] = useState(false);
+  const [editingDailyAct, setEditingDailyAct] = useState(null);
 
   // Form state for new report
   const [form, setForm] = useState({
@@ -427,6 +434,7 @@ export default function XBReports() {
 
   // Yangi hisobot yaratish modalini ochish
   const handleOpenCreateModal = (type = REPORT_TYPES.MONTHLY, targetPeriod = null) => {
+    setEditingReport(null);
     const period = targetPeriod || (type === REPORT_TYPES.ANNUAL ? currentYearStr : type === REPORT_TYPES.DAILY ? today : currentMonthStr);
     setCreateType(type);
     const aggregated = autoAggregateForForm(period, type);
@@ -443,6 +451,58 @@ export default function XBReports() {
       daysCount: aggregated.daysCount,
     });
     setShowCreateModal(true);
+  };
+
+  // Mavjud hisobotni tahrirlash modalini ochish
+  const handleOpenEditReport = (rep) => {
+    if (!rep) return;
+    const d = parseData(rep);
+    const totals = d.totals || {};
+    setEditingReport(rep);
+    setCreateType(rep.type || REPORT_TYPES.MONTHLY);
+    setForm({
+      title: rep.title || '',
+      period: rep.period || currentMonthStr,
+      description: rep.description || '',
+      targetRecipients: Array.isArray(d.targetRecipients) && d.targetRecipients.length > 0
+        ? d.targetRecipients
+        : (rep.targetRole ? String(rep.targetRole).split(',').map(s => s.trim()).filter(Boolean) : ['super_admin', 'viloyat_admin']),
+      counts: {
+        kitob_skanerlash: Number(totals.kitob_skanerlash || 0),
+        kitob_pdf: Number(totals.kitob_pdf || 0),
+        ijtimoiy_tarmoq: Number(totals.ijtimoiy_tarmoq || 0),
+        texnik_xizmat: Number(totals.texnik_xizmat || 0),
+        jihozlash: Number(totals.jihozlash || 0),
+        tuzatish: Number(totals.tuzatish || 0),
+        boshqa: Number(totals.boshqa || 0),
+      },
+      visitors: Number(rep.visitors ?? d.visitors ?? 0),
+      events: Number(rep.events ?? d.events ?? 0),
+      staffContributions: d.staffContributions || {},
+      actsCount: d.actsCount || 0,
+      daysCount: d.daysCount || 0,
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget?.item) return;
+    setIsDeleting(true);
+    try {
+      if (deleteTarget.kind === 'report') {
+        await deleteEntity(STORAGE_KEYS.REPORTS, deleteTarget.item.id);
+        if (detailReport?.id === deleteTarget.item.id) setDetailReport(null);
+        toast.success("Hisobot muvaffaqiyatli o'chirildi!");
+      } else {
+        await deleteEntity(STORAGE_KEYS.ACTIVITIES, deleteTarget.item.id);
+        toast.success("Kunlik hisobot muvaffaqiyatli o'chirildi!");
+      }
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error("O'chirishda xatolik: " + (err.message || 'Server xatosi'));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Davr o'zgarganda avtomatik qayta jamlash
@@ -541,12 +601,48 @@ export default function XBReports() {
         },
       };
 
-      await createReport(reportPayload);
-      setShowCreateModal(false);
-      if (submitNow) {
-        toast.success(`Hisobot muvaffaqiyatli saqlandi va ${recipientText}ga jo'natildi!`);
+      if (editingReport) {
+        const existingData = parseData(editingReport);
+        const updatedPayload = {
+          title: form.title,
+          type: createType,
+          period: form.period,
+          description: form.description,
+          targetRole: form.targetRecipients.join(','),
+          ...(submitNow ? { status: REPORT_STATUS.SUBMITTED, submittedAt: editingReport.submittedAt || today } : {}),
+          data: {
+            ...existingData,
+            totals: form.counts,
+            grandTotal,
+            visitors: Number(form.visitors) || 0,
+            events: Number(form.events) || 0,
+            targetRecipients: form.targetRecipients,
+            sentToText: recipientText,
+            staffContributions: form.staffContributions || existingData.staffContributions || {},
+            actsCount: form.actsCount ?? existingData.actsCount ?? 0,
+            daysCount: form.daysCount ?? existingData.daysCount ?? 0,
+            authorName: currentUser?.fullName,
+            authorRole: 'xodimlar_boshligi',
+            libraryName: myLibrary?.name || existingData.libraryName || '',
+            viloyatId: currentUser?.viloyatId,
+            tumanId: currentUser?.tumanId,
+          },
+        };
+        const updated = await updateEntity(STORAGE_KEYS.REPORTS, editingReport.id, updatedPayload);
+        if (detailReport?.id === editingReport.id) {
+          setDetailReport({ ...updated, data: updatedPayload.data });
+        }
+        setShowCreateModal(false);
+        setEditingReport(null);
+        toast.success("Hisobot muvaffaqiyatli yangilandi!");
       } else {
-        toast.info("Hisobot qoralama sifatida saqlandi.");
+        await createReport(reportPayload);
+        setShowCreateModal(false);
+        if (submitNow) {
+          toast.success(`Hisobot muvaffaqiyatli saqlandi va ${recipientText}ga jo'natildi!`);
+        } else {
+          toast.info("Hisobot qoralama sifatida saqlandi.");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -596,15 +692,50 @@ export default function XBReports() {
     }
   };
 
-  // O'z kunlik hisobotini kiritish
-  const handleSaveHeadDaily = () => {
+  const openEditDailyAct = (act) => {
+    const d = parseData(act);
+    const notesObj = d.notes || {};
+    setEditingDailyAct(act);
+    setDailyForm({
+      date: act.date || today,
+      time: act.time || new Date().toTimeString().slice(0, 5),
+      counts: {
+        kitob_skanerlash: d.kitob_skanerlash ? String(d.kitob_skanerlash) : '',
+        kitob_pdf: d.kitob_pdf ? String(d.kitob_pdf) : '',
+      },
+      tasks: {
+        texnik_xizmat: Boolean(d.texnik_xizmat && Number(d.texnik_xizmat) > 0),
+        jihozlash: Boolean(d.jihozlash && Number(d.jihozlash) > 0),
+        tuzatish: Boolean(d.tuzatish && Number(d.tuzatish) > 0),
+        boshqa: Boolean(d.boshqa && Number(d.boshqa) > 0),
+      },
+      notes: {
+        texnik_xizmat: notesObj.texnik_xizmat || '',
+        jihozlash: notesObj.jihozlash || '',
+        tuzatish: notesObj.tuzatish || '',
+        boshqa: notesObj.boshqa || '',
+      },
+      description: act.description || '',
+    });
+    setShowDailyAddModal(true);
+  };
+
+  // O'z kunlik hisobotini kiritish yoki tahrirlash
+  const handleSaveHeadDaily = async () => {
     const hasNumeric = (Number(dailyForm.counts.kitob_skanerlash) > 0) || (Number(dailyForm.counts.kitob_pdf) > 0);
     const hasTasks = Object.values(dailyForm.tasks).some(Boolean);
-    if (!hasNumeric && !hasTasks) {
+    const hasDesc = Boolean(dailyForm.description?.trim());
+    if (!hasNumeric && !hasTasks && !hasDesc) {
       toast.warning("Kamida bitta faoliyat turini belgilang yoki sonini kiriting!");
       return;
     }
     const data = {};
+    if (editingDailyAct) {
+      const existingData = parseData(editingDailyAct);
+      if (Number(existingData.ijtimoiy_tarmoq) > 0) {
+        data.ijtimoiy_tarmoq = Number(existingData.ijtimoiy_tarmoq);
+      }
+    }
     if (Number(dailyForm.counts.kitob_skanerlash) > 0) {
       data.kitob_skanerlash = Number(dailyForm.counts.kitob_skanerlash);
     }
@@ -628,22 +759,36 @@ export default function XBReports() {
     if (dailyForm.description?.trim()) descParts.push(dailyForm.description.trim());
     Object.entries(taskNotes).forEach(([k, note]) => {
       const label = ACTIVITY_TYPE_LABELS[k] || k;
-      descParts.push(`${label}: ${note}`);
+      if (!dailyForm.description?.includes(`${label}: ${note}`)) {
+        descParts.push(`${label}: ${note}`);
+      }
     });
 
     try {
-      createEntity(STORAGE_KEYS.ACTIVITIES, {
-        type: 'daily_report',
-        data: JSON.stringify(data),
-        description: descParts.join(' | ') || dailyForm.description,
-        date: dailyForm.date,
-        time: dailyForm.time,
-        libraryId: currentUser?.libraryId || myLibrary?.id || (libraries && libraries[0]?.id) || null,
-        userId: currentUser?.id,
-        status: 'accepted',
-      });
+      if (editingDailyAct) {
+        await updateEntity(STORAGE_KEYS.ACTIVITIES, editingDailyAct.id, {
+          data: JSON.stringify(data),
+          description: descParts.join(' | ') || dailyForm.description || '',
+          date: dailyForm.date,
+          time: dailyForm.time,
+        });
+        toast.success("Kunlik hisobot muvaffaqiyatli yangilandi!");
+      } else {
+        await createEntity(STORAGE_KEYS.ACTIVITIES, {
+          type: 'daily_report',
+          data: JSON.stringify(data),
+          description: descParts.join(' | ') || dailyForm.description,
+          date: dailyForm.date,
+          time: dailyForm.time,
+          libraryId: currentUser?.libraryId || myLibrary?.id || (libraries && libraries[0]?.id) || null,
+          userId: currentUser?.id,
+          status: 'accepted',
+        });
+        toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
+      }
 
       setShowDailyAddModal(false);
+      setEditingDailyAct(null);
       setDailyForm({
         date: today,
         time: new Date().toTimeString().slice(0, 5),
@@ -652,7 +797,6 @@ export default function XBReports() {
         notes: { texnik_xizmat: '', jihozlash: '', tuzatish: '', boshqa: '' },
         description: '',
       });
-      toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
     } catch (err) {
       toast.error("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || ''));
     }
@@ -899,14 +1043,32 @@ export default function XBReports() {
                       </Button>
 
                       {rep && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => setDetailReport(rep)}
-                          className="text-xs"
-                        >
-                          <ICONS.eye className="text-xs" /> Ko'rish
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setDetailReport(rep)}
+                            className="text-xs"
+                          >
+                            <ICONS.eye className="text-xs" /> Ko'rish
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleOpenEditReport(rep)}
+                            className="text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
+                          >
+                            <ICONS.edit className="text-xs" /> Tahrirlash
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setDeleteTarget({ kind: 'report', item: rep })}
+                            className="text-xs text-rose-700 border-rose-200 hover:bg-rose-50"
+                          >
+                            <ICONS.trash className="text-xs" /> O'chirish
+                          </Button>
+                        </>
                       )}
 
                       {!rep && (
@@ -1013,7 +1175,7 @@ export default function XBReports() {
 
             <div className="flex items-center gap-2">
               {yearGrandTotals.officialReport ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge color={REPORT_STATUS_COLORS[yearGrandTotals.officialReport.status] || 'blue'}>
                     {REPORT_STATUS_LABELS[yearGrandTotals.officialReport.status]}
                   </Badge>
@@ -1023,6 +1185,22 @@ export default function XBReports() {
                     onClick={() => setDetailReport(yearGrandTotals.officialReport)}
                   >
                     <ICONS.eye /> Ko'rish
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleOpenEditReport(yearGrandTotals.officialReport)}
+                    className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                  >
+                    <ICONS.edit /> Tahrirlash
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setDeleteTarget({ kind: 'report', item: yearGrandTotals.officialReport })}
+                    className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                  >
+                    <ICONS.trash /> O'chirish
                   </Button>
                 </div>
               ) : (
@@ -1259,31 +1437,43 @@ export default function XBReports() {
                             </Badge>
                           </td>
                           <td className="text-center px-4 py-3">
-                            {act.status === 'sent' && !isHead ? (
+                            <div className="flex items-center justify-center gap-1.5">
+                              {act.status === 'sent' && !isHead ? (
+                                <button
+                                  onClick={() => handleAcceptDaily(act)}
+                                  className="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium"
+                                >
+                                  Qabul qilish
+                                </button>
+                              ) : isSentToAdmin ? (
+                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                                  Adminga yuborilgan
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleSendDailyToAdmins(act)}
+                                  disabled={isSubmitting}
+                                  className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs flex items-center gap-1"
+                                  title="Super Admin va Viloyat Adminiga jo'natish"
+                                >
+                                  <ICONS.paperPlane className="text-[10px]" /> Adminga jo'natish
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleAcceptDaily(act)}
-                                className="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium"
+                                onClick={() => openEditDailyAct(act)}
+                                className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 transition-colors"
+                                title="Tahrirlash"
                               >
-                                Qabul qilish
+                                <ICONS.edit className="text-xs" />
                               </button>
-                            ) : (
-                              <div className="flex items-center justify-center gap-1.5">
-                                {isSentToAdmin ? (
-                                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
-                                    Adminga yuborilgan
-                                  </span>
-                                ) : (
-                                  <button
-                                    onClick={() => handleSendDailyToAdmins(act)}
-                                    disabled={isSubmitting}
-                                    className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs flex items-center gap-1"
-                                    title="Super Admin va Viloyat Adminiga jo'natish"
-                                  >
-                                    <ICONS.paperPlane className="text-[10px]" /> Adminga jo'natish
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                              <button
+                                onClick={() => setDeleteTarget({ kind: 'activity', item: act })}
+                                className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"
+                                title="O'chirish"
+                              >
+                                <ICONS.trash className="text-xs" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1351,13 +1541,29 @@ export default function XBReports() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => setDetailReport(rep)}
                       >
                         <ICONS.eye /> Batafsil ko'rish
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleOpenEditReport(rep)}
+                        className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                      >
+                        <ICONS.edit /> Tahrirlash
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setDeleteTarget({ kind: 'report', item: rep })}
+                        className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                      >
+                        <ICONS.trash /> O'chirish
                       </Button>
                     </div>
                   </div>
@@ -1387,46 +1593,58 @@ export default function XBReports() {
       )}
 
       {/* ══════════════════════════════════════════════════════════
-          MODAL: YANGI HISOBOT YARATISH (Oylik / Yillik)
+          MODAL: YANGI HISOBOT YARATISH / TAHRIRLASH (Oylik / Yillik)
       ══════════════════════════════════════════════════════════ */}
       {showCreateModal && (
         <Modal
           isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          title={`Yangi ${createType === REPORT_TYPES.ANNUAL ? 'Yillik' : 'Oylik'} Hisobot shakllantirish`}
+          onClose={() => { setShowCreateModal(false); setEditingReport(null); }}
+          title={editingReport ? `Hisobotni tahrirlash: ${editingReport.title}` : `Yangi ${createType === REPORT_TYPES.ANNUAL ? 'Yillik' : 'Oylik'} Hisobot shakllantirish`}
           size="xl"
           footer={
             <div className="flex flex-wrap items-center justify-between w-full gap-2">
               <Button
                 variant="secondary"
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => { setShowCreateModal(false); setEditingReport(null); }}
                 disabled={isSubmitting}
               >
                 Bekor qilish
               </Button>
 
               <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => handleSaveReport(false)}
-                  disabled={isSubmitting}
-                  className="border-slate-300 text-slate-700"
-                >
-                  <ICONS.save /> Qoralama sifatida saqlash
-                </Button>
+                {editingReport ? (
+                  <Button
+                    onClick={() => handleSaveReport(editingReport.status === REPORT_STATUS.SUBMITTED)}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
+                  >
+                    <ICONS.save /> {isSubmitting ? "Saqlanmoqda..." : "O'zgarishlarni saqlash"}
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleSaveReport(false)}
+                      disabled={isSubmitting}
+                      className="border-slate-300 text-slate-700"
+                    >
+                      <ICONS.save /> Qoralama sifatida saqlash
+                    </Button>
 
-                <Button
-                  onClick={() => handleSaveReport(true)}
-                  disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
-                >
-                  {isSubmitting ? (
-                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <ICONS.paperPlane />
-                  )}
-                  Super & Viloyat Adminga jo'natish
-                </Button>
+                    <Button
+                      onClick={() => handleSaveReport(true)}
+                      disabled={isSubmitting}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
+                    >
+                      {isSubmitting ? (
+                        <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <ICONS.paperPlane />
+                      )}
+                      Super & Viloyat Adminga jo'natish
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           }
@@ -1794,13 +2012,13 @@ export default function XBReports() {
       {showDailyAddModal && (
         <Modal
           isOpen={showDailyAddModal}
-          onClose={() => setShowDailyAddModal(false)}
-          title="O'zim bajargan kunlik faoliyatni kiritish"
+          onClose={() => { setShowDailyAddModal(false); setEditingDailyAct(null); }}
+          title={editingDailyAct ? "Kunlik hisobotni tahrirlash" : "O'zim bajargan kunlik faoliyatni kiritish"}
           size="lg"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setShowDailyAddModal(false)}>Bekor qilish</Button>
-              <Button onClick={handleSaveHeadDaily}><ICONS.save /> Saqlash</Button>
+              <Button variant="secondary" onClick={() => { setShowDailyAddModal(false); setEditingDailyAct(null); }}>Bekor qilish</Button>
+              <Button onClick={handleSaveHeadDaily}><ICONS.save /> {editingDailyAct ? "Yangilash" : "Saqlash"}</Button>
             </>
           }
         >
@@ -2019,6 +2237,18 @@ export default function XBReports() {
           createEntity={createEntity}
         />
       )}
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title={deleteTarget?.kind === 'report' ? "Hisobotni o'chirish" : "Kunlik hisobotni o'chirish"}
+        message={`Haqiqatan ham "${deleteTarget?.item?.title || (deleteTarget?.item?.date ? formatDate(deleteTarget.item.date) + ' kunlik hisoboti' : 'ushbu hisobot')}"ni o'chirib tashlamoqchimisiz?`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
+      />
     </div>
   );
 }

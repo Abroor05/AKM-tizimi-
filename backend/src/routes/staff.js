@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { getAll, getById, insertRow, updateRow, deleteRow, query } from '../db/database.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { getScopeContext, filterByScope, canAccessItem } from '../utils/scope.js';
 
 const staffRouter = Router();
 
@@ -24,11 +25,12 @@ export function isXizmatRahbariRole(pos) {
   return p === 'xizmat rahbari' || p === 'xizmat_rahbari' || p === 'xizmat-rahbari';
 }
 
-// GET /api/staff - Barcha xodimlarni olish (faqat staff jadvalidan)
-staffRouter.get('/', authMiddleware, async (_req, res, next) => {
+// GET /api/staff - Xodimlarni hududiy cheklov bilan olish (faqat staff jadvalidan)
+staffRouter.get('/', authMiddleware, async (req, res, next) => {
   try {
     const items = await getAll('staff');
-    res.json(items);
+    const ctx = await getScopeContext(req.user);
+    res.json(filterByScope('staff', items, req.user, ctx));
   } catch (err) {
     next(err);
   }
@@ -39,6 +41,10 @@ staffRouter.get('/:id', authMiddleware, async (req, res, next) => {
   try {
     const item = await getById('staff', req.params.id);
     if (!item) return res.status(404).json({ error: 'Xodim topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('staff', item, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu xodim ma\'lumotini ko\'rishga ruxsat yo\'q' });
+    }
     res.json(item);
   } catch (err) {
     next(err);
@@ -186,6 +192,10 @@ staffRouter.put('/:id', authMiddleware, async (req, res, next) => {
 
     const existing = await getById('staff', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Xodim topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('staff', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Siz faqat o\'z hududingizdagi xodimlarni tahrirlashingiz mumkin' });
+    }
 
     const updates = { ...req.body };
 
@@ -240,6 +250,10 @@ staffRouter.delete('/:id', authMiddleware, async (req, res, next) => {
 
     const existing = await getById('staff', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Xodim topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('staff', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Siz faqat o\'z hududingizdagi xodimlarni tahrirlashingiz mumkin' });
+    }
 
     const success = await deleteRow('staff', req.params.id);
     if (!success) return res.status(404).json({ error: 'Topilmadi' });

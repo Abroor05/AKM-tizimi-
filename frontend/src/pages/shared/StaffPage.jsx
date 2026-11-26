@@ -65,6 +65,9 @@ export default function StaffPage() {
     if (isDistrictScopedUser) {
       const vId = currentUser?.viloyatId || currentUser?.viloyat_id;
       const tId = currentUser?.tumanId || currentUser?.tuman_id;
+      if (!tId) {
+        return currentUser?.libraryId ? allLibraries.filter((l) => l.id === currentUser.libraryId) : [];
+      }
       return allLibraries.filter(
         (l) =>
           (!vId || (l.viloyatId || l.viloyat_id) === vId) &&

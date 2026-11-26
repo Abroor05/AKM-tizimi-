@@ -16,15 +16,34 @@ import { STORAGE_KEYS, EVENT_TYPES, EVENT_TYPE_LABELS, ROLES } from '../../data/
 import { VILOYATLAR, getViloyatById, getTumanName } from '../../data/regions.js';
 import { formatDate } from '../../utils/helpers.js';
 
+function parseEventLinks(ev) {
+  if (!ev?.links) return [];
+  if (Array.isArray(ev.links)) return ev.links;
+  try {
+    const parsed = JSON.parse(ev.links);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeUrl(url) {
+  const s = (url || '').trim();
+  if (!s) return '';
+  return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+}
+
 export default function EventsPage() {
   const { currentUser, getCollection, createEntity, updateEntity, deleteEntity, createNotification, isRole, hasPermission } = useApp();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
 
   const isSuperAdmin = isRole(ROLES.SUPER_ADMIN);
   const isViloyatAdmin = isRole(ROLES.VILOYAT_ADMIN);
   const isTumanAdmin = isRole(ROLES.TUMAN_ADMIN);
+  const isDistrictUser = isRole(ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI, ROLES.KUTUBXONA_XODIMI);
 
   const defaultViloyatId = currentUser?.viloyatId || 'v01';
   const currentViloyat = useMemo(() => getViloyatById(defaultViloyatId) || VILOYATLAR[0], [defaultViloyatId]);
@@ -41,8 +60,9 @@ export default function EventsPage() {
     libraryId: '',
     viloyatId: defaultViloyatId,
     tumanId: currentUser?.tumanId || '',
-    targetScope: isTumanAdmin ? 'own_tuman' : 'all_tumans',
+    targetScope: isDistrictUser ? 'self' : 'all_tumans',
     targetTumans: [],
+    links: [],
   });
 
   const allEvents = useMemo(() => getCollection(STORAGE_KEYS.EVENTS), [getCollection]);
@@ -61,12 +81,17 @@ export default function EventsPage() {
 
       const sameViloyat = !ev.viloyatId || ev.viloyatId === currentUser?.viloyatId;
 
-      // Viloyat Admini o'z viloyatidagi barcha tadbirlarni ko'radi
+      // Viloyat Admini o'z viloyatidagi barcha tadbirlarni ko'radi (boshqa rolning 'self' i bo'lmasa)
       if (isViloyatAdmin) {
+        if (ev.targetScope === 'self') return Boolean(ev.viloyatId === currentUser?.viloyatId);
         return sameViloyat || scopedLibIds.includes(ev.libraryId);
       }
 
-      // Tuman Admini:
+      // Tuman Admini va tuman darajasidagi xodimlar:
+      if (ev.targetScope === 'self' || ev.targetScope === 'own_tuman') {
+        return Boolean(sameViloyat && (ev.tumanId === currentUser?.tumanId || scopedLibIds.includes(ev.libraryId)));
+      }
+
       if (isTumanAdmin) {
         if (!sameViloyat && !scopedLibIds.includes(ev.libraryId)) return false;
         // 1. Agar barcha tumanlarga yuborilgan bo'lsa
@@ -128,6 +153,38 @@ export default function EventsPage() {
     }));
   };
 
+  const handleLinksCountChange = (rawCount) => {
+    if (rawCount === '') {
+      setForm(prev => ({ ...prev, links: [] }));
+      return;
+    }
+    const parsed = Math.max(0, Math.min(20, parseInt(rawCount, 10) || 0));
+    setForm(prev => {
+      const current = Array.isArray(prev.links) ? [...prev.links] : [];
+      if (parsed > current.length) {
+        while (current.length < parsed) current.push({ title: '', url: '' });
+      } else if (parsed < current.length) {
+        current.length = parsed;
+      }
+      return { ...prev, links: current };
+    });
+  };
+
+  const handleLinkItemChange = (index, field, value) => {
+    setForm(prev => {
+      const updated = [...(prev.links || [])];
+      updated[index] = { ...(updated[index] || { title: '', url: '' }), [field]: value };
+      return { ...prev, links: updated };
+    });
+  };
+
+  const handleRemoveLinkItem = (index) => {
+    setForm(prev => ({
+      ...prev,
+      links: (prev.links || []).filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSave = async () => {
     if (!form.title?.trim() || !form.type || !form.date) {
       toast.warning("Iltimos, tadbir nomi, turi va sanasini to'ldiring!");
@@ -139,38 +196,58 @@ export default function EventsPage() {
       return;
     }
 
+    const cleanedLinks = (form.links || [])
+      .map(l => ({ title: (l.title || '').trim(), url: (l.url || '').trim() }))
+      .filter(l => l.title || l.url);
+
+    const hasIncompleteLink = cleanedLinks.some(l => !l.url);
+    if (hasIncompleteLink) {
+      toast.warning("Har bir qo'shilgan havola uchun link (URL) manzilini kiriting!");
+      return;
+    }
+
+    const isSelfAdmin = form.targetScope === 'self' && (isSuperAdmin || isViloyatAdmin);
+
     const saveForm = {
       ...form,
-      viloyatId: form.viloyatId || currentUser?.viloyatId || defaultViloyatId,
-      tumanId: form.tumanId || currentUser?.tumanId || null,
-      libraryId: form.libraryId || scopedLibIds[0] || currentUser?.libraryId || null,
+      links: cleanedLinks,
+      viloyatId: form.targetScope === 'self' && isSuperAdmin ? null : (form.viloyatId || currentUser?.viloyatId || defaultViloyatId),
+      tumanId: isSelfAdmin ? null : (form.tumanId || currentUser?.tumanId || null),
+      libraryId: isSelfAdmin ? null : (form.libraryId || scopedLibIds[0] || currentUser?.libraryId || null),
       organizer: currentUser?.id,
       status: new Date(form.date) > new Date() ? 'upcoming' : 'completed',
     };
 
     if (editItem) {
-      updateEntity(STORAGE_KEYS.EVENTS, editItem.id, saveForm);
+      await updateEntity(STORAGE_KEYS.EVENTS, editItem.id, saveForm);
+      if (detailItem?.id === editItem.id) {
+        setDetailItem(prev => ({ ...prev, ...saveForm }));
+      }
       toast.success("Tadbir muvaffaqiyatli yangilandi!");
     } else {
-      createEntity(STORAGE_KEYS.EVENTS, saveForm);
-      toast.success("Yangi tadbir muvaffaqiyatli yaratildi va yuborildi!");
+      await createEntity(STORAGE_KEYS.EVENTS, saveForm);
+      toast.success(
+        form.targetScope === 'self'
+          ? "Tadbir o'zingiz uchun muvaffaqiyatli saqlandi!"
+          : "Yangi tadbir muvaffaqiyatli yaratildi va yuborildi!"
+      );
 
-      // Bildirishnoma yuborish
-      try {
-        const scopeText = form.targetScope === 'all_tumans'
-          ? "barcha tumanlar"
-          : form.targetScope === 'selected_tumans'
-          ? `${form.targetTumans.length} ta tuman`
-          : "o'z tumani";
+      // Bildirishnoma yuborish (faqat boshqa tumanlarga yuborilganda)
+      if (form.targetScope !== 'self' && form.targetScope !== 'own_tuman') {
+        try {
+          const scopeText = form.targetScope === 'all_tumans'
+            ? "barcha tumanlar"
+            : `${form.targetTumans.length} ta tuman`;
 
-        await createNotification({
-          type: 'event',
-          title: `Yangi tadbir: ${form.title}`,
-          message: `${currentUser?.fullName || 'Admin'} tomonidan yangi tadbir e'lon qilindi (${scopeText}): "${form.title}" - Sana: ${formatDate(form.date)} ${form.time || ''}`,
-          targetRole: 'tuman_admin,xodimlar_boshligi,kutubxona_xodimi',
-        });
-      } catch (e) {
-        console.error('Notification send error:', e);
+          await createNotification({
+            type: 'event',
+            title: `Yangi tadbir: ${form.title}`,
+            message: `${currentUser?.fullName || 'Admin'} tomonidan yangi tadbir e'lon qilindi (${scopeText}): "${form.title}" - Sana: ${formatDate(form.date)} ${form.time || ''}`,
+            targetRole: 'tuman_admin,xodimlar_boshligi,kutubxona_xodimi',
+          });
+        } catch (e) {
+          console.error('Notification send error:', e);
+        }
       }
     }
 
@@ -191,8 +268,9 @@ export default function EventsPage() {
       libraryId: scopedLibIds[0] || currentUser?.libraryId || '',
       viloyatId: defaultViloyatId,
       tumanId: currentUser?.tumanId || '',
-      targetScope: isTumanAdmin ? 'own_tuman' : 'all_tumans',
+      targetScope: isDistrictUser ? 'self' : 'all_tumans',
       targetTumans: [],
+      links: [],
     });
     setShowModal(true);
   };
@@ -210,8 +288,9 @@ export default function EventsPage() {
       libraryId: ev.libraryId || scopedLibIds[0] || '',
       viloyatId: ev.viloyatId || defaultViloyatId,
       tumanId: ev.tumanId || currentUser?.tumanId || '',
-      targetScope: ev.targetScope || (isTumanAdmin ? 'own_tuman' : 'all_tumans'),
+      targetScope: ev.targetScope || (isDistrictUser ? 'self' : 'all_tumans'),
       targetTumans: Array.isArray(ev.targetTumans) ? ev.targetTumans : [],
+      links: parseEventLinks(ev).map(l => ({ title: l.title || '', url: l.url || '' })),
     });
     setShowModal(true);
   };
@@ -241,7 +320,9 @@ export default function EventsPage() {
           {filtered.map(ev => {
             const isAllTumans = ev.targetScope === 'all_tumans';
             const isSelectedTumans = ev.targetScope === 'selected_tumans';
+            const isSelfScope = ev.targetScope === 'self' || ev.targetScope === 'own_tuman';
             const selectedCount = Array.isArray(ev.targetTumans) ? ev.targetTumans.length : 0;
+            const evLinks = parseEventLinks(ev);
 
             return (
               <Card key={ev.id}>
@@ -253,6 +334,13 @@ export default function EventsPage() {
                     <Badge color={ev.status === 'completed' ? 'green' : 'amber'}>
                       {ev.status === 'completed' ? "O'tkazilgan" : "Yaqinlashmoqda"}
                     </Badge>
+                    <button
+                      onClick={() => setDetailItem(ev)}
+                      className="p-1.5 rounded hover:bg-indigo-50 text-indigo-600 transition-colors"
+                      title="To'liq ko'rish"
+                    >
+                      <ICONS.eye className="text-sm" />
+                    </button>
                     {canManage && (
                       <div className="flex items-center gap-1">
                         <button
@@ -279,7 +367,13 @@ export default function EventsPage() {
                   </div>
                 </div>
 
-                <h3 className="font-semibold text-gray-800 text-base">{ev.title}</h3>
+                <h3
+                  onClick={() => setDetailItem(ev)}
+                  title={ev.title}
+                  className="font-semibold text-gray-800 dark:text-slate-100 text-base line-clamp-2 break-words cursor-pointer hover:text-blue-600 transition-colors"
+                >
+                  {ev.title}
+                </h3>
 
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
                   <Badge color="blue">{EVENT_TYPE_LABELS[ev.type] || ev.type}</Badge>
@@ -293,15 +387,23 @@ export default function EventsPage() {
                       <span className="flex items-center gap-1"><ICONS.bullseye className="text-xs" /> {selectedCount} ta tumanga</span>
                     </Badge>
                   )}
-                  {ev.targetScope === 'own_tuman' && (
+                  {isSelfScope && (
                     <Badge color="teal">
-                      <span className="flex items-center gap-1"><ICONS.library className="text-xs" /> {getTumanName(ev.viloyatId, ev.tumanId) || "O'z tumani"}</span>
+                      <span className="flex items-center gap-1">
+                        <ICONS.user className="text-[10px]" />
+                        {ev.targetScope === 'self' ? "O'zimiz uchun" : (getTumanName(ev.viloyatId, ev.tumanId) || "O'zimiz uchun")}
+                      </span>
+                    </Badge>
+                  )}
+                  {evLinks.length > 0 && (
+                    <Badge color="green">
+                      <span className="flex items-center gap-1"><ICONS.externalLink className="text-[10px]" /> {evLinks.length} ta havola</span>
                     </Badge>
                   )}
                 </div>
 
                 {ev.description && (
-                  <p className="text-sm text-gray-500 mt-2 line-clamp-2">{ev.description}</p>
+                  <p className="text-sm text-gray-500 mt-2 line-clamp-2 break-words">{ev.description}</p>
                 )}
 
                 <div className="mt-3 pt-3 border-t border-gray-50 space-y-1.5 text-sm">
@@ -315,9 +417,18 @@ export default function EventsPage() {
                       <span className="truncate">{ev.location}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <ICONS.users className="text-xs text-gray-400" />
-                    <span>{ev.participants || 0} ishtirokchi</span>
+                  <div className="flex items-center justify-between gap-2 text-gray-600">
+                    <span className="flex items-center gap-2">
+                      <ICONS.users className="text-xs text-gray-400" />
+                      <span>{ev.participants || 0} ishtirokchi</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setDetailItem(ev)}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                    >
+                      <ICONS.eye className="text-[11px]" /> Ko'rish
+                    </button>
                   </div>
                 </div>
               </Card>
@@ -396,18 +507,16 @@ export default function EventsPage() {
               Tadbirni yuborish va qamrovi:
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {isTumanAdmin && (
-                <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer text-xs font-medium transition-all ${form.targetScope === 'own_tuman' ? 'border-blue-500 bg-white dark:bg-slate-800 shadow-xs text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'}`}>
-                  <input
-                    type="radio"
-                    name="targetScope"
-                    checked={form.targetScope === 'own_tuman'}
-                    onChange={() => setForm({ ...form, targetScope: 'own_tuman' })}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="flex items-center gap-1.5"><ICONS.library className="text-xs text-blue-600" /> Faqat o'z tumanimga</span>
-                </label>
-              )}
+              <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer text-xs font-medium transition-all ${(form.targetScope === 'self' || form.targetScope === 'own_tuman') ? 'border-blue-500 bg-white dark:bg-slate-800 shadow-xs text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'}`}>
+                <input
+                  type="radio"
+                  name="targetScope"
+                  checked={form.targetScope === 'self' || form.targetScope === 'own_tuman'}
+                  onChange={() => setForm({ ...form, targetScope: 'self' })}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                <span className="flex items-center gap-1.5"><ICONS.user className="text-xs text-teal-600" /> O'zimiz uchun</span>
+              </label>
 
               <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer text-xs font-medium transition-all ${form.targetScope === 'all_tumans' ? 'border-blue-500 bg-white dark:bg-slate-800 shadow-xs text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'}`}>
                 <input
@@ -497,8 +606,220 @@ export default function EventsPage() {
             placeholder="Tadbir maqsadi, qatnashuvchilar toifalari..."
             className="sm:col-span-2"
           />
+
+          {/* Havolalar soniga qarab alohida Sarlavha va Link inputlari */}
+          <div className="sm:col-span-2 p-4 bg-slate-50/90 dark:bg-slate-800/70 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                  <ICONS.externalLink className="text-xs text-indigo-600" />
+                  Tadbir havolalari (Linklar)
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Nechta link qo'ymoqchi bo'lsangiz sonini kiriting — har biri uchun alohida sarlavha va link maydoni chiqadi
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Havolalar soni:</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={form.links?.length || 0}
+                  onChange={(e) => handleLinksCountChange(e.target.value)}
+                  className="w-20 px-2.5 py-1.5 text-center text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              </div>
+            </div>
+
+            {Array.isArray(form.links) && form.links.length > 0 && (
+              <div className="space-y-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-700 max-h-60 overflow-y-auto pr-1">
+                {form.links.map((linkItem, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end"
+                  >
+                    <div className="sm:col-span-5">
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                        {idx + 1}-havola sarlavhasi
+                      </label>
+                      <input
+                        type="text"
+                        value={linkItem.title}
+                        onChange={(e) => handleLinkItemChange(idx, 'title', e.target.value)}
+                        placeholder="Masalan: Telegram post, Sayt xabari..."
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </div>
+                    <div className="sm:col-span-6">
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                        {idx + 1}-havola linki (URL)
+                      </label>
+                      <input
+                        type="url"
+                        value={linkItem.url}
+                        onChange={(e) => handleLinkItemChange(idx, 'url', e.target.value)}
+                        placeholder="https://..."
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </div>
+                    <div className="sm:col-span-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLinkItem(idx)}
+                        className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        title="Ushbu havolani olib tashlash"
+                      >
+                        <ICONS.trash className="text-xs" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
+
+      {/* Ko'rish (Tafsilotlar) Modali — uzun sarlavha, tavsif va barcha linklar to'liq ko'rinadi */}
+      {detailItem && (() => {
+        const detailLinks = parseEventLinks(detailItem);
+        const detailLib = libraries.find(l => l.id === detailItem.libraryId);
+        const isAllTumans = detailItem.targetScope === 'all_tumans';
+        const isSelectedTumans = detailItem.targetScope === 'selected_tumans';
+        const isSelfScope = detailItem.targetScope === 'self' || detailItem.targetScope === 'own_tuman';
+        const selectedTumanNames = isSelectedTumans && Array.isArray(detailItem.targetTumans)
+          ? detailItem.targetTumans.map(tid => getTumanName(detailItem.viloyatId || defaultViloyatId, tid) || tid)
+          : [];
+
+        return (
+          <Modal
+            isOpen={Boolean(detailItem)}
+            onClose={() => setDetailItem(null)}
+            title="Tadbir tafsilotlari"
+            size="lg"
+            footer={
+              <div className="flex items-center justify-between w-full gap-2">
+                {canManage ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const target = detailItem;
+                      setDetailItem(null);
+                      openEdit(target);
+                    }}
+                    className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                  >
+                    <ICONS.edit className="text-xs" /> Tahrirlash
+                  </Button>
+                ) : <div />}
+                <Button variant="secondary" onClick={() => setDetailItem(null)}>
+                  Yopish
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge color={detailItem.status === 'completed' ? 'green' : 'amber'}>
+                    {detailItem.status === 'completed' ? "O'tkazilgan" : "Yaqinlashmoqda"}
+                  </Badge>
+                  <Badge color="blue">{EVENT_TYPE_LABELS[detailItem.type] || detailItem.type}</Badge>
+                  {isAllTumans && <Badge color="purple">Barcha tumanlarga</Badge>}
+                  {isSelectedTumans && <Badge color="indigo">{selectedTumanNames.length} ta tumanga</Badge>}
+                  {isSelfScope && <Badge color="teal">O'zimiz uchun</Badge>}
+                </div>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-slate-100 break-words leading-snug">
+                  {detailItem.title}
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-1.5">
+                  <p className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    <ICONS.calendar className="text-slate-400" />
+                    <span><strong>Sana va vaqt:</strong> {formatDate(detailItem.date)} {detailItem.time ? `• ${detailItem.time}` : ''}</span>
+                  </p>
+                  <p className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    <ICONS.location className="text-slate-400" />
+                    <span><strong>Joyi:</strong> {detailItem.location || 'Belgilanmagan'}</span>
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-1.5">
+                  <p className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    <ICONS.users className="text-slate-400" />
+                    <span><strong>Ishtirokchilar:</strong> {detailItem.participants || 0} nafar</span>
+                  </p>
+                  {detailLib && (
+                    <p className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                      <ICONS.library className="text-slate-400" />
+                      <span><strong>Kutubxona:</strong> {detailLib.name}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {selectedTumanNames.length > 0 && (
+                <div className="p-3 rounded-xl border border-indigo-200 bg-indigo-50/50 text-xs">
+                  <p className="font-bold text-indigo-900 mb-1.5">Yuborilgan tumanlar:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedTumanNames.map((name, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-md bg-white border border-indigo-200 text-indigo-800 font-medium">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {detailItem.description && (
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
+                  <span className="font-bold text-slate-900 dark:text-white block mb-1">Qo'shimcha tavsif:</span>
+                  {detailItem.description}
+                </div>
+              )}
+
+              {detailLinks.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Tadbir havolalari ({detailLinks.length} ta):
+                  </h4>
+                  <div className="space-y-2">
+                    {detailLinks.map((l, idx) => {
+                      const href = normalizeUrl(l.url);
+                      return (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 break-words">
+                              {idx + 1}. {l.title || 'Havola'}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-mono truncate">{l.url}</p>
+                          </div>
+                          {href && (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold shrink-0"
+                            >
+                              <ICONS.externalLink className="text-[11px]" /> Ochish
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

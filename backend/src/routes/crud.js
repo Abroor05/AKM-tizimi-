@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { getAll, getById, insertRow, updateRow, deleteRow, getTableColumns, query } from '../db/database.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { getScopeContext, filterByScope, canAccessItem, canModifyItem } from '../utils/scope.js';
 
 // Entity configuration: maps API path -> DB table name
 const ENTITY_CONFIG = {
@@ -39,11 +40,12 @@ export function createCrudRouter(apiPath, tableName) {
   const router = Router();
   const prefix = ID_PREFIXES[apiPath] || 'ent';
 
-  // GET /api/{entity} - list all
-  router.get('/', authMiddleware, async (_req, res, next) => {
+  // GET /api/{entity} - list scoped items
+  router.get('/', authMiddleware, async (req, res, next) => {
     try {
       const items = await getAll(tableName);
-      res.json(items);
+      const ctx = await getScopeContext(req.user);
+      res.json(filterByScope(tableName, items, req.user, ctx));
     } catch (err) {
       next(err);
     }
@@ -54,6 +56,10 @@ export function createCrudRouter(apiPath, tableName) {
     try {
       const item = await getById(tableName, req.params.id);
       if (!item) return res.status(404).json({ error: 'Topilmadi' });
+      const ctx = await getScopeContext(req.user);
+      if (!canAccessItem(tableName, item, req.user, ctx)) {
+        return res.status(403).json({ error: 'Bu ma\'lumotni ko\'rishga ruxsat yo\'q' });
+      }
       res.json(item);
     } catch (err) {
       next(err);
@@ -220,6 +226,14 @@ export function createCrudRouter(apiPath, tableName) {
       if (tableCols.has('created_at')) {
         obj.created_at = body.createdAt || obj.created_at || new Date().toISOString();
       }
+      if (tableName === 'activities') {
+        if (!obj.user_id && !obj.userId && req.user?.id) {
+          obj.user_id = req.user.id;
+        }
+        if (!obj.library_id && !obj.libraryId && (req.user?.libraryId || req.user?.library_id)) {
+          obj.library_id = req.user.libraryId || req.user.library_id;
+        }
+      }
       delete obj.createdAt;
 
       const created = await insertRow(tableName, obj);
@@ -263,6 +277,11 @@ export function createCrudRouter(apiPath, tableName) {
 
       const existing = await getById(tableName, req.params.id);
       if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+
+      const ctx = await getScopeContext(req.user);
+      if (!canModifyItem(tableName, existing, req.user, ctx)) {
+        return res.status(403).json({ error: 'Bu ma\'lumotni tahrirlashga ruxsat berilmagan' });
+      }
 
       const updates = { ...req.body };
       if (tableName === 'staff') {
@@ -345,6 +364,11 @@ export function createCrudRouter(apiPath, tableName) {
 
       const existing = await getById(tableName, req.params.id);
       if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+
+      const ctx = await getScopeContext(req.user);
+      if (!canModifyItem(tableName, existing, req.user, ctx)) {
+        return res.status(403).json({ error: 'Bu ma\'lumotni tahrirlashga ruxsat berilmagan' });
+      }
       const updated = await updateRow(tableName, req.params.id, req.body);
       if (tableName === 'activities') {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -370,7 +394,12 @@ export function createCrudRouter(apiPath, tableName) {
         }
       }
 
-      const existing = tableName === 'staff' ? await getById(tableName, req.params.id) : null;
+      const existing = await getById(tableName, req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+      const ctx = await getScopeContext(req.user);
+      if (!canModifyItem(tableName, existing, req.user, ctx)) {
+        return res.status(403).json({ error: 'Bu ma\'lumotni o\'chirishga ruxsat berilmagan' });
+      }
       const success = await deleteRow(tableName, req.params.id);
       if (!success) return res.status(404).json({ error: 'Topilmadi' });
 

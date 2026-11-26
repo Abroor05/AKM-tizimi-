@@ -8,6 +8,7 @@ import Input from '../../components/ui/Input.jsx';
 import Select from '../../components/ui/Select.jsx';
 import TextArea from '../../components/ui/TextArea.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
@@ -19,13 +20,16 @@ import SocialMediaReportModal from '../../components/common/SocialMediaReportMod
 import SearchInput from '../../components/ui/SearchInput.jsx';
 
 export default function ReportsPage() {
-  const { currentUser, getReports, createReport, submitReport, reviewReport, isRole, hasPermission, getCollection, createEntity } = useApp();
+  const { currentUser, getReports, createReport, submitReport, reviewReport, isRole, hasPermission, getCollection, createEntity, updateEntity, deleteEntity } = useApp();
   const [mainTab, setMainTab] = useState('general'); // 'general' | 'social'
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingReport, setEditingReport] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
   const [reviewMode, setReviewMode] = useState(false);
   const [reviewComment, setReviewComment] = useState('');
@@ -37,10 +41,31 @@ export default function ReportsPage() {
   const allUsers   = useMemo(() => getCollection(STORAGE_KEYS.USERS) || [],     [getCollection]);
   const libraries  = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
 
-  const socialActsCount = useMemo(() =>
-    allActs.filter(a => a.type === 'social_report' || a.type === 'social').length,
-    [allActs]
-  );
+  const scopedLibIds = useMemo(() => {
+    if (isRole(ROLES.SUPER_ADMIN)) return libraries.map(l => l.id);
+    if (isRole(ROLES.VILOYAT_ADMIN)) return libraries.filter(l => l.viloyatId === currentUser?.viloyatId).map(l => l.id);
+    return libraries.filter(l =>
+      (currentUser?.libraryId && l.id === currentUser.libraryId) ||
+      (currentUser?.tumanId && l.tumanId === currentUser.tumanId && (!currentUser?.viloyatId || l.viloyatId === currentUser.viloyatId))
+    ).map(l => l.id);
+  }, [libraries, currentUser, isRole]);
+
+  const scopedSocialActs = useMemo(() => {
+    return allActs.filter(a => {
+      const isSocial = a.type === 'social_report' || a.type === 'social_media' || a.type === 'social' || (() => {
+        try {
+          const d = typeof a.data === 'object' && a.data ? a.data : JSON.parse(a.data || '{}');
+          return Boolean(d?.platforms);
+        } catch { return false; }
+      })();
+      if (!isSocial) return false;
+      if (isRole(ROLES.SUPER_ADMIN)) return true;
+      if (isRole(ROLES.VILOYAT_ADMIN)) return scopedLibIds.includes(a.libraryId) || a.viloyatId === currentUser?.viloyatId;
+      return a.userId === currentUser?.id || (currentUser?.libraryId && a.libraryId === currentUser.libraryId) || scopedLibIds.includes(a.libraryId);
+    });
+  }, [allActs, scopedLibIds, currentUser, isRole]);
+
+  const socialActsCount = scopedSocialActs.length;
 
   // Scope reports based on role
   const reports = useMemo(() => {
@@ -53,10 +78,12 @@ export default function ReportsPage() {
       );
     }
     return allReports.filter(r =>
-      (!r.viloyatId || r.viloyatId === currentUser?.viloyatId) &&
-      (!r.tumanId || r.tumanId === currentUser?.tumanId)
+      r.userId === currentUser?.id ||
+      r.createdBy === currentUser?.id ||
+      scopedLibIds.includes(r.libraryId) ||
+      (currentUser?.tumanId && r.tumanId === currentUser.tumanId && (!currentUser?.viloyatId || !r.viloyatId || r.viloyatId === currentUser.viloyatId))
     );
-  }, [allReports, currentUser, isRole]);
+  }, [allReports, currentUser, isRole, scopedLibIds]);
 
   const filtered = useMemo(() => {
     return reports.filter(r => {
@@ -70,25 +97,96 @@ export default function ReportsPage() {
   const canCreate = hasPermission('create_report') || isRole(ROLES.SUPER_ADMIN) || isRole(ROLES.XODIMLAR_BOSHLIGI);
   const canReview = hasPermission('review_report') || isRole(ROLES.SUPER_ADMIN) || isRole(ROLES.VILOYAT_ADMIN);
 
+  const canModifyReport = (r) => {
+    if (!r || !currentUser) return false;
+    if (r.userId === currentUser.id || r.createdBy === currentUser.id) return true;
+    return isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI);
+  };
+
+  const openEditReport = (r) => {
+    let parsedData = {};
+    try {
+      parsedData = typeof r.data === 'object' && r.data ? r.data : JSON.parse(r.data || '{}');
+    } catch { parsedData = {}; }
+    setEditingReport(r);
+    setForm({
+      title: r.title || '',
+      type: r.type || REPORT_TYPES.MONTHLY,
+      period: r.period || '',
+      description: r.description || '',
+      visitors: Number(r.visitors ?? parsedData.visitors ?? 0),
+      events: Number(r.events ?? parsedData.events ?? 0),
+      revenue: Number(r.revenue ?? parsedData.revenue ?? 0),
+      expenses: Number(r.expenses ?? parsedData.expenses ?? 0),
+    });
+    setShowModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteEntity(STORAGE_KEYS.REPORTS, deleteTarget.id);
+      if (detailItem?.id === deleteTarget.id) setDetailItem(null);
+      toast.success("Hisobot muvaffaqiyatli o'chirildi!");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error("O'chirishda xatolik: " + (err.message || 'Server xatosi'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!form.title || !form.type || !form.period) {
       toast.warning("Iltimos, hisobot sarlavhasi, turi va davrini to'ldiring!");
       return;
     }
     try {
-      const payload = {
-        ...form,
-        data: {
-          visitors: Number(form.visitors || 0),
-          events: Number(form.events || 0),
-        },
-      };
-      await createReport(payload);
-      setShowModal(false);
-      setForm({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
-      toast.success("Hisobot muvaffaqiyatli yaratildi!");
+      if (editingReport) {
+        let existingData = {};
+        try {
+          existingData = typeof editingReport.data === 'object' && editingReport.data
+            ? editingReport.data
+            : JSON.parse(editingReport.data || '{}');
+        } catch { existingData = {}; }
+
+        const updatedPayload = {
+          title: form.title,
+          type: form.type,
+          period: form.period,
+          description: form.description,
+          data: {
+            ...existingData,
+            visitors: Number(form.visitors || 0),
+            events: Number(form.events || 0),
+            revenue: Number(form.revenue || 0),
+            expenses: Number(form.expenses || 0),
+          },
+        };
+        await updateEntity(STORAGE_KEYS.REPORTS, editingReport.id, updatedPayload);
+        if (detailItem?.id === editingReport.id) {
+          setDetailItem(prev => ({ ...prev, ...updatedPayload }));
+        }
+        setShowModal(false);
+        setEditingReport(null);
+        setForm({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
+        toast.success("Hisobot muvaffaqiyatli yangilandi!");
+      } else {
+        const payload = {
+          ...form,
+          data: {
+            visitors: Number(form.visitors || 0),
+            events: Number(form.events || 0),
+          },
+        };
+        await createReport(payload);
+        setShowModal(false);
+        setForm({ title: '', type: REPORT_TYPES.MONTHLY, period: '', description: '', visitors: 0, events: 0, revenue: 0, expenses: 0 });
+        toast.success("Hisobot muvaffaqiyatli yaratildi!");
+      }
     } catch (err) {
-      toast.error("Hisobot yaratishda xatolik: " + (err.message || 'Noma\'lum xatolik'));
+      toast.error("Hisobot saqlashda xatolik: " + (err.message || 'Noma\'lum xatolik'));
     }
   };
 
@@ -217,7 +315,7 @@ export default function ReportsPage() {
 
       {mainTab === 'social' ? (
         <SocialMediaReportsView
-          activities={allActs}
+          activities={scopedSocialActs}
           users={allUsers}
           libraries={libraries}
           currentUser={currentUser}
@@ -388,6 +486,26 @@ export default function ReportsPage() {
                               <span>Yuborish</span>
                             </button>
                           )}
+
+                          {/* Tahrirlash va O'chirish (topshirgandan keyin ham) */}
+                          {canModifyReport(r) && (
+                            <>
+                              <button
+                                onClick={() => openEditReport(r)}
+                                className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 border border-transparent hover:border-amber-200 transition-colors"
+                                title="Hisobotni tahrirlash"
+                              >
+                                <ICONS.edit className="text-xs" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget(r)}
+                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+                                title="Hisobotni o'chirish"
+                              >
+                                <ICONS.trash className="text-xs" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -401,9 +519,9 @@ export default function ReportsPage() {
         </>
       )}
 
-      {/* Create modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Yangi hisobot yaratish" size="lg"
-        footer={<><Button variant="secondary" onClick={() => setShowModal(false)}>Bekor</Button><Button onClick={handleCreate}><ICONS.save /> Saqlash</Button></>}>
+      {/* Create / Edit modal */}
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditingReport(null); }} title={editingReport ? "Hisobotni tahrirlash" : "Yangi hisobot yaratish"} size="lg"
+        footer={<><Button variant="secondary" onClick={() => { setShowModal(false); setEditingReport(null); }}>Bekor</Button><Button onClick={handleCreate}><ICONS.save /> {editingReport ? "Yangilash" : "Saqlash"}</Button></>}>
         <div className="space-y-4">
           <Input label="Sarlavha" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -793,6 +911,18 @@ export default function ReportsPage() {
           createEntity={createEntity}
         />
       )}
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Hisobotni o'chirish"
+        message={`Haqiqatan ham "${deleteTarget?.title || 'ushbu'}" hisobotini o'chirmoqchimisiz?`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
+      />
     </div>
   );
 }

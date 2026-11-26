@@ -76,14 +76,70 @@ export default function Dashboard() {
     return libraries;
   }, [libraries, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
 
+  const scopedLibIds = useMemo(() => {
+    if (!Array.isArray(scopedLibraries)) return [];
+    return scopedLibraries.map(l => l?.id).filter(Boolean);
+  }, [scopedLibraries]);
+
+  const scopedActivities = useMemo(() => {
+    if (!Array.isArray(activities)) return [];
+    if (isSuperAdmin) return activities;
+    if (isViloyatAdmin) {
+      return activities.filter(a => scopedLibIds.includes(a?.libraryId) || a?.viloyatId === currentUser?.viloyatId);
+    }
+    if (isTumanAdmin || isXodimBoshligi) {
+      return activities.filter(a =>
+        a?.userId === currentUser?.id ||
+        scopedLibIds.includes(a?.libraryId) ||
+        (currentUser?.libraryId && a?.libraryId === currentUser.libraryId)
+      );
+    }
+    return activities.filter(a => a?.userId === currentUser?.id || (currentUser?.libraryId && a?.libraryId === currentUser.libraryId));
+  }, [activities, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, scopedLibIds, currentUser]);
+
+  const scopedEvents = useMemo(() => {
+    if (!Array.isArray(events)) return [];
+    if (isSuperAdmin) return events;
+    if (isViloyatAdmin) {
+      return events.filter(e => !e?.viloyatId || e?.viloyatId === currentUser?.viloyatId || scopedLibIds.includes(e?.libraryId));
+    }
+    return events.filter(e => {
+      if (e?.organizer === currentUser?.id) return true;
+      if (e?.targetScope === 'self' || e?.targetScope === 'own_tuman') {
+        return scopedLibIds.includes(e?.libraryId) || Boolean(e?.tumanId && e?.tumanId === currentUser?.tumanId);
+      }
+      return (
+        scopedLibIds.includes(e?.libraryId) ||
+        (e?.tumanId && e?.tumanId === currentUser?.tumanId) ||
+        e?.targetScope === 'all_tumans' ||
+        (e?.targetScope === 'selected_tumans' && Array.isArray(e?.targetTumans) && e.targetTumans.includes(currentUser?.tumanId))
+      );
+    });
+  }, [events, isSuperAdmin, isViloyatAdmin, scopedLibIds, currentUser]);
+
+  const scopedAppeals = useMemo(() => {
+    if (!Array.isArray(appeals)) return [];
+    if (isSuperAdmin) return appeals;
+    return appeals.filter(a => scopedLibIds.includes(a?.libraryId));
+  }, [appeals, isSuperAdmin, scopedLibIds]);
+
   const scopedReports = useMemo(() => {
     if (!Array.isArray(reports)) return [];
     if (isSuperAdmin) return reports;
     if (isViloyatAdmin) return reports.filter(r => !r?.viloyatId || r?.viloyatId === currentUser?.viloyatId || (r?.targetRole && r.targetRole.includes('viloyat_admin')));
-    if (isTumanAdmin) return reports.filter(r => r?.viloyatId === currentUser?.viloyatId && r?.tumanId === currentUser?.tumanId);
-    if (isXodimBoshligi || isXodim) return reports.filter(r => r?.libraryId === currentUser?.libraryId || r?.createdBy === currentUser?.id || r?.userId === currentUser?.id);
+    if (isTumanAdmin) return reports.filter(r =>
+      (r?.viloyatId === currentUser?.viloyatId && r?.tumanId === currentUser?.tumanId) ||
+      scopedLibIds.includes(r?.libraryId) ||
+      r?.userId === currentUser?.id
+    );
+    if (isXodimBoshligi || isXodim) return reports.filter(r =>
+      r?.libraryId === currentUser?.libraryId ||
+      scopedLibIds.includes(r?.libraryId) ||
+      r?.createdBy === currentUser?.id ||
+      r?.userId === currentUser?.id
+    );
     return reports;
-  }, [reports, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim]);
+  }, [reports, currentUser, isSuperAdmin, isViloyatAdmin, isTumanAdmin, isXodimBoshligi, isXodim, scopedLibIds]);
 
   const scopedTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
@@ -99,8 +155,8 @@ export default function Dashboard() {
   // Derived stats
   const pendingReports = (scopedReports || []).filter(r => r?.status === REPORT_STATUS.SUBMITTED || r?.status === REPORT_STATUS.UNDER_REVIEW);
   const pendingTasks = (scopedTasks || []).filter(t => t?.status === TASK_STATUS.PENDING || t?.status === TASK_STATUS.IN_PROGRESS);
-  const newAppeals = (appeals || []).filter(a => a?.status === 'new');
-  const upcomingEvents = (events || []).filter(e => e?.status === 'upcoming');
+  const newAppeals = (scopedAppeals || []).filter(a => a?.status === 'new');
+  const upcomingEvents = (scopedEvents || []).filter(e => e?.status === 'upcoming');
 
   const allUsers = useMemo(() => (getUsers ? getUsers() || [] : []), [getUsers]);
   const scopedUsers = useMemo(() => {
@@ -117,7 +173,7 @@ export default function Dashboard() {
     const baseCounts = [380, 420, 390, 480, 560, 620];
     const baseActivities = [35, 42, 38, 51, 58, 64];
 
-    const actLen = Array.isArray(activities) ? activities.length : 0;
+    const actLen = Array.isArray(scopedActivities) ? scopedActivities.length : 0;
     const activityWeight = Math.min(actLen * 2, 50);
 
     return months.map((month, i) => ({
@@ -125,7 +181,7 @@ export default function Dashboard() {
       tashrif: baseCounts[i] + activityWeight,
       faollik: baseActivities[i] + Math.floor(activityWeight / 2),
     }));
-  }, [activities]);
+  }, [scopedActivities]);
 
   // Report status chart
   const reportStatusData = useMemo(() => {
@@ -293,7 +349,7 @@ export default function Dashboard() {
           <>
             <StatCard
               title="Kunlik faoliyatlar"
-              value={formatNumber(activities.length)}
+              value={formatNumber(scopedActivities.length)}
               icon={ICONS.activity}
               color="emerald"
               subtitle="Ro'yxatga olingan faoliyatlar"

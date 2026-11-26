@@ -38,7 +38,7 @@ export default function NotificationsPage() {
     markNotificationRead(n.id);
     if (n.type === NOTIFICATION_TYPES.REPORT || n.title?.toLowerCase().includes('hisobot')) {
       if (n.title?.toLowerCase().includes('kunlik')) {
-        navigate(currentUser?.role === 'xodimlar_boshligi' ? '/xb-activity' : '/daily-activity');
+        navigate('/daily-activity');
       } else {
         navigate('/reports');
       }

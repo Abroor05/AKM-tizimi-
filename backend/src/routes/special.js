@@ -15,6 +15,7 @@ import {
 } from '../db/database.js';
 import { authMiddleware, invalidateUserCache } from '../middleware/auth.js';
 import { checkAndGenerateUserReportReminders } from '../services/reportReminder.js';
+import { getScopeContext, filterByScope, canAccessItem, canModifyItem, isSuperAdmin as isSuperAdminUser } from '../utils/scope.js';
 
 function generateId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -72,11 +73,13 @@ async function addAuditLog(userId, action, module, details, req) {
 // ============================================================
 const usersRouter = Router();
 
-usersRouter.get('/', authMiddleware, async (_req, res, next) => {
+usersRouter.get('/', authMiddleware, async (req, res, next) => {
   try {
     const users = await getAll('users');
+    const ctx = await getScopeContext(req.user);
+    const scoped = filterByScope('users', users, req.user, ctx);
     res.json(
-      users.map((u) => {
+      scoped.map((u) => {
         const { password_hash, ...safe } = u;
         return safe;
       })
@@ -90,6 +93,10 @@ usersRouter.get('/:id', authMiddleware, async (req, res, next) => {
   try {
     const user = await getById('users', req.params.id);
     if (!user) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (req.user.id !== user.id && !canAccessItem('users', user, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu foydalanuvchini ko\'rishga ruxsat yo\'q' });
+    }
     const { password_hash, ...safe } = user;
     res.json(safe);
   } catch (err) {
@@ -418,6 +425,21 @@ usersRouter.delete('/:id', authMiddleware, async (req, res, next) => {
 // Reset password
 usersRouter.post('/:id/reset-password', authMiddleware, async (req, res, next) => {
   try {
+    const existing = await getById('users', req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+
+    const isSelf = req.user.id === req.params.id;
+    const isAdminRole = ['super_admin', 'superadmin', 'viloyat_admin', 'tuman_admin', 'direktor'].includes(req.user.role);
+    if (!isSelf && !isAdminRole) {
+      return res.status(403).json({ error: 'Parolni tiklash uchun ruxsat berilmagan' });
+    }
+    if (!isSelf && !isSuperAdminUser(req.user)) {
+      const ctx = await getScopeContext(req.user);
+      if (!canAccessItem('users', existing, req.user, ctx)) {
+        return res.status(403).json({ error: 'Siz faqat o\'z hududingizdagi foydalanuvchi parolini tiklay olasiz' });
+      }
+    }
+
     const { newPassword } = req.body;
     if (!newPassword) return res.status(400).json({ error: 'Yangi parol talab qilinadi' });
     const hash = bcrypt.hashSync(newPassword, 10);
@@ -445,10 +467,11 @@ reportsRouter.get('/reminder-status', authMiddleware, async (req, res, next) => 
   }
 });
 
-reportsRouter.get('/', authMiddleware, async (_req, res, next) => {
+reportsRouter.get('/', authMiddleware, async (req, res, next) => {
   try {
     const items = await getAll('reports');
-    res.json(items);
+    const ctx = await getScopeContext(req.user);
+    res.json(filterByScope('reports', items, req.user, ctx));
   } catch (err) {
     next(err);
   }
@@ -458,6 +481,10 @@ reportsRouter.get('/:id', authMiddleware, async (req, res, next) => {
   try {
     const report = await getById('reports', req.params.id);
     if (!report) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('reports', report, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu hisobotni ko\'rishga ruxsat yo\'q' });
+    }
     res.json(report);
   } catch (err) {
     next(err);
@@ -517,9 +544,22 @@ reportsRouter.put('/:id', authMiddleware, async (req, res, next) => {
   try {
     const existing = await getById('reports', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canModifyItem('reports', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu hisobotni tahrirlashga ruxsat berilmagan' });
+    }
     const body = { ...req.body };
     if (body.data && typeof body.data === 'object') body.data = JSON.stringify(body.data);
+    if (body.targetRole) {
+      body.target_role = body.targetRole;
+      delete body.targetRole;
+    }
+    if (body.submittedAt !== undefined) {
+      body.submitted_at = body.submittedAt;
+      delete body.submittedAt;
+    }
     const updated = await updateRow('reports', req.params.id, body);
+    await addAuditLog(req.user.id, 'update', 'reports', `Hisobot tahrirlandi: ${req.params.id}`, req);
     res.json(updated);
   } catch (err) {
     next(err);
@@ -530,8 +570,20 @@ reportsRouter.patch('/:id', authMiddleware, async (req, res, next) => {
   try {
     const existing = await getById('reports', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canModifyItem('reports', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu hisobotni tahrirlashga ruxsat berilmagan' });
+    }
     const body = { ...req.body };
     if (body.data && typeof body.data === 'object') body.data = JSON.stringify(body.data);
+    if (body.targetRole) {
+      body.target_role = body.targetRole;
+      delete body.targetRole;
+    }
+    if (body.submittedAt !== undefined) {
+      body.submitted_at = body.submittedAt;
+      delete body.submittedAt;
+    }
     res.json(await updateRow('reports', req.params.id, body));
   } catch (err) {
     next(err);
@@ -540,7 +592,14 @@ reportsRouter.patch('/:id', authMiddleware, async (req, res, next) => {
 
 reportsRouter.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
+    const existing = await getById('reports', req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canModifyItem('reports', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu hisobotni o\'chirishga ruxsat berilmagan' });
+    }
     await deleteRow('reports', req.params.id);
+    await addAuditLog(req.user.id, 'delete', 'reports', `Hisobot o'chirildi: ${req.params.id}`, req);
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -622,10 +681,11 @@ reportsRouter.post('/:id/review', authMiddleware, async (req, res, next) => {
 // ============================================================
 const tasksRouter = Router();
 
-tasksRouter.get('/', authMiddleware, async (_req, res, next) => {
+tasksRouter.get('/', authMiddleware, async (req, res, next) => {
   try {
     const items = await getAll('tasks');
-    res.json(items);
+    const ctx = await getScopeContext(req.user);
+    res.json(filterByScope('tasks', items, req.user, ctx));
   } catch (err) {
     next(err);
   }
@@ -635,6 +695,10 @@ tasksRouter.get('/:id', authMiddleware, async (req, res, next) => {
   try {
     const task = await getById('tasks', req.params.id);
     if (!task) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('tasks', task, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu topshiriqni ko\'rishga ruxsat yo\'q' });
+    }
     res.json(task);
   } catch (err) {
     next(err);
@@ -747,6 +811,10 @@ tasksRouter.put('/:id', authMiddleware, async (req, res, next) => {
   try {
     const existing = await getById('tasks', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('tasks', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu topshiriqni tahrirlashga ruxsat yo\'q' });
+    }
     const updated = await updateRow('tasks', req.params.id, req.body);
     res.json(updated);
   } catch (err) {
@@ -758,6 +826,10 @@ tasksRouter.patch('/:id', authMiddleware, async (req, res, next) => {
   try {
     const existing = await getById('tasks', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('tasks', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu topshiriqni tahrirlashga ruxsat yo\'q' });
+    }
     res.json(await updateRow('tasks', req.params.id, req.body));
   } catch (err) {
     next(err);
@@ -766,6 +838,12 @@ tasksRouter.patch('/:id', authMiddleware, async (req, res, next) => {
 
 tasksRouter.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
+    const existing = await getById('tasks', req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+    const ctx = await getScopeContext(req.user);
+    if (!canAccessItem('tasks', existing, req.user, ctx)) {
+      return res.status(403).json({ error: 'Bu topshiriqni o\'chirishga ruxsat yo\'q' });
+    }
     await deleteRow('tasks', req.params.id);
     res.json({ success: true });
   } catch (err) {
@@ -940,10 +1018,17 @@ settingsRouter.put('/', authMiddleware, async (req, res, next) => {
 // ============================================================
 const auditRouter = Router();
 
-auditRouter.get('/', authMiddleware, async (_req, res, next) => {
+auditRouter.get('/', authMiddleware, async (req, res, next) => {
   try {
+    if (!isSuperAdminUser(req.user) && req.user.role !== 'viloyat_admin') {
+      return res.json([]);
+    }
     const logs = await getAll('audit_log', '1=1 ORDER BY timestamp DESC LIMIT 200');
-    res.json(logs);
+    if (isSuperAdminUser(req.user)) {
+      return res.json(logs);
+    }
+    const ctx = await getScopeContext(req.user);
+    res.json(logs.filter((l) => l.userId === req.user.id || ctx.allowedUserIds?.has(l.userId)));
   } catch (err) {
     next(err);
   }
@@ -975,55 +1060,52 @@ const dashboardRouter = Router();
 
 dashboardRouter.get('/stats', authMiddleware, async (req, res, next) => {
   try {
-    const [
-      libRes,
-      actRes,
-      repRes,
-      repPendingRes,
-      taskRes,
-      taskPendingRes,
-      eventRes,
-      eventUpcomingRes,
-      invRes,
-      appRes,
-      appNewRes,
-      userRes,
-      reportsStatusRes,
-      tasksStatusRes,
-      notifs,
-    ] = await Promise.all([
-      query('SELECT COUNT(*) as c FROM libraries'),
-      query('SELECT COUNT(*) as c FROM activities'),
-      query('SELECT COUNT(*) as c FROM reports'),
-      query("SELECT COUNT(*) as c FROM reports WHERE status IN ('draft','submitted','under_review')"),
-      query('SELECT COUNT(*) as c FROM tasks'),
-      query("SELECT COUNT(*) as c FROM tasks WHERE status IN ('pending','in_progress')"),
-      query('SELECT COUNT(*) as c FROM events'),
-      query("SELECT COUNT(*) as c FROM events WHERE status = 'upcoming'"),
-      query('SELECT COUNT(*) as c FROM inventory'),
-      query('SELECT COUNT(*) as c FROM appeals'),
-      query("SELECT COUNT(*) as c FROM appeals WHERE status = 'new'"),
-      query('SELECT COUNT(*) as c FROM users'),
-      query('SELECT status, COUNT(*) as count FROM reports GROUP BY status'),
-      query('SELECT status, COUNT(*) as count FROM tasks GROUP BY status'),
+    const ctx = await getScopeContext(req.user);
+    const [libraries, activities, reports, tasks, events, inventory, appeals, users, notifs] = await Promise.all([
+      getAll('libraries'),
+      getAll('activities'),
+      getAll('reports'),
+      getAll('tasks'),
+      getAll('events'),
+      getAll('inventory'),
+      getAll('appeals'),
+      getAll('users'),
       getAll('notifications'),
     ]);
 
+    const sLibs = filterByScope('libraries', libraries, req.user, ctx);
+    const sActs = filterByScope('activities', activities, req.user, ctx);
+    const sReps = filterByScope('reports', reports, req.user, ctx);
+    const sTasks = filterByScope('tasks', tasks, req.user, ctx);
+    const sEvents = filterByScope('events', events, req.user, ctx);
+    const sInv = filterByScope('inventory', inventory, req.user, ctx);
+    const sAppeals = filterByScope('appeals', appeals, req.user, ctx);
+    const sUsers = filterByScope('users', users, req.user, ctx);
+
+    const reportsStatusMap = {};
+    for (const r of sReps) {
+      reportsStatusMap[r.status] = (reportsStatusMap[r.status] || 0) + 1;
+    }
+    const tasksStatusMap = {};
+    for (const t of sTasks) {
+      tasksStatusMap[t.status] = (tasksStatusMap[t.status] || 0) + 1;
+    }
+
     const stats = {
-      totalLibraries: parseInt(libRes.rows[0]?.c || 0, 10),
-      totalActivities: parseInt(actRes.rows[0]?.c || 0, 10),
-      totalReports: parseInt(repRes.rows[0]?.c || 0, 10),
-      pendingReports: parseInt(repPendingRes.rows[0]?.c || 0, 10),
-      totalTasks: parseInt(taskRes.rows[0]?.c || 0, 10),
-      pendingTasks: parseInt(taskPendingRes.rows[0]?.c || 0, 10),
-      totalEvents: parseInt(eventRes.rows[0]?.c || 0, 10),
-      upcomingEvents: parseInt(eventUpcomingRes.rows[0]?.c || 0, 10),
-      totalInventory: parseInt(invRes.rows[0]?.c || 0, 10),
-      totalAppeals: parseInt(appRes.rows[0]?.c || 0, 10),
-      newAppeals: parseInt(appNewRes.rows[0]?.c || 0, 10),
-      totalUsers: parseInt(userRes.rows[0]?.c || 0, 10),
-      reportsByStatus: reportsStatusRes.rows.map((r) => ({ status: r.status, count: parseInt(r.count, 10) })),
-      tasksByStatus: tasksStatusRes.rows.map((r) => ({ status: r.status, count: parseInt(r.count, 10) })),
+      totalLibraries: sLibs.length,
+      totalActivities: sActs.length,
+      totalReports: sReps.length,
+      pendingReports: sReps.filter((r) => ['draft', 'submitted', 'under_review'].includes(r.status)).length,
+      totalTasks: sTasks.length,
+      pendingTasks: sTasks.filter((t) => ['pending', 'in_progress'].includes(t.status)).length,
+      totalEvents: sEvents.length,
+      upcomingEvents: sEvents.filter((e) => e.status === 'upcoming').length,
+      totalInventory: sInv.length,
+      totalAppeals: sAppeals.length,
+      newAppeals: sAppeals.filter((a) => a.status === 'new').length,
+      totalUsers: sUsers.length,
+      reportsByStatus: Object.entries(reportsStatusMap).map(([status, count]) => ({ status, count })),
+      tasksByStatus: Object.entries(tasksStatusMap).map(([status, count]) => ({ status, count })),
       unreadNotifications: notifs.filter(
         (n) => (n.targetUserId === req.user.id || n.targetRole === req.user.role) && !n.read
       ).length,

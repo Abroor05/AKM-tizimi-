@@ -83,8 +83,8 @@ export default function ReportReminderBanner() {
   ];
   const currentMonthName = monthNames[currentMonth - 1];
 
-  const dailyRedirectPath = role === ROLES.XODIMLAR_BOSHLIGI ? '/xb-activity' : '/daily-activity';
-  const monthlyRedirectPath = role === ROLES.XODIMLAR_BOSHLIGI ? '/xb-activity' : '/reports';
+  const dailyRedirectPath = '/daily-activity';
+  const monthlyRedirectPath = '/reports';
 
   return (
     <div className="space-y-3 mb-5">

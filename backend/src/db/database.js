@@ -301,6 +301,7 @@ export async function initDb(retries = 3) {
     tuman_id VARCHAR(100),
     target_scope VARCHAR(100),
     target_tumans TEXT,
+    links TEXT,
     date TEXT,
     time TEXT,
     location TEXT,
@@ -460,6 +461,7 @@ export async function initDb(retries = 3) {
           ALTER TABLE inventory ADD COLUMN IF NOT EXISTS tuman_id VARCHAR(100);
           ALTER TABLE inventory ADD COLUMN IF NOT EXISTS created_by VARCHAR(100);
           ALTER TABLE inventory ADD COLUMN IF NOT EXISTS notes TEXT;
+          ALTER TABLE events ADD COLUMN IF NOT EXISTS links TEXT;
         `);
       } catch {}
       await refreshColumnsCache();
@@ -503,7 +505,7 @@ export async function getTableColumns(tableName) {
 
 const JSON_FIELDS = {
   reports: ['data'],
-  events: ['target_tumans'],
+  events: ['target_tumans', 'links'],
   activities: ['data'],
 };
 

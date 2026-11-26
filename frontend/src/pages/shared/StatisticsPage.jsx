@@ -119,10 +119,10 @@ export default function StatisticsPage() {
             <PieChart>
               <Pie
                 data={[
-                  { name: 'Tasdiqlangan', value: reports.filter(r => r.status === 'approved').length },
-                  { name: 'Kutilmoqda', value: reports.filter(r => r.status === 'submitted' || r.status === 'under_review').length },
-                  { name: 'Qoralama', value: reports.filter(r => r.status === 'draft').length },
-                  { name: 'Rad etilgan', value: reports.filter(r => r.status === 'rejected').length },
+                  { name: 'Tasdiqlangan', value: scopedReports.filter(r => r.status === 'approved').length },
+                  { name: 'Kutilmoqda', value: scopedReports.filter(r => r.status === 'submitted' || r.status === 'under_review').length },
+                  { name: 'Qoralama', value: scopedReports.filter(r => r.status === 'draft').length },
+                  { name: 'Rad etilgan', value: scopedReports.filter(r => r.status === 'rejected').length },
                 ]}
                 dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
                 {[0,1,2,3].map(i => <Cell key={i} fill={['#10b981', '#f59e0b', '#9ca3af', '#ef4444'][i]} />)}

@@ -47,17 +47,24 @@ export default function XBDashboard() {
   const myLibrary = useMemo(() =>
     libraries.find(l => l.id === currentUser?.libraryId), [libraries, currentUser]);
 
-  // Staff of my library (kutubxona_xodimi)
+  // Staff of my library / district (kutubxona_xodimi)
   const myStaff = useMemo(() =>
     allUsers.filter(u =>
       u.role === ROLES.KUTUBXONA_XODIMI &&
-      u.libraryId === currentUser?.libraryId
+      (
+        (currentUser?.libraryId && u.libraryId === currentUser.libraryId) ||
+        (currentUser?.tumanId && u.tumanId === currentUser.tumanId && (!currentUser?.viloyatId || u.viloyatId === currentUser.viloyatId))
+      )
     ), [allUsers, currentUser]);
 
-  // Activities in my library
+  // Activities in my library / staff
   const myActs = useMemo(() =>
-    allActs.filter(a => a.libraryId === currentUser?.libraryId),
-    [allActs, currentUser]);
+    allActs.filter(a =>
+      (currentUser?.libraryId && a.libraryId === currentUser.libraryId) ||
+      a.userId === currentUser?.id ||
+      myStaff.some(s => s.id === a.userId)
+    ),
+    [allActs, currentUser, myStaff]);
 
   // Today's activities
   const today = new Date().toISOString().split('T')[0];
@@ -66,12 +73,14 @@ export default function XBDashboard() {
 
   // My books & readers — removed (not needed for this role's dashboard)
 
-  // Reports from my library
+  // Reports from my library / district
   const myReports = useMemo(() =>
     allReports.filter(r =>
-      r.libraryId === currentUser?.libraryId ||
+      (currentUser?.libraryId && r.libraryId === currentUser.libraryId) ||
       r.createdBy === currentUser?.id ||
-      myStaff.some(s => s.id === r.createdBy)
+      r.userId === currentUser?.id ||
+      myStaff.some(s => s.id === r.createdBy || s.id === r.userId) ||
+      (currentUser?.tumanId && r.tumanId === currentUser.tumanId && (!currentUser?.viloyatId || r.viloyatId === currentUser.viloyatId))
     ), [allReports, currentUser, myStaff]);
 
   // Tasks for my library

@@ -5,6 +5,7 @@ import Card from "../../components/ui/Card.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Modal from "../../components/ui/Modal.jsx";
+import ConfirmModal from "../../components/ui/ConfirmModal.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import { toast } from "../../components/ui/Toast.jsx";
 import ICONS from "../../components/icons.jsx";
@@ -189,6 +190,8 @@ export default function DailyActivityPage() {
     currentUser,
     getCollection,
     createEntity,
+    updateEntity,
+    deleteEntity,
     isRole,
     hasPermission,
     submitActivity,
@@ -196,6 +199,9 @@ export default function DailyActivityPage() {
 
   const [viewTab, setViewTab] = useState("daily");
   const [showModal, setShowModal] = useState(false);
+  const [editingAct, setEditingAct] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
   const [sending, setSending] = useState(null); // activity id being sent
@@ -254,6 +260,18 @@ export default function DailyActivityPage() {
     });
   }, [allActivities, scopedLibIds, currentUser, isRole]);
 
+  const scopedSocialActivities = useMemo(() => {
+    return allActivities.filter((a) => {
+      if (isRole(ROLES.SUPER_ADMIN)) return true;
+      if (isRole(ROLES.VILOYAT_ADMIN)) {
+        return scopedLibIds.includes(a.libraryId) || a.viloyatId === currentUser?.viloyatId;
+      }
+      if (a.userId === currentUser?.id) return true;
+      if (currentUser?.libraryId && a.libraryId === currentUser.libraryId) return true;
+      return scopedLibIds.includes(a.libraryId);
+    });
+  }, [allActivities, scopedLibIds, currentUser, isRole]);
+
   const filtered = useMemo(() => {
     let list = activities;
     if (viewTab === "daily") list = list.filter((a) => a.date === dateFilter);
@@ -270,7 +288,59 @@ export default function DailyActivityPage() {
 
   const canCreate = hasPermission("create_activity");
 
-  const handleSave = () => {
+  const canModifyActivity = (act) => {
+    if (!act || !currentUser) return false;
+    if (act.userId === currentUser.id) return true;
+    return isRole(ROLES.SUPER_ADMIN, ROLES.VILOYAT_ADMIN, ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI);
+  };
+
+  const openEdit = (act) => {
+    const d = parseData(act);
+    const notesObj = d.notes || {};
+    setEditingAct(act);
+    setForm({
+      date: act.date || new Date().toISOString().split("T")[0],
+      time: act.time || new Date().toTimeString().slice(0, 5),
+      description: act.description || "",
+      counts: {
+        kitob_skanerlash: d.kitob_skanerlash ? String(d.kitob_skanerlash) : "",
+        kitob_pdf: d.kitob_pdf ? String(d.kitob_pdf) : "",
+        ijtimoiy_tarmoq: d.ijtimoiy_tarmoq ? String(d.ijtimoiy_tarmoq) : "",
+      },
+      tasks: {
+        texnik_xizmat: Boolean(d.texnik_xizmat && Number(d.texnik_xizmat) > 0),
+        jihozlash: Boolean(d.jihozlash && Number(d.jihozlash) > 0),
+        tuzatish: Boolean(d.tuzatish && Number(d.tuzatish) > 0),
+        boshqa: Boolean(d.boshqa && Number(d.boshqa) > 0),
+      },
+      notes: {
+        texnik_xizmat: notesObj.texnik_xizmat || "",
+        jihozlash: notesObj.jihozlash || "",
+        tuzatish: notesObj.tuzatish || "",
+        boshqa: notesObj.boshqa || "",
+      },
+    });
+    setShowModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteEntity(STORAGE_KEYS.ACTIVITIES, deleteTarget.id);
+      if (showDetail?.id === deleteTarget.id) {
+        setShowDetail(null);
+      }
+      toast.success("Kunlik hisobot muvaffaqiyatli o'chirildi!");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error("O'chirishda xatolik: " + (err.message || "Server xatosi"));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSave = async () => {
     const hasNumeric =
       Number(form.counts.kitob_skanerlash) > 0 ||
       Number(form.counts.kitob_pdf) > 0 ||
@@ -309,32 +379,46 @@ export default function DailyActivityPage() {
     if (form.description?.trim()) descParts.push(form.description.trim());
     Object.entries(taskNotes).forEach(([k, note]) => {
       const label = ACTIVITY_TYPE_LABELS[k] || k;
-      descParts.push(`${label}: ${note}`);
+      if (!form.description?.includes(`${label}: ${note}`)) {
+        descParts.push(`${label}: ${note}`);
+      }
     });
 
     const targetLibId =
+      editingAct?.libraryId ||
       currentUser?.libraryId ||
       scopedLibIds[0] ||
       (libraries && libraries[0]?.id) ||
       null;
 
     try {
-      createEntity(STORAGE_KEYS.ACTIVITIES, {
-        type: "daily_report",
-        data: JSON.stringify(data),
-        description: descParts.join(" | ") || form.description || "",
-        date: form.date,
-        time: form.time,
-        libraryId: targetLibId,
-        userId: currentUser?.id,
-        status: isRole(ROLES.KUTUBXONA_XODIMI) ? "submitted" : "accepted",
-      });
+      if (editingAct) {
+        await updateEntity(STORAGE_KEYS.ACTIVITIES, editingAct.id, {
+          data: JSON.stringify(data),
+          description: descParts.join(" | ") || form.description || "",
+          date: form.date,
+          time: form.time,
+        });
+        toast.success("Kunlik hisobot muvaffaqiyatli yangilandi!");
+      } else {
+        await createEntity(STORAGE_KEYS.ACTIVITIES, {
+          type: "daily_report",
+          data: JSON.stringify(data),
+          description: descParts.join(" | ") || form.description || "",
+          date: form.date,
+          time: form.time,
+          libraryId: targetLibId,
+          userId: currentUser?.id,
+          status: isRole(ROLES.KUTUBXONA_XODIMI) ? "submitted" : "accepted",
+        });
+        toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
+      }
 
       setDateFilter(form.date);
       setViewTab("daily");
       setShowModal(false);
+      setEditingAct(null);
       setForm(buildEmptyForm());
-      toast.success("Kunlik hisobot muvaffaqiyatli saqlandi!");
     } catch (err) {
       toast.error("Hisobotni saqlashda xatolik yuz berdi: " + (err.message || "Noma'lum xatolik"));
     }
@@ -431,7 +515,7 @@ export default function DailyActivityPage() {
 
       {viewTab === "social" ? (
         <SocialMediaReportsView
-          activities={allActivities}
+          activities={scopedSocialActivities}
           users={allUsers}
           libraries={libraries}
           currentUser={currentUser}
@@ -629,6 +713,25 @@ export default function DailyActivityPage() {
                           >
                             <ICONS.eye className="text-sm" />
                           </button>
+                          {/* Tahrirlash va O'chirish (o'z hisobotini topshirgandan keyin ham) */}
+                          {canModifyActivity(a) && (
+                            <>
+                              <button
+                                onClick={() => openEdit(a)}
+                                className="p-1.5 rounded hover:bg-amber-50 text-amber-600"
+                                title="Tahrirlash"
+                              >
+                                <ICONS.edit className="text-sm" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget(a)}
+                                className="p-1.5 rounded hover:bg-rose-50 text-rose-600"
+                                title="O'chirish"
+                              >
+                                <ICONS.trash className="text-sm" />
+                              </button>
+                            </>
+                          )}
                           {/* Yuborish — faqat bugungi, o'z hisoboti va hali yuborilmagan bo'lsa */}
                           {canSend && (
                             <button
@@ -667,14 +770,15 @@ export default function DailyActivityPage() {
         </>
       )}
 
-      {/* Hisobot qo'shish modali */}
+      {/* Hisobot qo'shish / tahrirlash modali */}
       <Modal
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);
+          setEditingAct(null);
           setForm(buildEmptyForm());
         }}
-        title="Bugungi faoliyat hisoboti"
+        title={editingAct ? "Kunlik hisobotni tahrirlash" : "Bugungi faoliyat hisoboti"}
         size="lg"
         footer={
           <>
@@ -682,13 +786,14 @@ export default function DailyActivityPage() {
               variant="secondary"
               onClick={() => {
                 setShowModal(false);
+                setEditingAct(null);
                 setForm(buildEmptyForm());
               }}
             >
               Bekor
             </Button>
             <Button onClick={handleSave}>
-              <ICONS.save /> Saqlash
+              <ICONS.save /> {editingAct ? "Yangilash" : "Saqlash"}
             </Button>
           </>
         }
@@ -1118,6 +1223,18 @@ export default function DailyActivityPage() {
           createEntity={createEntity}
         />
       )}
+
+      {/* O'chirishni tasdiqlash modali */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Kunlik hisobotni o'chirish"
+        message={`Haqiqatan ham ${deleteTarget ? formatDate(deleteTarget.date) : ''} sanasidagi kunlik hisobotni o'chirmoqchimisiz?`}
+        confirmText="Ha, o'chirilsin"
+        cancelText="Bekor qilish"
+      />
     </div>
   );
 }
