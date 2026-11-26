@@ -92,7 +92,10 @@ export default function SocialMediaReportsView({
         const nameMatch = u?.fullName?.toLowerCase().includes(q);
         const descMatch = a.description?.toLowerCase().includes(q);
         const d = parseSocialData(a);
-        const postsMatch = Object.values(d.platforms || {}).some(p => p.posts?.toLowerCase().includes(q));
+        const postsMatch = Object.values(d.platforms || {}).some(p =>
+          p.posts?.toLowerCase().includes(q) ||
+          (Array.isArray(p.items) && p.items.some(it => it.title?.toLowerCase().includes(q) || it.url?.toLowerCase().includes(q)))
+        );
         return nameMatch || descMatch || postsMatch;
       });
     }
@@ -101,7 +104,7 @@ export default function SocialMediaReportsView({
       list = list.filter(a => {
         const d = parseSocialData(a);
         const p = d.platforms?.[platformFilter];
-        return Boolean(p && (Number(p.count) > 0 || p.posts));
+        return Boolean(p && (Number(p.count) > 0 || p.posts || (Array.isArray(p.items) && p.items.length > 0)));
       });
     }
 
@@ -542,7 +545,8 @@ export default function SocialMediaReportsView({
 
                 {SOCIAL_PLATFORMS.map(platform => {
                   const item = p[platform.key];
-                  if (!item || (!Number(item.count) && !item.posts)) return null;
+                  const itemList = Array.isArray(item?.items) ? item.items.filter(it => it.title || it.url) : [];
+                  if (!item || (!Number(item.count) && !item.posts && itemList.length === 0)) return null;
 
                   const IconComp = ICONS[platform.icon] || ICONS.globe;
 
@@ -567,24 +571,61 @@ export default function SocialMediaReportsView({
                         </span>
                       </div>
 
-                      {item.posts && (
-                        <div className="p-2.5 rounded-lg bg-slate-50 text-xs text-slate-800 leading-relaxed">
-                          <span className="font-bold block text-slate-600 mb-0.5">Bajarilgan ish mazmuni:</span>
-                          <p>{item.posts}</p>
+                      {itemList.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {itemList.map((entry, idx) => {
+                            const href = entry.url
+                              ? (/^https?:\/\//i.test(entry.url.trim()) ? entry.url.trim() : `https://${entry.url.trim()}`)
+                              : '';
+                            return (
+                              <div
+                                key={idx}
+                                className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                              >
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-slate-800 break-words">
+                                    {idx + 1}. {entry.title || 'Post / material'}
+                                  </p>
+                                  {entry.url && (
+                                    <p className="text-[11px] text-slate-500 font-mono truncate">{entry.url}</p>
+                                  )}
+                                </div>
+                                {href && (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold shrink-0"
+                                  >
+                                    <ICONS.externalLink className="text-[11px]" /> Ochish
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      )}
+                      ) : (
+                        <>
+                          {item.posts && (
+                            <div className="p-2.5 rounded-lg bg-slate-50 text-xs text-slate-800 leading-relaxed">
+                              <span className="font-bold block text-slate-600 mb-0.5">Bajarilgan ish mazmuni:</span>
+                              <p>{item.posts}</p>
+                            </div>
+                          )}
 
-                      {item.link && (
-                        <div className="pt-1">
-                          <a
-                            href={item.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 font-semibold"
-                          >
-                            <ICONS.externalLink className="text-[11px]" /> Havolani ochish: {item.link}
-                          </a>
-                        </div>
+                          {item.link && (
+                            <div className="pt-1">
+                              <a
+                                href={/^https?:\/\//i.test(item.link.trim()) ? item.link.trim() : `https://${item.link.trim()}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 font-semibold"
+                              >
+                                <ICONS.externalLink className="text-[11px]" /> Havolani ochish: {item.link}
+                              </a>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );

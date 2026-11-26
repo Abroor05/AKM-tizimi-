@@ -11,9 +11,8 @@ function buildInitialSocialForm() {
   SOCIAL_PLATFORMS.forEach(p => {
     platformsData[p.key] = {
       active: false,
-      count: '',
-      posts: '',
-      link: '',
+      count: '0',
+      items: [],
     };
   });
 
@@ -57,12 +56,34 @@ export default function SocialMediaReportModal({
       const platformsData = {};
       SOCIAL_PLATFORMS.forEach(p => {
         const ep = existingPlatforms[p.key];
-        const active = Boolean(ep && (Number(ep.count) > 0 || ep.posts || ep.link));
+        const existingItems = Array.isArray(ep?.items)
+          ? ep.items.map(it => ({ title: it.title || '', url: it.url || '' }))
+          : [];
+        const active = Boolean(ep && (Number(ep.count) > 0 || ep.posts || ep.link || existingItems.length > 0));
+        let items = existingItems;
+        let countNum = 0;
+
+        if (active) {
+          if (existingItems.length > 0) {
+            countNum = Math.max(Number(ep?.count) || 0, existingItems.length);
+            if (countNum > existingItems.length && countNum <= 20) {
+              items = [
+                ...existingItems,
+                ...Array.from({ length: countNum - existingItems.length }, () => ({ title: '', url: '' })),
+              ];
+            }
+          } else {
+            countNum = Math.max(1, Math.min(20, Number(ep?.count) || 1));
+            items = Array.from({ length: countNum }, (_, idx) =>
+              idx === 0 ? { title: ep?.posts || '', url: ep?.link || '' } : { title: '', url: '' }
+            );
+          }
+        }
+
         platformsData[p.key] = {
           active,
-          count: ep?.count != null && Number(ep.count) > 0 ? String(ep.count) : (active ? '1' : ''),
-          posts: ep?.posts || '',
-          link: ep?.link || '',
+          count: String(countNum),
+          items,
         };
       });
       setForm({
@@ -84,7 +105,8 @@ export default function SocialMediaReportModal({
         [key]: {
           ...prev.platforms[key],
           active,
-          count: active && !prev.platforms[key].count ? '1' : prev.platforms[key].count,
+          count: active ? (prev.platforms[key].count || '0') : '0',
+          items: active ? (prev.platforms[key].items || []) : [],
         },
       },
     }));
@@ -103,13 +125,95 @@ export default function SocialMediaReportModal({
     }));
   };
 
+  const handlePlatformCountChange = (key, rawValue) => {
+    const cleaned = String(rawValue ?? '').replace(/\D/g, '');
+    if (cleaned === '') {
+      setForm(prev => ({
+        ...prev,
+        platforms: {
+          ...prev.platforms,
+          [key]: {
+            ...prev.platforms[key],
+            active: true,
+            count: '',
+            items: [],
+          },
+        },
+      }));
+      return;
+    }
+
+    const parsed = Math.max(0, Math.min(20, parseInt(cleaned, 10) || 0));
+    setForm(prev => {
+      const currentItems = Array.isArray(prev.platforms[key]?.items)
+        ? [...prev.platforms[key].items]
+        : [];
+      if (parsed > currentItems.length) {
+        while (currentItems.length < parsed) currentItems.push({ title: '', url: '' });
+      } else if (parsed < currentItems.length) {
+        currentItems.length = parsed;
+      }
+      return {
+        ...prev,
+        platforms: {
+          ...prev.platforms,
+          [key]: {
+            ...prev.platforms[key],
+            active: true,
+            count: String(parsed),
+            items: currentItems,
+          },
+        },
+      };
+    });
+  };
+
+  const handlePlatformItemChange = (key, index, field, value) => {
+    setForm(prev => {
+      const currentItems = [...(prev.platforms[key]?.items || [])];
+      currentItems[index] = {
+        ...(currentItems[index] || { title: '', url: '' }),
+        [field]: value,
+      };
+      return {
+        ...prev,
+        platforms: {
+          ...prev.platforms,
+          [key]: {
+            ...prev.platforms[key],
+            items: currentItems,
+          },
+        },
+      };
+    });
+  };
+
+  const handleRemovePlatformItem = (key, index) => {
+    setForm(prev => {
+      const nextItems = (prev.platforms[key]?.items || []).filter((_, i) => i !== index);
+      return {
+        ...prev,
+        platforms: {
+          ...prev.platforms,
+          [key]: {
+            ...prev.platforms[key],
+            count: String(nextItems.length),
+            items: nextItems,
+          },
+        },
+      };
+    });
+  };
+
   const handleSave = async () => {
     const activeEntries = Object.entries(form.platforms).filter(
-      ([, data]) => data.active && (Number(data.count) > 0 || data.posts?.trim())
+      ([, data]) =>
+        data.active &&
+        (Number(data.count) > 0 || (data.items || []).some(it => it.title?.trim() || it.url?.trim()))
     );
 
     if (activeEntries.length === 0) {
-      toast.warning("Iltimos, kamida bitta ijtimoiy tarmoqni belgilab, postlar soni yoki mazmunini kiriting!");
+      toast.warning("Iltimos, kamida bitta ijtimoiy tarmoqni belgilab, postlar sonini kiriting!");
       return;
     }
 
@@ -121,15 +225,26 @@ export default function SocialMediaReportModal({
 
       activeEntries.forEach(([key, val]) => {
         const platformCfg = SOCIAL_PLATFORMS.find(p => p.key === key);
-        const count = Number(val.count || 0);
+        const cleanedItems = (val.items || [])
+          .map(it => ({ title: (it.title || '').trim(), url: (it.url || '').trim() }))
+          .filter(it => it.title || it.url);
+        const count = Math.max(Number(val.count || 0), cleanedItems.length);
         totalPosts += count;
+
+        const summaryText = cleanedItems
+          .map(it => it.title || it.url)
+          .filter(Boolean)
+          .join(' | ');
+        const firstLink = cleanedItems.find(it => it.url)?.url || '';
+
         formattedPlatforms[key] = {
           label: platformCfg?.label || key,
           count,
-          posts: val.posts?.trim() || '',
-          link: val.link?.trim() || '',
+          items: cleanedItems,
+          posts: summaryText,
+          link: firstLink,
         };
-        const textSnippet = val.posts?.trim() ? ` (${val.posts.trim()})` : '';
+        const textSnippet = summaryText ? ` (${summaryText})` : '';
         descParts.push(`${platformCfg?.label || key}: ${count} ta post${textSnippet}`);
       });
 
@@ -316,10 +431,22 @@ export default function SocialMediaReportModal({
                         <span className="text-[11px] font-semibold text-slate-500">Soni:</span>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
+                          max="20"
+                          step="1"
                           value={data.count}
-                          onChange={e => handlePlatformChange(platform.key, 'count', e.target.value)}
-                          placeholder="1"
+                          onFocus={() => {
+                            if (data.count === '0' || data.count === 0) {
+                              handlePlatformChange(platform.key, 'count', '');
+                            }
+                          }}
+                          onBlur={() => {
+                            if (data.count === '' || data.count === null || data.count === undefined) {
+                              handlePlatformChange(platform.key, 'count', String(data.items?.length || 0));
+                            }
+                          }}
+                          onChange={e => handlePlatformCountChange(platform.key, e.target.value)}
+                          placeholder="0"
                           className="w-16 px-2.5 py-1 text-center font-bold text-sm rounded-lg border border-purple-300 bg-white text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-400"
                         />
                         <span className="text-xs text-slate-400 font-medium">ta</span>
@@ -332,33 +459,58 @@ export default function SocialMediaReportModal({
                   </div>
                 </div>
 
-                {/* Tafsilotlar (agar faol bo'lsa) */}
+                {/* Tafsilotlar: kiritilgan songa qarab alohida sarlavha + link maydonlari */}
                 {isActive && (
-                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5 pl-7">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Bajarilgan ish / Post yoki e'lon mazmuni:
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={data.posts}
-                        onChange={e => handlePlatformChange(platform.key, 'posts', e.target.value)}
-                        placeholder={platform.placeholder}
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-300 placeholder:text-slate-400 leading-relaxed"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Havola yoki post havolasi (ixtiyoriy):
-                      </label>
-                      <input
-                        type="url"
-                        value={data.link}
-                        onChange={e => handlePlatformChange(platform.key, 'link', e.target.value)}
-                        placeholder="https://..."
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 font-mono focus:outline-none focus:ring-2 focus:ring-purple-300 placeholder:text-slate-300"
-                      />
-                    </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5 pl-2 sm:pl-7">
+                    {Array.isArray(data.items) && data.items.length > 0 ? (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {data.items.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end"
+                          >
+                            <div className="sm:col-span-6">
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                {idx + 1}-post / e'lon sarlavhasi (mazmuni):
+                              </label>
+                              <input
+                                type="text"
+                                value={item.title}
+                                onChange={e => handlePlatformItemChange(platform.key, idx, 'title', e.target.value)}
+                                placeholder={platform.placeholder}
+                                className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-300 placeholder:text-slate-400"
+                              />
+                            </div>
+                            <div className="sm:col-span-5">
+                              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                {idx + 1}-havola (URL, ixtiyoriy):
+                              </label>
+                              <input
+                                type="url"
+                                value={item.url}
+                                onChange={e => handlePlatformItemChange(platform.key, idx, 'url', e.target.value)}
+                                placeholder="https://..."
+                                className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 font-mono focus:outline-none focus:ring-2 focus:ring-purple-300 placeholder:text-slate-300"
+                              />
+                            </div>
+                            <div className="sm:col-span-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePlatformItem(platform.key, idx)}
+                                className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors"
+                                title="Ushbu qatorni olib tashlash"
+                              >
+                                <ICONS.trash className="text-xs" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 italic bg-slate-50 px-3 py-2 rounded-lg border border-dashed border-slate-200">
+                        Nechta post yoki material joylagan bo'lsangiz, yuqoridagi <strong>"Soni"</strong> maydoniga kiriting — shuncha alohida sarlavha va link maydoni chiqadi.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
