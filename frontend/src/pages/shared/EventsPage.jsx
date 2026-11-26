@@ -39,6 +39,7 @@ export default function EventsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
+  const [linksCountInput, setLinksCountInput] = useState('0');
 
   const isSuperAdmin = isRole(ROLES.SUPER_ADMIN);
   const isViloyatAdmin = isRole(ROLES.VILOYAT_ADMIN);
@@ -154,11 +155,14 @@ export default function EventsPage() {
   };
 
   const handleLinksCountChange = (rawCount) => {
-    if (rawCount === '') {
+    const cleaned = String(rawCount ?? '').replace(/\D/g, '');
+    if (cleaned === '') {
+      setLinksCountInput('');
       setForm(prev => ({ ...prev, links: [] }));
       return;
     }
-    const parsed = Math.max(0, Math.min(20, parseInt(rawCount, 10) || 0));
+    const parsed = Math.max(0, Math.min(20, parseInt(cleaned, 10) || 0));
+    setLinksCountInput(String(parsed));
     setForm(prev => {
       const current = Array.isArray(prev.links) ? [...prev.links] : [];
       if (parsed > current.length) {
@@ -179,10 +183,11 @@ export default function EventsPage() {
   };
 
   const handleRemoveLinkItem = (index) => {
-    setForm(prev => ({
-      ...prev,
-      links: (prev.links || []).filter((_, i) => i !== index),
-    }));
+    setForm(prev => {
+      const nextLinks = (prev.links || []).filter((_, i) => i !== index);
+      setLinksCountInput(String(nextLinks.length));
+      return { ...prev, links: nextLinks };
+    });
   };
 
   const handleSave = async () => {
@@ -210,6 +215,7 @@ export default function EventsPage() {
 
     const saveForm = {
       ...form,
+      participants: Math.max(0, parseInt(form.participants, 10) || 0),
       links: cleanedLinks,
       viloyatId: form.targetScope === 'self' && isSuperAdmin ? null : (form.viloyatId || currentUser?.viloyatId || defaultViloyatId),
       tumanId: isSelfAdmin ? null : (form.tumanId || currentUser?.tumanId || null),
@@ -257,6 +263,7 @@ export default function EventsPage() {
 
   const openCreate = () => {
     setEditItem(null);
+    setLinksCountInput('0');
     setForm({
       title: '',
       type: EVENT_TYPES.READING_HOUR,
@@ -277,20 +284,22 @@ export default function EventsPage() {
 
   const openEdit = (ev) => {
     setEditItem(ev);
+    const existingLinks = parseEventLinks(ev).map(l => ({ title: l.title || '', url: l.url || '' }));
+    setLinksCountInput(String(existingLinks.length));
     setForm({
       title: ev.title || '',
       type: ev.type || EVENT_TYPES.READING_HOUR,
       date: ev.date || '',
       time: ev.time || '',
       location: ev.location || '',
-      participants: ev.participants || 0,
+      participants: Math.max(0, parseInt(ev.participants, 10) || 0),
       description: ev.description || '',
       libraryId: ev.libraryId || scopedLibIds[0] || '',
       viloyatId: ev.viloyatId || defaultViloyatId,
       tumanId: ev.tumanId || currentUser?.tumanId || '',
       targetScope: ev.targetScope || (isDistrictUser ? 'self' : 'all_tumans'),
       targetTumans: Array.isArray(ev.targetTumans) ? ev.targetTumans : [],
-      links: parseEventLinks(ev).map(l => ({ title: l.title || '', url: l.url || '' })),
+      links: existingLinks,
     });
     setShowModal(true);
   };
@@ -471,10 +480,26 @@ export default function EventsPage() {
           <Input
             label="Ishtirokchilar soni"
             type="number"
+            min="0"
+            step="1"
+            placeholder="0"
             value={form.participants}
+            onFocus={() => {
+              if (form.participants === 0 || form.participants === '0') {
+                setForm(prev => ({ ...prev, participants: '' }));
+              }
+            }}
+            onBlur={() => {
+              if (form.participants === '' || form.participants === null || form.participants === undefined) {
+                setForm(prev => ({ ...prev, participants: 0 }));
+              }
+            }}
             onChange={e => {
-              const raw = e.target.value;
-              setForm({ ...form, participants: raw === '' ? '' : Number.isFinite(Number(raw)) ? Number(raw) : 0 });
+              const cleaned = e.target.value.replace(/\D/g, '');
+              setForm(prev => ({
+                ...prev,
+                participants: cleaned === '' ? '' : Math.max(0, parseInt(cleaned, 10) || 0),
+              }));
             }}
           />
 
@@ -625,7 +650,17 @@ export default function EventsPage() {
                   type="number"
                   min="0"
                   max="20"
-                  value={form.links?.length || 0}
+                  step="1"
+                  placeholder="0"
+                  value={linksCountInput}
+                  onFocus={() => {
+                    if (linksCountInput === '0') setLinksCountInput('');
+                  }}
+                  onBlur={() => {
+                    if (linksCountInput === '') {
+                      setLinksCountInput(String(form.links?.length || 0));
+                    }
+                  }}
                   onChange={(e) => handleLinksCountChange(e.target.value)}
                   className="w-20 px-2.5 py-1.5 text-center text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 />

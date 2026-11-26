@@ -213,11 +213,13 @@ export default function LibraryModal({
 
     if (editItem) {
       const hasCoords = editItem.latitude != null && editItem.longitude != null;
+      const rawCount = Number(editItem.staffCount);
       setForm({
         ...editItem,
         latitude: editItem.latitude != null ? String(editItem.latitude) : '',
         longitude: editItem.longitude != null ? String(editItem.longitude) : '',
         phone: editItem.phone || '+998',
+        staffCount: Number.isFinite(rawCount) && rawCount >= 1 ? Math.round(rawCount) : 1,
       });
       setGpsAccuracy(null);
       setHasCustomCoords(hasCoords);
@@ -445,8 +447,8 @@ export default function LibraryModal({
       tumanId: isDistrictScopedUser ? currentUser?.tumanId : form.tumanId,
       latitude: finalLat,
       longitude: finalLng,
-      staffCount: Number(form.staffCount) || 1,
-      foundingYear: Number(form.foundingYear) || new Date().getFullYear(),
+      staffCount: Math.max(1, Math.round(Number(form.staffCount) || 1)),
+      foundingYear: Math.round(Number(form.foundingYear) || new Date().getFullYear()),
     };
 
     try {
@@ -799,8 +801,26 @@ export default function LibraryModal({
             label="Xodimlar soni"
             type="number"
             min="1"
+            step="1"
+            placeholder="1"
             value={form.staffCount}
-            onChange={e => setForm({ ...form, staffCount: e.target.value === '' ? '' : Number(e.target.value) })}
+            onFocus={() => {
+              if (form.staffCount === 0 || form.staffCount === '0') {
+                setForm(prev => ({ ...prev, staffCount: '' }));
+              }
+            }}
+            onBlur={() => {
+              if (form.staffCount === '' || form.staffCount === null || form.staffCount === undefined) {
+                setForm(prev => ({ ...prev, staffCount: 1 }));
+              }
+            }}
+            onChange={e => {
+              const cleaned = e.target.value.replace(/\D/g, '');
+              setForm(prev => ({
+                ...prev,
+                staffCount: cleaned === '' ? '' : Math.max(1, parseInt(cleaned, 10) || 1),
+              }));
+            }}
           />
           <Input
             label="Tashkil etilgan yil"

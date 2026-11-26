@@ -15,6 +15,7 @@ import {
   ACTIVITY_TYPE_LABELS,
 } from "../../data/constants.js";
 import { formatDate, formatNumber } from "../../utils/helpers.js";
+import { VILOYATLAR, getTumanName } from "../../data/regions.js";
 import SocialMediaReportModal from "../../components/common/SocialMediaReportModal.jsx";
 import SocialMediaReportsView from "../../components/common/SocialMediaReportsView.jsx";
 
@@ -618,15 +619,24 @@ export default function DailyActivityPage() {
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Sana</th>
                   <th className="text-left px-4 py-3 font-medium">Kim</th>
-                  <th className="text-left px-4 py-3 font-medium">Bajarilgan ishlar</th>
+                  <th className="text-left px-4 py-3 font-medium">Tuman</th>
                   <th className="text-left px-4 py-3 font-medium">Holat</th>
                   <th className="text-center px-4 py-3 font-medium">Amallar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((a) => {
-                  const data = parseData(a);
                   const owner = allUsers.find((u) => u.id === a.userId);
+                  const lib = libraries.find(
+                    (l) => l.id === a.libraryId || l.id === owner?.libraryId,
+                  );
+                  const tId = a.tumanId || owner?.tumanId || lib?.tumanId || currentUser?.tumanId;
+                  const vId = a.viloyatId || owner?.viloyatId || lib?.viloyatId || currentUser?.viloyatId || "v01";
+                  const tumanName =
+                    (tId && getTumanName(vId, tId)) ||
+                    (tId && VILOYATLAR.flatMap((v) => v.tumanlar).find((t) => t.id === tId)?.name) ||
+                    lib?.name ||
+                    "—";
                   const isMine = a.userId === currentUser?.id;
                   const todayStr = new Date().toISOString().split("T")[0];
                   const isAlreadySent =
@@ -664,43 +674,18 @@ export default function DailyActivityPage() {
                             <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                               <ICONS.library className="text-[10px] text-slate-400 shrink-0" />
                               <span className="truncate max-w-[150px]">
-                                {libraries.find(
-                                  (l) =>
-                                    l.id === a.libraryId ||
-                                    l.id === owner?.libraryId,
-                                )?.name || "Kutubxona"}
+                                {lib?.name || "Kutubxona"}
                               </span>
                             </p>
                           </div>
                         </div>
                       </td>
-                      {/* Bajarilgan ishlar (faqat bajarilganlari ko'rinadi) */}
+                      {/* Qaysi tumandan kelgani */}
                       <td className="px-4 py-3">
-                        {(() => {
-                          const items = getCompletedActivities(data);
-                          if (items.length === 0) {
-                            return (
-                              <span className="text-xs text-slate-400 italic">
-                                Bajarilgan ishlar kiritilmagan
-                              </span>
-                            );
-                          }
-                          return (
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {items.map((item) => (
-                                <span
-                                  key={item.key}
-                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${item.badgeClass}`}
-                                  title={item.note ? `Izoh: ${item.note}` : item.label}
-                                >
-                                  {item.isTask && <ICONS.check className="text-[10px]" />}
-                                  <span className="font-bold">{item.label}:</span>
-                                  <span>{item.isTask ? (item.note || 'Bajarildi') : item.text.replace(`${item.label}: `, '')}</span>
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200/80">
+                          <ICONS.location className="text-[11px] text-blue-600 shrink-0" />
+                          <span>{tumanName}</span>
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <Badge color={STATUS_COLORS[badgeStatus] || "green"}>

@@ -25,7 +25,7 @@ import {
   ACTIVITY_TYPE_LABELS,
 } from '../../data/constants.js';
 import { formatDate, formatNumber } from '../../utils/helpers.js';
-import { getViloyatName, getTumanName } from '../../data/regions.js';
+import { VILOYATLAR, getViloyatName, getTumanName } from '../../data/regions.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
@@ -1393,25 +1393,24 @@ export default function XBReports() {
                     <tr>
                       <th className="text-left px-4 py-3">Sana va vaqt</th>
                       <th className="text-left px-4 py-3">Xodim</th>
-                      <th className="text-center px-3 py-3">Scanner</th>
-                      <th className="text-center px-3 py-3">PDF</th>
-                      <th className="text-center px-3 py-3">Post/E'lon</th>
-                      <th className="text-center px-3 py-3">Texnik</th>
-                      <th className="text-center px-3 py-3">Jihozlash</th>
+                      <th className="text-left px-4 py-3">Tuman</th>
                       <th className="text-center px-3 py-3">Holat</th>
                       <th className="text-center px-4 py-3">Amal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredDailyActs.map(act => {
-                      const d = parseData(act);
                       const u = allUsers.find(user => user.id === act.userId);
+                      const lib = libraries.find(l => l.id === act.libraryId || l.id === u?.libraryId);
+                      const tId = act.tumanId || u?.tumanId || lib?.tumanId || currentUser?.tumanId;
+                      const vId = act.viloyatId || u?.viloyatId || lib?.viloyatId || currentUser?.viloyatId || 'v01';
+                      const tumanName =
+                        (tId && getTumanName(vId, tId)) ||
+                        (tId && VILOYATLAR.flatMap(v => v.tumanlar).find(t => t.id === tId)?.name) ||
+                        lib?.name ||
+                        myLibrary?.name ||
+                        '—';
                       const isHead = act.userId === currentUser?.id;
-                      const isSentToAdmin = myReports.some(r =>
-                        (r.type === 'daily' || r.type === REPORT_TYPES.DAILY) &&
-                        r.period === act.date &&
-                        r.status === REPORT_STATUS.SUBMITTED
-                      );
 
                       return (
                         <tr key={act.id} className="hover:bg-slate-50">
@@ -1430,24 +1429,15 @@ export default function XBReports() {
                                 <p className="text-xs font-bold text-slate-900 leading-tight">
                                   {u?.fullName || 'Noma\'lum xodim'} {isHead && <span className="text-[10px] text-amber-600 font-normal">(Siz)</span>}
                                 </p>
-                                <p className="text-[11px] text-slate-500">{u?.phone || myLibrary?.name || 'Kutubxona'}</p>
+                                <p className="text-[11px] text-slate-500">{u?.phone || lib?.name || myLibrary?.name || 'Kutubxona'}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="text-center px-3 py-3 font-semibold text-blue-700">
-                            {d.kitob_skanerlash ? formatNumber(d.kitob_skanerlash) : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="text-center px-3 py-3 font-semibold text-indigo-700">
-                            {d.kitob_pdf ? formatNumber(d.kitob_pdf) : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="text-center px-3 py-3 font-semibold text-purple-700">
-                            {d.ijtimoiy_tarmoq ? formatNumber(d.ijtimoiy_tarmoq) : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="text-center px-3 py-3 font-semibold text-teal-700">
-                            {d.texnik_xizmat ? formatNumber(d.texnik_xizmat) : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="text-center px-3 py-3 font-semibold text-amber-700">
-                            {d.jihozlash ? formatNumber(d.jihozlash) : <span className="text-slate-300">—</span>}
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200/80">
+                              <ICONS.location className="text-[11px] text-teal-600 shrink-0" />
+                              <span>{tumanName}</span>
+                            </span>
                           </td>
                           <td className="text-center px-3 py-3">
                             <Badge color={ACT_STATUS_COLORS[act.status] || 'blue'}>

@@ -16,6 +16,7 @@ import { toast } from '../../components/ui/Toast.jsx';
 import ICONS from '../../components/icons.jsx';
 import { STORAGE_KEYS, ROLES, ACTIVITY_TYPE_LABELS } from '../../data/constants.js';
 import { formatDate, formatNumber } from '../../utils/helpers.js';
+import { VILOYATLAR, getTumanName } from '../../data/regions.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import SocialMediaReportModal from '../../components/common/SocialMediaReportModal.jsx';
 import SocialMediaReportsView from '../../components/common/SocialMediaReportsView.jsx';
@@ -575,15 +576,21 @@ export default function XBDailyActivity() {
                     <tr>
                       <th className="text-left px-4 py-3 font-medium">Sana</th>
                       <th className="text-left px-4 py-3 font-medium">Xodim</th>
-                      <th className="text-left px-4 py-3 font-medium">Bajarilgan ishlar</th>
+                      <th className="text-left px-4 py-3 font-medium">Tuman</th>
                       <th className="text-center px-4 py-3 font-medium">Amallar</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {incomingActs.map(a => {
-                      const data  = parseData(a);
                       const owner = allUsers.find(u => u.id === a.userId);
-                      const items = getCompletedActivities(data);
+                      const lib = libraries.find(l => l.id === a.libraryId || l.id === owner?.libraryId);
+                      const tId = a.tumanId || owner?.tumanId || lib?.tumanId || currentUser?.tumanId;
+                      const vId = a.viloyatId || owner?.viloyatId || lib?.viloyatId || currentUser?.viloyatId || 'v01';
+                      const tumanName =
+                        (tId && getTumanName(vId, tId)) ||
+                        (tId && VILOYATLAR.flatMap(v => v.tumanlar).find(t => t.id === tId)?.name) ||
+                        lib?.name ||
+                        '—';
                       return (
                         <tr key={a.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
@@ -599,29 +606,16 @@ export default function XBDailyActivity() {
                                 <span className="text-xs font-bold text-gray-800 leading-tight block">{owner?.fullName || '—'}</span>
                                 <span className="text-[11px] text-teal-600 font-medium flex items-center gap-1 mt-0.5">
                                   <ICONS.library className="text-[10px] text-teal-500 shrink-0" />
-                                  <span>{libraries.find(l => l.id === a.libraryId || l.id === owner?.libraryId)?.name || 'Kutubxona xodimi'}</span>
+                                  <span>{lib?.name || 'Kutubxona xodimi'}</span>
                                 </span>
                               </div>
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            {items.length === 0 ? (
-                              <span className="text-xs text-slate-400 italic">Bajarilgan ishlar kiritilmagan</span>
-                            ) : (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {items.map((item) => (
-                                  <span
-                                    key={item.key}
-                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${item.badgeClass}`}
-                                    title={item.note ? `Izoh: ${item.note}` : item.label}
-                                  >
-                                    {item.isTask && <ICONS.check className="text-[10px]" />}
-                                    <span className="font-bold">{item.label}:</span>
-                                    <span>{item.isTask ? (item.note || 'Bajarildi') : item.text.replace(`${item.label}: `, '')}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200/80">
+                              <ICONS.location className="text-[11px] text-teal-600 shrink-0" />
+                              <span>{tumanName}</span>
+                            </span>
                           </td>
                           <td className="text-center px-4 py-3">
                             <button
@@ -760,38 +754,31 @@ export default function XBDailyActivity() {
                     <tr>
                       <th className="text-left px-4 py-3 font-medium">Sana</th>
                       <th className="text-left px-4 py-3 font-medium">Xodim</th>
-                      <th className="text-left px-4 py-3 font-medium">Bajarilgan ishlar</th>
+                      <th className="text-left px-4 py-3 font-medium">Tuman</th>
                       <th className="text-left px-4 py-3 font-medium">Holat</th>
                       <th className="text-center px-4 py-3 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {monthActs.map(a => {
-                      const data  = parseData(a);
                       const owner = allUsers.find(u => u.id === a.userId);
-                      const items = getCompletedActivities(data);
+                      const lib = libraries.find(l => l.id === a.libraryId || l.id === owner?.libraryId);
+                      const tId = a.tumanId || owner?.tumanId || lib?.tumanId || currentUser?.tumanId;
+                      const vId = a.viloyatId || owner?.viloyatId || lib?.viloyatId || currentUser?.viloyatId || 'v01';
+                      const tumanName =
+                        (tId && getTumanName(vId, tId)) ||
+                        (tId && VILOYATLAR.flatMap(v => v.tumanlar).find(t => t.id === tId)?.name) ||
+                        lib?.name ||
+                        '—';
                       return (
                         <tr key={a.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{formatDate(a.date)}</td>
                           <td className="px-4 py-3 text-gray-600 text-xs font-medium">{owner?.fullName || '—'}</td>
                           <td className="px-4 py-3">
-                            {items.length === 0 ? (
-                              <span className="text-xs text-slate-400 italic">Bajarilgan ishlar kiritilmagan</span>
-                            ) : (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {items.map((item) => (
-                                  <span
-                                    key={item.key}
-                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${item.badgeClass}`}
-                                    title={item.note ? `Izoh: ${item.note}` : item.label}
-                                  >
-                                    {item.isTask && <ICONS.check className="text-[10px]" />}
-                                    <span className="font-bold">{item.label}:</span>
-                                    <span>{item.isTask ? (item.note || 'Bajarildi') : item.text.replace(`${item.label}: `, '')}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200/80">
+                              <ICONS.location className="text-[11px] text-teal-600 shrink-0" />
+                              <span>{tumanName}</span>
+                            </span>
                           </td>
                           <td className="px-4 py-3">
                             <Badge color={ACT_STATUS_COLORS[a.status] || 'gray'}>

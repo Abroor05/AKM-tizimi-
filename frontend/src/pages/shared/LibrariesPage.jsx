@@ -13,6 +13,7 @@ import { VILOYATLAR, getViloyatName, getTumanName } from '../../data/regions.js'
 import LibraryModal from '../../components/common/LibraryModal.jsx';
 import ConfirmModal from '../../components/ui/ConfirmModal.jsx';
 import SearchInput from '../../components/ui/SearchInput.jsx';
+import { resolveLibraryStaffCount } from '../../utils/helpers.js';
 
 export default function LibrariesPage() {
   const { currentUser, getCollection, deleteEntity, isRole } = useApp();
@@ -27,6 +28,7 @@ export default function LibrariesPage() {
   const isSuperAdmin = currentUser?.role === ROLES.SUPER_ADMIN || currentUser?.role === 'superadmin';
   const allLibraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES) || [], [getCollection]);
   const allStaff = useMemo(() => getCollection(STORAGE_KEYS.STAFF) || [], [getCollection]);
+  const allUsers = useMemo(() => getCollection(STORAGE_KEYS.USERS) || [], [getCollection]);
   const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.KUTUBXONA_XODIMI);
   const isXodimlarBoshligi = isRole(ROLES.XODIMLAR_BOSHLIGI);
 
@@ -149,8 +151,7 @@ export default function LibrariesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((lib) => {
             const hasCoords = Number.isFinite(Number(lib.latitude)) && Number.isFinite(Number(lib.longitude));
-            const staffInLib = allStaff.filter((s) => s.libraryId === lib.id).length;
-            const staffCount = staffInLib > 0 ? staffInLib : lib.staffCount || 1;
+            const staffCount = resolveLibraryStaffCount(lib, allStaff, allUsers);
 
             return (
               <Card key={lib.id}>

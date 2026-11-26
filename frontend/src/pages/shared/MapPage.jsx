@@ -12,6 +12,7 @@ import ICONS from '../../components/icons.jsx';
 import { getAllTumanlar, getViloyatName, getTumanName } from '../../data/regions.js';
 import { STORAGE_KEYS, ROLES } from '../../data/constants.js';
 import LibraryModal from '../../components/common/LibraryModal.jsx';
+import { resolveLibraryStaffCount } from '../../utils/helpers.js';
 
 // Custom Pin Icons to prevent Vite image missing bugs
 const createPinIcon = (type, isSelected = false) => {
@@ -119,6 +120,8 @@ const openGoogleMaps = (lat, lng) => {
 export default function MapPage() {
   const { currentUser, getCollection, isRole } = useApp();
   const libraries = useMemo(() => getCollection(STORAGE_KEYS.LIBRARIES), [getCollection]);
+  const allStaff = useMemo(() => getCollection(STORAGE_KEYS.STAFF) || [], [getCollection]);
+  const allUsers = useMemo(() => getCollection(STORAGE_KEYS.USERS) || [], [getCollection]);
   const allDistricts = useMemo(() => getAllTumanlar(), []);
 
   const isDistrictScopedUser = isRole(ROLES.TUMAN_ADMIN, ROLES.XODIMLAR_BOSHLIGI, ROLES.KUTUBXONA_XODIMI);
@@ -465,7 +468,7 @@ export default function MapPage() {
                                 </p>
                               )}
                               <p className="flex items-center gap-1.5">
-                                <ICONS.users className="text-slate-400 text-xs" /> Xodimlar: {lib.staffCount || 1} kishi
+                                <ICONS.users className="text-slate-400 text-xs" /> Xodimlar: {resolveLibraryStaffCount(lib, allStaff, allUsers)} kishi
                               </p>
                             </div>
 

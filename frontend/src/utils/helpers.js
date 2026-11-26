@@ -120,3 +120,23 @@ export function currentQuarter() {
   const month = new Date().getMonth();
   return Math.floor(month / 3) + 1;
 }
+
+/**
+ * Kutubxona (AKM / Filial) xodimlari sonini butun son (integer) sifatida aniqlaydi.
+ */
+export function resolveLibraryStaffCount(lib, allStaff = [], allUsers = []) {
+  if (!lib) return 0;
+  const staffInLib = allStaff.filter((s) => (s.libraryId || s.library_id) === lib.id).length;
+  if (staffInLib > 0) return staffInLib;
+
+  const rawStored = Number(lib.staffCount);
+  if (Number.isFinite(rawStored) && rawStored >= 1) {
+    return Math.round(rawStored);
+  }
+
+  const excludedRoles = new Set(['super_admin', 'superadmin', 'viloyat_admin']);
+  const usersInLib = allUsers.filter(
+    (u) => (u.libraryId || u.library_id) === lib.id && !excludedRoles.has(u.role)
+  ).length;
+  return usersInLib;
+}

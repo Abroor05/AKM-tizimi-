@@ -523,6 +523,9 @@ export function rowToObject(table, row) {
       }
     } else if (key === 'active' || key === 'read') {
       obj[camelKey] = value === 1 || value === true;
+    } else if (key === 'staff_count' && value !== null && value !== undefined) {
+      const n = Number(value);
+      obj[camelKey] = Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
     } else {
       obj[camelKey] = value;
     }
@@ -546,11 +549,14 @@ export function rowToObject(table, row) {
   return obj;
 }
 
+const INTEGER_COLUMNS = new Set([
+  'staff_count', 'founding_year', 'copies_total', 'copies_available',
+  'year', 'pages', 'birth_year', 'borrowed_count', 'count',
+  'participants', 'quantity'
+]);
+
 const NUMERIC_COLUMNS = new Set([
-  'latitude', 'longitude', 'staff_count', 'founding_year',
-  'copies_total', 'copies_available', 'year', 'pages',
-  'birth_year', 'borrowed_count', 'count', 'participants',
-  'quantity', 'unit_price', 'target', 'actual', 'read', 'active'
+  'latitude', 'longitude', 'unit_price', 'target', 'actual', 'read', 'active'
 ]);
 
 export function objectToRow(table, obj) {
@@ -563,13 +569,13 @@ export function objectToRow(table, obj) {
       row[snakeKey] = JSON.stringify(value);
     } else if (key === 'active' || key === 'read') {
       row[snakeKey] = value ? 1 : 0;
-    } else if (NUMERIC_COLUMNS.has(snakeKey)) {
+    } else if (INTEGER_COLUMNS.has(snakeKey) || NUMERIC_COLUMNS.has(snakeKey)) {
       if (value === '' || value === null || value === undefined) {
         row[snakeKey] = null;
       } else {
         const cleanVal = typeof value === 'string' ? value.replace(',', '.') : value;
         const num = Number(cleanVal);
-        row[snakeKey] = isNaN(num) ? null : num;
+        row[snakeKey] = isNaN(num) ? null : (INTEGER_COLUMNS.has(snakeKey) ? Math.round(num) : num);
       }
     } else {
       row[snakeKey] = value;
