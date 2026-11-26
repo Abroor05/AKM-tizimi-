@@ -34,6 +34,7 @@ const STATUS_COLORS = {
   submitted: "blue",
   sent: "green",
   accepted: "emerald",
+  rejected: "red",
   completed: "green",
 };
 const STATUS_LABELS = {
@@ -41,6 +42,7 @@ const STATUS_LABELS = {
   submitted: "Saqlangan",
   sent: "Yuborilgan",
   accepted: "Qabul qilindi",
+  rejected: "Rad etildi",
   completed: "Yuborilgan",
 };
 
@@ -628,10 +630,12 @@ export default function DailyActivityPage() {
                   const isMine = a.userId === currentUser?.id;
                   const todayStr = new Date().toISOString().split("T")[0];
                   const isAlreadySent =
-                    a.status === "sent" ||
-                    a.status === "accepted" ||
-                    a.status === "completed" ||
-                    (a.date && a.date < todayStr);
+                    a.status !== "rejected" && (
+                      a.status === "sent" ||
+                      a.status === "accepted" ||
+                      a.status === "completed" ||
+                      (a.date && a.date < todayStr)
+                    );
                   const canSend = isXodim && isMine && !isAlreadySent;
                   const badgeStatus =
                     isAlreadySent && a.status !== "accepted"
@@ -704,60 +708,13 @@ export default function DailyActivityPage() {
                         </Badge>
                       </td>
                       <td className="text-center px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
-                          {/* Ko'rish */}
-                          <button
-                            onClick={() => setShowDetail(a)}
-                            className="p-1.5 rounded hover:bg-blue-50 text-blue-600"
-                            title="Ko'rish"
-                          >
-                            <ICONS.eye className="text-sm" />
-                          </button>
-                          {/* Tahrirlash va O'chirish (o'z hisobotini topshirgandan keyin ham) */}
-                          {canModifyActivity(a) && (
-                            <>
-                              <button
-                                onClick={() => openEdit(a)}
-                                className="p-1.5 rounded hover:bg-amber-50 text-amber-600"
-                                title="Tahrirlash"
-                              >
-                                <ICONS.edit className="text-sm" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(a)}
-                                className="p-1.5 rounded hover:bg-rose-50 text-rose-600"
-                                title="O'chirish"
-                              >
-                                <ICONS.trash className="text-sm" />
-                              </button>
-                            </>
-                          )}
-                          {/* Yuborish — faqat bugungi, o'z hisoboti va hali yuborilmagan bo'lsa */}
-                          {canSend && (
-                            <button
-                              onClick={() => handleSend(a)}
-                              disabled={sending === a.id}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium disabled:opacity-50"
-                              title="Bo'lim boshlig'iga yuborish"
-                            >
-                              {sending === a.id ? (
-                                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <ICONS.paperPlane className="text-xs" />
-                              )}
-                              Yuborish
-                            </button>
-                          )}
-                          {/* Yuborilgan / Qabul qilingan holat belgisi */}
-                          {isAlreadySent && (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
-                              <ICONS.check className="text-xs" />{" "}
-                              {a.status === "accepted"
-                                ? "Qabul qilindi"
-                                : "Yuborilgan"}
-                            </span>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => setShowDetail(a)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200/80 transition-colors"
+                          title="Ko'rish va amallar"
+                        >
+                          <ICONS.eye className="text-xs" /> Ko'rish
+                        </button>
                       </td>
                     </tr>
                   );
@@ -1050,38 +1007,60 @@ export default function DailyActivityPage() {
           isOpen={!!showDetail}
           onClose={() => setShowDetail(null)}
           title={`${formatDate(showDetail.date)} — Kunlik hisobot`}
-          size="sm"
+          size="md"
           footer={(() => {
             const todayStr = new Date().toISOString().split("T")[0];
             const isDetailSent =
-              showDetail.status === "sent" ||
-              showDetail.status === "accepted" ||
-              showDetail.status === "completed" ||
-              (showDetail.date && showDetail.date < todayStr);
+              showDetail.status !== "rejected" && (
+                showDetail.status === "sent" ||
+                showDetail.status === "accepted" ||
+                showDetail.status === "completed" ||
+                (showDetail.date && showDetail.date < todayStr)
+              );
+            const canModify = canModifyActivity(showDetail);
             return (
-              <div className="flex items-center justify-between gap-2 w-full">
-                {/* Modaldan turib ham yuborish — faqat yuborilmagan bo'lsa */}
-                {isRole(ROLES.KUTUBXONA_XODIMI) &&
-                showDetail.userId === currentUser?.id &&
-                !isDetailSent ? (
-                  <Button
-                    onClick={() => {
-                      handleSend(showDetail);
-                      setShowDetail(null);
-                    }}
-                    disabled={sending === showDetail.id}
-                  >
-                    <ICONS.paperPlane /> Bo'lim boshlig'iga yuborish
-                  </Button>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-green-700 font-semibold bg-green-50 px-2.5 py-1.5 rounded-lg border border-green-200">
-                    <ICONS.check className="text-xs text-green-600" />{" "}
-                    {showDetail.status === "accepted"
-                      ? "Qabul qilingan"
-                      : "Yuborilgan"}
-                  </span>
-                )}
-                <Button variant="secondary" onClick={() => setShowDetail(null)}>
+              <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+                <div className="flex flex-wrap items-center gap-2">
+                  {canModify && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          const target = showDetail;
+                          setShowDetail(null);
+                          openEdit(target);
+                        }}
+                        className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                      >
+                        <ICONS.edit className="text-xs" /> Tahrirlash
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setDeleteTarget(showDetail)}
+                        className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                      >
+                        <ICONS.trash className="text-xs" /> O'chirish
+                      </Button>
+                    </>
+                  )}
+                  {isRole(ROLES.KUTUBXONA_XODIMI) &&
+                  showDetail.userId === currentUser?.id &&
+                  !isDetailSent ? (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        handleSend(showDetail);
+                        setShowDetail(null);
+                      }}
+                      disabled={sending === showDetail.id}
+                    >
+                      <ICONS.paperPlane className="text-xs" /> Bo'lim boshlig'iga yuborish
+                    </Button>
+                  ) : null}
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => setShowDetail(null)}>
                   Yopish
                 </Button>
               </div>
@@ -1209,6 +1188,16 @@ export default function DailyActivityPage() {
                 {showDetail.description}
               </div>
             )}
+
+            {showDetail.status === "rejected" && (() => {
+              const d = parseData(showDetail);
+              return (
+                <div className="px-4 py-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                  <span className="font-bold block mb-0.5">Rad etilgan!</span>
+                  {d.rejectReason ? `Sabab: ${d.rejectReason}` : "Bo'lim boshlig'i tomonidan rad etildi. Tahrirlab qayta yuborishingiz mumkin."}
+                </div>
+              );
+            })()}
           </div>
         </Modal>
       )}

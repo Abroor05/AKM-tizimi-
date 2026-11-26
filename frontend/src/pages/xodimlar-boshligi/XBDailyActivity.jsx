@@ -35,11 +35,13 @@ const ACT_STATUS_COLORS = {
   submitted: 'blue',
   sent:      'amber',
   accepted:  'green',
+  rejected:  'red',
 };
 const ACT_STATUS_LABELS = {
   submitted: 'Saqlangan',
   sent:      'Yuborildi',
   accepted:  'Qabul qilindi',
+  rejected:  'Rad etildi',
 };
 
 function getCompletedActivities(data) {
@@ -174,7 +176,7 @@ function buildEmptyForm() {
 
 export default function XBDailyActivity() {
   const navigate = useNavigate();
-  const { currentUser, getCollection, createEntity, updateEntity, deleteEntity, acceptActivity, forwardDailyActivityToAdmins, forwardMonthlyReportToAdmins } = useApp();
+  const { currentUser, getCollection, createEntity, updateEntity, deleteEntity, acceptActivity, rejectActivity, forwardDailyActivityToAdmins, forwardMonthlyReportToAdmins } = useApp();
 
   const allActs   = useMemo(() => getCollection(STORAGE_KEYS.ACTIVITIES), [getCollection]);
   const allUsers  = useMemo(() => getCollection(STORAGE_KEYS.USERS),      [getCollection]);
@@ -304,6 +306,21 @@ export default function XBDailyActivity() {
       toast.success("Xodim hisoboti muvaffaqiyatli qabul qilindi!");
     } catch {
       toast.error('Qabul qilishda xato yuz berdi');
+    } finally {
+      setAccepting(null);
+    }
+  };
+
+  const handleReject = async (a) => {
+    const reason = window.prompt("Hisobotni rad etish sababini kiriting (ixtiyoriy):", "");
+    if (reason === null) return;
+    setAccepting(a.id);
+    try {
+      await rejectActivity(a.id, reason.trim());
+      setShowDetail(null);
+      toast.warning("Xodim hisoboti rad etildi!");
+    } catch {
+      toast.error('Rad etishda xato yuz berdi');
     } finally {
       setAccepting(null);
     }
@@ -607,31 +624,13 @@ export default function XBDailyActivity() {
                             )}
                           </td>
                           <td className="text-center px-4 py-3">
-                            <div className="flex items-center justify-center gap-2">
-                              <button onClick={() => setShowDetail(a)}
-                                className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Ko'rish">
-                                <ICONS.eye className="text-sm" />
-                              </button>
-                              <button onClick={() => openEditAct(a)}
-                                className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Tahrirlash">
-                                <ICONS.edit className="text-sm" />
-                              </button>
-                              <button onClick={() => setDeleteTarget(a)}
-                                className="p-1.5 rounded hover:bg-rose-50 text-rose-600" title="O'chirish">
-                                <ICONS.trash className="text-sm" />
-                              </button>
-                              <button
-                                onClick={() => handleAccept(a)}
-                                disabled={accepting === a.id}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium disabled:opacity-50"
-                              >
-                                {accepting === a.id
-                                  ? <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  : <ICONS.check className="text-xs" />
-                                }
-                                Qabul
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => setShowDetail(a)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200/80 transition-colors"
+                              title="Ko'rish va amallar"
+                            >
+                              <ICONS.eye className="text-xs" /> Ko'rish
+                            </button>
                           </td>
                         </tr>
                       );
@@ -800,27 +799,13 @@ export default function XBDailyActivity() {
                             </Badge>
                           </td>
                           <td className="text-center px-4 py-3">
-                            <div className="flex items-center justify-center gap-1">
-                              <button onClick={() => setShowDetail(a)}
-                                className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Ko'rish">
-                                <ICONS.eye className="text-sm" />
-                              </button>
-                              <button onClick={() => openEditAct(a)}
-                                className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Tahrirlash">
-                                <ICONS.edit className="text-sm" />
-                              </button>
-                              <button onClick={() => setDeleteTarget(a)}
-                                className="p-1.5 rounded hover:bg-rose-50 text-rose-600" title="O'chirish">
-                                <ICONS.trash className="text-sm" />
-                              </button>
-                              {a.status === 'sent' && (
-                                <button onClick={() => handleAccept(a)}
-                                  disabled={accepting === a.id}
-                                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium disabled:opacity-50">
-                                  <ICONS.check className="text-xs" /> Qabul
-                                </button>
-                              )}
-                            </div>
+                            <button
+                              onClick={() => setShowDetail(a)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200/80 transition-colors"
+                              title="Ko'rish va amallar"
+                            >
+                              <ICONS.eye className="text-xs" /> Ko'rish
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1086,28 +1071,61 @@ export default function XBDailyActivity() {
           isOpen={!!showDetail}
           onClose={() => setShowDetail(null)}
           title={`${formatDate(showDetail.date)} — Kunlik hisobot`}
-          size="sm"
+          size="md"
           footer={
-            <div className="flex gap-2 w-full justify-end">
-              <Button
-                variant="outline"
-                onClick={() => handleSendDailyToAdmins(showDetail)}
-                disabled={sendingAdmin}
-                className="text-teal-700 border-teal-300 hover:bg-teal-50"
-              >
-                <ICONS.paperPlane />
-                {sendingAdmin ? "Jo'natilmoqda..." : "Adminga jo'natish"}
-              </Button>
-              {showDetail.status === 'sent' && (
-                <Button onClick={() => handleAccept(showDetail)} disabled={accepting === showDetail.id}>
-                  {accepting === showDetail.id
-                    ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <ICONS.check />
-                  }
-                  Qabul qilish
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+              <div className="flex flex-wrap items-center gap-2">
+                {(showDetail.status === 'sent' || showDetail.status === 'rejected') && (
+                  <Button size="sm" onClick={() => handleAccept(showDetail)} disabled={accepting === showDetail.id}>
+                    {accepting === showDetail.id
+                      ? <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <ICONS.check className="text-xs" />
+                    }
+                    Qabul qilish
+                  </Button>
+                )}
+                {showDetail.status === 'sent' && (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => handleReject(showDetail)}
+                    disabled={accepting === showDetail.id}
+                  >
+                    <ICONS.error className="text-xs" /> Rad etish
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    const target = showDetail;
+                    setShowDetail(null);
+                    openEditAct(target);
+                  }}
+                  className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                >
+                  <ICONS.edit className="text-xs" /> Tahrirlash
                 </Button>
-              )}
-              <Button variant="secondary" onClick={() => setShowDetail(null)}>Yopish</Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setDeleteTarget(showDetail)}
+                  className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                >
+                  <ICONS.trash className="text-xs" /> O'chirish
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleSendDailyToAdmins(showDetail)}
+                  disabled={sendingAdmin}
+                  className="text-teal-700 border-teal-300 hover:bg-teal-50"
+                >
+                  <ICONS.paperPlane className="text-xs" />
+                  {sendingAdmin ? "Jo'natilmoqda..." : "Adminga jo'natish"}
+                </Button>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setShowDetail(null)}>Yopish</Button>
             </div>
           }
         >

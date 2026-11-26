@@ -451,33 +451,13 @@ export default function SocialMediaReportsView({
                         {act.description || "Tafsilotlar mavjud"}
                       </td>
                       <td className="text-center px-4 py-3">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => setDetailItem(act)}
-                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors inline-flex items-center gap-1"
-                            title="Ko'rish"
-                          >
-                            <ICONS.eye className="text-xs" /> Ko'rish
-                          </button>
-                          {canModifySocial(act) && (
-                            <>
-                              <button
-                                onClick={() => setEditingItem(act)}
-                                className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 transition-colors"
-                                title="Tahrirlash"
-                              >
-                                <ICONS.edit className="text-xs" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(act)}
-                                className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"
-                                title="O'chirish"
-                              >
-                                <ICONS.trash className="text-xs" />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => setDetailItem(act)}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/80 transition-colors inline-flex items-center gap-1.5"
+                          title="Ko'rish, tahrirlash va o'chirish"
+                        >
+                          <ICONS.eye className="text-xs" /> Ko'rish
+                        </button>
                       </td>
                     </tr>
                   );

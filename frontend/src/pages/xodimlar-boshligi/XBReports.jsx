@@ -47,11 +47,13 @@ const ACT_STATUS_COLORS = {
   submitted: 'blue',
   sent:      'amber',
   accepted:  'green',
+  rejected:  'red',
 };
 const ACT_STATUS_LABELS = {
   submitted: 'Saqlangan',
   sent:      'Yuborildi',
   accepted:  'Qabul qilindi',
+  rejected:  'Rad etildi',
 };
 
 function parseData(item) {
@@ -83,6 +85,7 @@ export default function XBReports() {
     updateEntity,
     deleteEntity,
     acceptActivity,
+    rejectActivity,
     forwardDailyActivityToAdmins,
     forwardMonthlyReportToAdmins,
   } = useApp();
@@ -157,6 +160,7 @@ export default function XBReports() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDailyAddModal, setShowDailyAddModal] = useState(false);
   const [editingDailyAct, setEditingDailyAct] = useState(null);
+  const [detailDailyAct, setDetailDailyAct] = useState(null);
 
   // Form state for new report
   const [form, setForm] = useState({
@@ -686,9 +690,23 @@ export default function XBReports() {
     if (!confirm(`${sender?.fullName || 'Xodim'}ning ${formatDate(act.date)} kunlik hisobotini qabul qilasizmi?`)) return;
     try {
       await acceptActivity(act.id);
+      if (detailDailyAct?.id === act.id) setDetailDailyAct(null);
       toast.success("Xodimning kunlik hisoboti muvaffaqiyatli qabul qilindi!");
     } catch (err) {
       toast.error('Qabul qilishda xatolik: ' + err.message);
+    }
+  };
+
+  // Kunlik hisobotni rad etish
+  const handleRejectDaily = async (act) => {
+    const reason = window.prompt("Hisobotni rad etish sababini kiriting (ixtiyoriy):", "");
+    if (reason === null) return;
+    try {
+      await rejectActivity(act.id, reason.trim());
+      if (detailDailyAct?.id === act.id) setDetailDailyAct(null);
+      toast.warning("Kunlik hisobot rad etildi!");
+    } catch (err) {
+      toast.error('Rad etishda xatolik: ' + err.message);
     }
   };
 
@@ -1437,43 +1455,13 @@ export default function XBReports() {
                             </Badge>
                           </td>
                           <td className="text-center px-4 py-3">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {act.status === 'sent' && !isHead ? (
-                                <button
-                                  onClick={() => handleAcceptDaily(act)}
-                                  className="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium"
-                                >
-                                  Qabul qilish
-                                </button>
-                              ) : isSentToAdmin ? (
-                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
-                                  Adminga yuborilgan
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => handleSendDailyToAdmins(act)}
-                                  disabled={isSubmitting}
-                                  className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs flex items-center gap-1"
-                                  title="Super Admin va Viloyat Adminiga jo'natish"
-                                >
-                                  <ICONS.paperPlane className="text-[10px]" /> Adminga jo'natish
-                                </button>
-                              )}
-                              <button
-                                onClick={() => openEditDailyAct(act)}
-                                className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 transition-colors"
-                                title="Tahrirlash"
-                              >
-                                <ICONS.edit className="text-xs" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget({ kind: 'activity', item: act })}
-                                className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"
-                                title="O'chirish"
-                              >
-                                <ICONS.trash className="text-xs" />
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => setDetailDailyAct(act)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200/80 transition-colors"
+                              title="Ko'rish va amallar"
+                            >
+                              <ICONS.eye className="text-xs" /> Ko'rish
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1863,25 +1851,49 @@ export default function XBReports() {
           title="Hisobot tafsilotlari"
           size="lg"
           footer={
-            <div className="flex items-center justify-between w-full">
-              <Button
-                variant="secondary"
-                onClick={() => window.print()}
-                className="text-xs"
-              >
-                <ICONS.download /> Chop etish (Print)
-              </Button>
+            <div className="flex flex-wrap items-center justify-between w-full gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => window.print()}
+                  className="text-xs"
+                >
+                  <ICONS.download /> Chop etish
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    const target = detailReport;
+                    setDetailReport(null);
+                    handleOpenEditReport(target);
+                  }}
+                  className="text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
+                >
+                  <ICONS.edit className="text-xs" /> Tahrirlash
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setDeleteTarget({ kind: 'report', item: detailReport })}
+                  className="text-xs text-rose-700 border-rose-200 hover:bg-rose-50"
+                >
+                  <ICONS.trash className="text-xs" /> O'chirish
+                </Button>
+              </div>
 
               <div className="flex items-center gap-2">
                 {detailReport.status === REPORT_STATUS.DRAFT && (
                   <Button
+                    size="sm"
                     onClick={() => handleDirectSubmit(detailReport.id, ['super_admin', 'viloyat_admin'])}
                     className="bg-teal-600 hover:bg-teal-700 text-white text-xs"
                   >
                     <ICONS.paperPlane /> Super & Viloyat Adminga jo'natish
                   </Button>
                 )}
-                <Button variant="secondary" onClick={() => setDetailReport(null)}>
+                <Button size="sm" variant="secondary" onClick={() => setDetailReport(null)}>
                   Yopish
                 </Button>
               </div>
@@ -2237,6 +2249,130 @@ export default function XBReports() {
           createEntity={createEntity}
         />
       )}
+
+      {/* ── Kunlik faoliyat tafsilotlari (Ko'rish) modali ── */}
+      {detailDailyAct && (() => {
+        const d = parseData(detailDailyAct);
+        const notes = d.notes || {};
+        const sender = allUsers.find(u => u.id === detailDailyAct.userId);
+        const isHead = detailDailyAct.userId === currentUser?.id;
+        const isSentToAdmin = myReports.some(r =>
+          (r.type === 'daily' || r.type === REPORT_TYPES.DAILY) &&
+          r.period === detailDailyAct.date &&
+          r.status === REPORT_STATUS.SUBMITTED
+        );
+        const entries = Object.entries(d).filter(([k]) => k !== 'notes' && k !== 'rejectReason' && ACTIVITY_TYPE_LABELS[k] && Number(d[k]) > 0);
+
+        return (
+          <Modal
+            isOpen={Boolean(detailDailyAct)}
+            onClose={() => setDetailDailyAct(null)}
+            title={`${formatDate(detailDailyAct.date)} — Kunlik hisobot`}
+            size="md"
+            footer={
+              <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+                <div className="flex flex-wrap items-center gap-2">
+                  {(detailDailyAct.status === 'sent' || detailDailyAct.status === 'rejected') && !isHead && (
+                    <Button size="sm" onClick={() => handleAcceptDaily(detailDailyAct)}>
+                      <ICONS.check className="text-xs" /> Qabul qilish
+                    </Button>
+                  )}
+                  {detailDailyAct.status === 'sent' && !isHead && (
+                    <Button size="sm" variant="danger" onClick={() => handleRejectDaily(detailDailyAct)}>
+                      <ICONS.error className="text-xs" /> Rad etish
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      const target = detailDailyAct;
+                      setDetailDailyAct(null);
+                      openEditDailyAct(target);
+                    }}
+                    className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                  >
+                    <ICONS.edit className="text-xs" /> Tahrirlash
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      const target = detailDailyAct;
+                      setDetailDailyAct(null);
+                      setDeleteTarget({ kind: 'activity', item: target });
+                    }}
+                    className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                  >
+                    <ICONS.trash className="text-xs" /> O'chirish
+                  </Button>
+                  {!isSentToAdmin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSendDailyToAdmins(detailDailyAct)}
+                      disabled={isSubmitting}
+                      className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                    >
+                      <ICONS.paperPlane className="text-xs" /> Adminga jo'natish
+                    </Button>
+                  )}
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => setDetailDailyAct(null)}>
+                  Yopish
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-xl bg-teal-50/70 border border-teal-200/80 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-extrabold text-slate-900">{sender?.fullName || "Noma'lum xodim"}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {formatDate(detailDailyAct.date)} {detailDailyAct.time && `• ${detailDailyAct.time}`}
+                  </p>
+                </div>
+                <Badge color={ACT_STATUS_COLORS[detailDailyAct.status] || 'blue'}>
+                  {ACT_STATUS_LABELS[detailDailyAct.status] || detailDailyAct.status}
+                </Badge>
+              </div>
+
+              {entries.length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-2">Bajarilgan ishlar qayd etilmagan</p>
+              ) : (
+                <div className="space-y-2">
+                  {entries.map(([key, val]) => {
+                    const isNumeric = key === 'kitob_skanerlash' || key === 'kitob_pdf' || key === 'ijtimoiy_tarmoq';
+                    const unit = key === 'kitob_skanerlash' ? 'ta kitob' : key === 'kitob_pdf' ? 'fayl' : 'ta post';
+                    return (
+                      <div key={key} className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-700">{ACTIVITY_TYPE_LABELS[key] || key}</span>
+                          {isNumeric ? (
+                            <span className="text-sm font-bold text-teal-700">{formatNumber(val)} {unit}</span>
+                          ) : (
+                            <span className="text-xs font-bold text-teal-700">Bajarildi</span>
+                          )}
+                        </div>
+                        {notes[key] && (
+                          <p className="text-xs text-slate-600 mt-1.5 pt-1.5 border-t border-slate-200/70">Izoh: {notes[key]}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {detailDailyAct.description && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-xs text-slate-700">
+                  <span className="font-bold text-amber-800 block mb-0.5">Izoh:</span>
+                  {detailDailyAct.description}
+                </div>
+              )}
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* O'chirishni tasdiqlash modali */}
       <ConfirmModal

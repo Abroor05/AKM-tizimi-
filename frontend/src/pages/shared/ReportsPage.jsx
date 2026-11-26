@@ -440,73 +440,14 @@ export default function ReportsPage() {
                       <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{r.submittedAt ? formatDate(r.submittedAt) : (r.createdAt ? formatDate(r.createdAt) : 'Qoralama')}</td>
                       <td className="px-4 py-3"><Badge color={REPORT_STATUS_COLORS[r.status]}>{REPORT_STATUS_LABELS[r.status] || r.status}</Badge></td>
                       <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                          {/* Ko'rish tugmasi - doim ko'rinadi */}
-                          <button
-                            onClick={() => { setDetailItem(r); setReviewMode(false); setReviewComment(''); }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 hover:border-blue-200 transition-colors"
-                            title="Hisobot tafsilotlarini ko'rish"
-                          >
-                            <ICONS.eye className="text-xs text-blue-600" />
-                            <span>Ko'rish</span>
-                          </button>
-
-                          {/* Admin uchun Qabul qilish va Rad etish tezkor tugmalari */}
-                          {canReview && isPending && (
-                            <>
-                              <button
-                                onClick={() => handleReview('approve', r)}
-                                disabled={isReviewing}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors disabled:opacity-50"
-                                title="Hisobotni qabul qilish va tasdiqlash"
-                              >
-                                <ICONS.check className="text-xs text-emerald-600" />
-                                <span>Qabul</span>
-                              </button>
-                              <button
-                                onClick={() => handleReview('reject', r)}
-                                disabled={isReviewing}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
-                                title="Hisobotni rad etish"
-                              >
-                                <ICONS.error className="text-xs text-rose-600" />
-                                <span>Rad</span>
-                              </button>
-                            </>
-                          )}
-
-                          {/* Qoralama bo'lsa yuborish */}
-                          {canCreate && r.status === REPORT_STATUS.DRAFT && (
-                            <button
-                              onClick={() => handleSubmit(r.id)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"
-                              title="Adminlarga yuborish"
-                            >
-                              <ICONS.paperPlane className="text-xs text-blue-600" />
-                              <span>Yuborish</span>
-                            </button>
-                          )}
-
-                          {/* Tahrirlash va O'chirish (topshirgandan keyin ham) */}
-                          {canModifyReport(r) && (
-                            <>
-                              <button
-                                onClick={() => openEditReport(r)}
-                                className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 border border-transparent hover:border-amber-200 transition-colors"
-                                title="Hisobotni tahrirlash"
-                              >
-                                <ICONS.edit className="text-xs" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(r)}
-                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
-                                title="Hisobotni o'chirish"
-                              >
-                                <ICONS.trash className="text-xs" />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => { setDetailItem(r); setReviewMode(false); setReviewComment(''); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/80 transition-colors"
+                          title="Hisobot tafsilotlarini ko'rish va amallar"
+                        >
+                          <ICONS.eye className="text-xs" />
+                          <span>Ko'rish</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -593,51 +534,70 @@ export default function ReportsPage() {
           size="lg"
           footer={(() => {
             const isPending = detailItem.status === REPORT_STATUS.SUBMITTED || detailItem.status === REPORT_STATUS.UNDER_REVIEW;
-            if (canReview && isPending) {
-              return (
-                <div className="flex items-center justify-between w-full gap-2">
-                  <Button variant="secondary" onClick={() => { setDetailItem(null); setReviewComment(''); }}>
-                    Yopish
-                  </Button>
-                  <div className="flex items-center gap-2">
-                    <Button variant="danger" disabled={isReviewing} onClick={() => handleReview('reject')}>
-                      <ICONS.error /> Rad etish
-                    </Button>
-                    <Button variant="success" disabled={isReviewing} onClick={() => handleReview('approve')}>
-                      <ICONS.check /> Qabul qilish (Tasdiqlash)
-                    </Button>
-                  </div>
-                </div>
-              );
-            }
-            if (canReview && detailItem.status === REPORT_STATUS.REJECTED) {
-              return (
-                <div className="flex items-center justify-between w-full gap-2">
-                  <Button variant="secondary" onClick={() => { setDetailItem(null); setReviewComment(''); }}>
-                    Yopish
-                  </Button>
-                  <Button variant="success" disabled={isReviewing} onClick={() => handleReview('approve')}>
-                    <ICONS.check /> Qayta ko'rib chiqish (Tasdiqlash)
-                  </Button>
-                </div>
-              );
-            }
-            if (canReview && detailItem.status === REPORT_STATUS.APPROVED) {
-              return (
-                <div className="flex items-center justify-between w-full gap-2">
-                  <Button variant="secondary" onClick={() => { setDetailItem(null); setReviewComment(''); }}>
-                    Yopish
-                  </Button>
-                  <Button variant="danger" disabled={isReviewing} onClick={() => handleReview('reject')}>
-                    <ICONS.error /> Qayta ko'rib chiqish (Rad etish)
-                  </Button>
-                </div>
-              );
-            }
+            const canMod = canModifyReport(detailItem);
             return (
-              <Button variant="secondary" onClick={() => { setDetailItem(null); setReviewComment(''); }}>
-                Yopish
-              </Button>
+              <div className="flex flex-wrap items-center justify-between w-full gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {canMod && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          const target = detailItem;
+                          setDetailItem(null);
+                          openEditReport(target);
+                        }}
+                        className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                      >
+                        <ICONS.edit className="text-xs" /> Tahrirlash
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setDeleteTarget(detailItem)}
+                        className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                      >
+                        <ICONS.trash className="text-xs" /> O'chirish
+                      </Button>
+                    </>
+                  )}
+                  {canCreate && detailItem.status === REPORT_STATUS.DRAFT && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        handleSubmit(detailItem.id);
+                        setDetailItem(null);
+                      }}
+                    >
+                      <ICONS.paperPlane className="text-xs" /> Adminlarga yuborish
+                    </Button>
+                  )}
+                  {canReview && isPending && (
+                    <>
+                      <Button size="sm" variant="danger" disabled={isReviewing} onClick={() => handleReview('reject')}>
+                        <ICONS.error className="text-xs" /> Rad etish
+                      </Button>
+                      <Button size="sm" variant="success" disabled={isReviewing} onClick={() => handleReview('approve')}>
+                        <ICONS.check className="text-xs" /> Qabul qilish
+                      </Button>
+                    </>
+                  )}
+                  {canReview && detailItem.status === REPORT_STATUS.REJECTED && (
+                    <Button size="sm" variant="success" disabled={isReviewing} onClick={() => handleReview('approve')}>
+                      <ICONS.check className="text-xs" /> Qayta tasdiqlash
+                    </Button>
+                  )}
+                  {canReview && detailItem.status === REPORT_STATUS.APPROVED && (
+                    <Button size="sm" variant="danger" disabled={isReviewing} onClick={() => handleReview('reject')}>
+                      <ICONS.error className="text-xs" /> Rad etish
+                    </Button>
+                  )}
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => { setDetailItem(null); setReviewComment(''); }}>
+                  Yopish
+                </Button>
+              </div>
             );
           })()}
         >

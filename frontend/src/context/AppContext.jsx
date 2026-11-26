@@ -788,6 +788,48 @@ const hasPermission = useCallback((permission) => {
     }
   }, [currentUser, updateCollection, createNotification]);
 
+  // Bo'lim boshlig'i — xodim kunlik hisobotini rad etish
+  const rejectActivity = useCallback(async (activityId, reason = '') => {
+    try {
+      const activity = (collectionsRef.current[STORAGE_KEYS.ACTIVITIES] || []).find(a => a.id === activityId);
+      let existingData = {};
+      try {
+        existingData = typeof activity?.data === 'object' && activity?.data
+          ? activity.data
+          : JSON.parse(activity?.data || '{}');
+      } catch { existingData = {}; }
+
+      const updatedData = {
+        ...existingData,
+        ...(reason ? { rejectReason: reason } : {}),
+      };
+
+      await api.update('activities', activityId, {
+        status: 'rejected',
+        data: JSON.stringify(updatedData),
+      });
+      updateCollection(STORAGE_KEYS.ACTIVITIES, (items) =>
+        (items || []).map(a => a.id === activityId ? { ...a, status: 'rejected', data: updatedData } : a)
+      );
+
+      const allUsers = collectionsRef.current[STORAGE_KEYS.USERS] || [];
+      const xodim = allUsers.find(u => u.id === activity?.userId);
+      if (xodim) {
+        await createNotification({
+          type: 'warning',
+          title: 'Kunlik hisobotingiz rad etildi',
+          message: `${formatDate(activity?.date)} kunlik hisobotingiz bo'lim boshlig'i tomonidan rad etildi${reason ? ': ' + reason : ''}`,
+          targetUserId: xodim.id,
+        });
+      }
+
+      return { rejected: true };
+    } catch (err) {
+      console.error('Reject activity failed:', err);
+      throw err;
+    }
+  }, [updateCollection, createNotification]);
+
 
   // Bolim boshligi — kunlik faoliyatni Super Admin va Viloyat Adminiga rasmiy jo'natish
   const forwardDailyActivityToAdmins = useCallback(async (activityOrDate, targetRecipients = ['super_admin', 'viloyat_admin']) => {
@@ -1074,6 +1116,7 @@ const hasPermission = useCallback((permission) => {
     // Activities
     submitActivity,
     acceptActivity,
+    rejectActivity,
     forwardDailyActivityToAdmins,
     forwardMonthlyReportToAdmins,
 
